@@ -438,16 +438,12 @@ Each service can be configured via environment variables:
 - **Business Inquiries**: business@slt.lk
 - **Documentation**: docs@slt.lk
 
-## 📜 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
+2. Create feature branch (`git checkout -b feature/your-feature-name`)
+3. Commit changes (`git commit -m 'Add feature name'`)
+4. Push to branch (`git push origin feature/your-feature-name`)
 5. Open Pull Request
 
 ---
