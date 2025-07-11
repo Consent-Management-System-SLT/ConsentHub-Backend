@@ -1,0 +1,713 @@
+openapi: 3.0.0
+info:
+  title: ConsentHub API - TMF Forum Compliant
+  version: 1.0.0
+  description: |
+    ConsentHub is a TM Forum-compliant Consent Management System for SLT Mobitel.
+    It provides comprehensive privacy consent, preference management, and agreement handling
+    following Open Digital Architecture (ODA) principles.
+    
+    ## Key Features
+    - TMF632 Party Privacy API compliance
+    - TMF651 Agreement API compliance
+    - TMF641 Party Management API compliance
+    - TMF669 Event Schema compliance
+    - Role-based access control
+    - Real-time event notifications
+    - Audit logging
+    - WebSocket support for real-time updates
+    
+  contact:
+    name: SLT Mobitel API Team
+    email: api@slt.lk
+    url: https://www.slt.lk
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+  - url: https://api.consenhub.slt.lk
+    description: Production Server
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase JWT token
+
+  schemas:
+    # Common schemas
+    TimePeriod:
+      type: object
+      properties:
+        startDateTime:
+          type: string
+          format: date-time
+        endDateTime:
+          type: string
+          format: date-time
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+          enum: [string, number, boolean, date]
+
+    # TMF632 Privacy Consent
+    PrivacyConsent:
+      type: object
+      required:
+        - id
+        - partyId
+        - purpose
+        - status
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        partyId:
+          type: string
+          description: Party identifier
+        privacyNoticeId:
+          type: string
+          description: Associated privacy notice
+        productId:
+          type: string
+          description: Associated product
+        purpose:
+          type: string
+          description: Purpose of consent
+        status:
+          type: string
+          enum: [granted, revoked, pending]
+        geoLocation:
+          type: string
+          description: Geographic location restriction
+        validityPeriod:
+          $ref: '#/components/schemas/TimePeriod'
+        consentData:
+          type: object
+          description: Additional consent data
+        metadata:
+          type: object
+        version:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # TMF632 Privacy Preference
+    PrivacyPreference:
+      type: object
+      required:
+        - id
+        - partyId
+      properties:
+        id:
+          type: string
+        partyId:
+          type: string
+        notificationPreferences:
+          type: object
+          properties:
+            sms:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                categories:
+                  type: object
+                frequency:
+                  type: string
+                  enum: [immediate, daily, weekly, monthly]
+            email:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                categories:
+                  type: object
+                frequency:
+                  type: string
+                  enum: [immediate, daily, weekly, monthly]
+            push:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                categories:
+                  type: object
+                deviceTokens:
+                  type: array
+                  items:
+                    type: object
+        communicationPreferences:
+          type: object
+        dataProcessingPreferences:
+          type: object
+
+    # TMF632 Privacy Notice
+    PrivacyNotice:
+      type: object
+      required:
+        - id
+        - version
+        - title
+        - content
+        - category
+        - legalBasis
+        - effectiveDate
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        contentType:
+          type: string
+          enum: [text/plain, text/html, text/markdown]
+        category:
+          type: string
+          enum: [general, marketing, analytics, cookies, third-party, location, children]
+        purposes:
+          type: array
+          items:
+            type: string
+        legalBasis:
+          type: string
+          enum: [consent, contract, legal_obligation, vital_interests, public_task, legitimate_interests]
+        effectiveDate:
+          type: string
+          format: date-time
+        expirationDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [draft, active, inactive, archived]
+        language:
+          type: string
+          enum: [en, si, ta]
+
+    # TMF651 Agreement
+    Agreement:
+      type: object
+      required:
+        - id
+        - name
+        - agreementType
+        - partyId
+        - agreementSpecification
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        agreementType:
+          type: string
+          enum: [product, service, legal, consent, privacy, marketing, subsidy]
+        status:
+          type: string
+          enum: [active, terminated, suspended, pending, cancelled]
+        version:
+          type: string
+        partyId:
+          type: string
+        partyRole:
+          type: string
+          enum: [customer, subscriber, beneficiary, guardian]
+        agreementSpecification:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            validFor:
+              $ref: '#/components/schemas/TimePeriod'
+            terms:
+              type: array
+              items:
+                type: object
+        agreementItems:
+          type: array
+          items:
+            type: object
+        validityPeriod:
+          $ref: '#/components/schemas/TimePeriod'
+        signature:
+          type: object
+        approvalStatus:
+          type: object
+
+    # TMF641 Party
+    Party:
+      type: object
+      required:
+        - id
+        - partyType
+        - name
+      properties:
+        id:
+          type: string
+        partyType:
+          type: string
+          enum: [individual, organization]
+        name:
+          type: string
+        tradingName:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        contactInformation:
+          type: array
+          items:
+            type: object
+            properties:
+              contactType:
+                type: string
+                enum: [email, phone, mobile, fax, address]
+              contactValue:
+                type: string
+              isPrimary:
+                type: boolean
+        characteristics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        partyRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                enum: [customer, subscriber, user, contact, billing_contact, guardian]
+              validFor:
+                $ref: '#/components/schemas/TimePeriod'
+
+    # TMF669 Event
+    Event:
+      type: object
+      required:
+        - id
+        - eventType
+        - eventTime
+        - source
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+        eventTime:
+          type: string
+          format: date-time
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        severity:
+          type: string
+          enum: [minor, major, critical]
+        source:
+          type: string
+        domain:
+          type: string
+        correlationId:
+          type: string
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              entityType:
+                type: string
+                enum: [PrivacyConsent, PrivacyPreference, PrivacyNotice, Agreement, Party]
+              entityId:
+                type: string
+              href:
+                type: string
+        data:
+          type: object
+
+    # Error Response
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # Success Response
+    Success:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Success'
+    '400':
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '403':
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '404':
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    '500':
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+# API Paths
+paths:
+  /health:
+    get:
+      summary: Health Check
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                  version:
+                    type: string
+                  services:
+                    type: object
+
+  /services:
+    get:
+      summary: Get Available Services
+      tags:
+        - System
+      responses:
+        '200':
+          description: List of available services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      type: string
+                  endpoints:
+                    type: object
+
+  # Privacy Consent Endpoints
+  /api/v1/consent/privacyConsent:
+    post:
+      summary: Create Privacy Consent
+      tags:
+        - Privacy Consent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivacyConsent'
+      responses:
+        '201':
+          description: Consent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyConsent'
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '500':
+          $ref: '#/components/responses/500'
+
+  /api/v1/consent/privacyConsent/party/{partyId}:
+    get:
+      summary: Get Consents by Party ID
+      tags:
+        - Privacy Consent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: partyId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [granted, revoked, pending]
+        - name: purpose
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of consents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  consents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PrivacyConsent'
+                  pagination:
+                    type: object
+
+  # Privacy Preference Endpoints
+  /api/v1/preference/privacyPreference:
+    post:
+      summary: Create Privacy Preference
+      tags:
+        - Privacy Preference
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivacyPreference'
+      responses:
+        '201':
+          description: Preference created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyPreference'
+
+  # Privacy Notice Endpoints
+  /api/v1/privacy-notice/privacyNotice:
+    post:
+      summary: Create Privacy Notice
+      tags:
+        - Privacy Notice
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrivacyNotice'
+      responses:
+        '201':
+          description: Privacy notice created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyNotice'
+
+  # Agreement Endpoints
+  /api/v1/agreement/agreement:
+    post:
+      summary: Create Agreement
+      tags:
+        - Agreement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Agreement'
+      responses:
+        '201':
+          description: Agreement created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agreement'
+
+  # Party Endpoints
+  /api/v1/party/party:
+    post:
+      summary: Create Party
+      tags:
+        - Party
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Party'
+      responses:
+        '201':
+          description: Party created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Party'
+
+  # Event Endpoints
+  /api/v1/event/events:
+    post:
+      summary: Create Event
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+      responses:
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+    get:
+      summary: Get Events
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventType
+          in: query
+          schema:
+            type: string
+        - name: source
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, normal, high, urgent]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  pagination:
+                    type: object
+
+tags:
+  - name: System
+    description: System health and service discovery
+  - name: Privacy Consent
+    description: TMF632 Party Privacy API - Consent Management
+  - name: Privacy Preference
+    description: Extended TMF632 - Preference Management
+  - name: Privacy Notice
+    description: TMF632 PrivacyNotice - Notice Management
+  - name: Agreement
+    description: TMF651 Agreement API - Agreement Management
+  - name: Party
+    description: TMF641 Party Management API - Party Management
+  - name: Events
+    description: TMF669 Event Schema - Event Management
