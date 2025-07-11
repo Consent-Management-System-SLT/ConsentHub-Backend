@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "setup:atlas": "node setup-atlas.js",
+    "cleanup:atlas": "node cleanup-atlas.js",
     "setup:local": "mongosh < mongodb-init/init.js",
     "install:all": "cd backend/shared && npm install && cd ../consent-service && npm install && cd ../preference-service && npm install && cd ../privacy-notice-service && npm install && cd ../agreement-service && npm install && cd ../event-service && npm install && cd ../party-service && npm install && cd ../auth-service && npm install && cd ../dsar-service && npm install && cd ../api-gateway && npm install",
     "start:gateway": "cd backend/api-gateway && npm start",
