@@ -58,8 +58,24 @@ PREFERENCE_SERVICE_PORT=3002
 ```
 
 ### 3. Database Setup
+
+#### Option A: MongoDB Atlas (Recommended)
+1. Create a free account at [MongoDB Atlas](https://cloud.mongodb.com/)
+2. Create a new cluster (M0 free tier for development)
+3. Create a database user with read/write permissions
+4. Whitelist your IP address (or use 0.0.0.0/0 for development)
+5. Get your connection string and update `.env`:
+   ```bash
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/consenhub?retryWrites=true&w=majority
+   ```
+6. Initialize the database:
+   ```bash
+   node setup-atlas.js
+   ```
+
+#### Option B: Local MongoDB
 ```bash
-# Start MongoDB
+# Start MongoDB locally
 docker run -d -p 27017:27017 --name consenhub-mongo mongo:6.0
 
 # Initialize database
