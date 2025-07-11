@@ -137,9 +137,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  logger.info(`API Gateway running on port ${PORT}`);
-  logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
+const HOST = process.env.HOST || '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  logger.info(`API Gateway running on ${HOST}:${PORT}`);
+  logger.info(`API Documentation available at http://${HOST}:${PORT}/api-docs`);
   logger.info(`Services: ${Object.keys(services).join(', ')}`);
 });
 
