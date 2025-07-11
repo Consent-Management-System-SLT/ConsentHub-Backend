@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "TM Forum-compliant Consent Management System for SLT Mobitel",
   "main": "index.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "setup:atlas": "node setup-atlas.js",
     "cleanup:atlas": "node cleanup-atlas.js",
@@ -18,6 +22,8 @@
     "start:auth": "cd backend/auth-service && npm start",
     "start:dsar": "cd backend/dsar-service && npm start",
     "start:all": "concurrently \"npm run start:gateway\" \"npm run start:consent\" \"npm run start:preference\" \"npm run start:privacy-notice\" \"npm run start:agreement\" \"npm run start:event\" \"npm run start:party\" \"npm run start:auth\" \"npm run start:dsar\"",
+    "start": "npm run start:gateway",
+    "build": "echo 'Build completed'",
     "dev:gateway": "cd backend/api-gateway && npm run dev",
     "dev:consent": "cd backend/consent-service && npm run dev",
     "dev:preference": "cd backend/preference-service && npm run dev",

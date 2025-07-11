@@ -1,0 +1,42 @@
+services:
+  # ConsentHub Backend - Single Service Deployment
+  - type: web
+    name: consenhub-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: API_GATEWAY_PORT
+        value: 3000
+      - key: CONSENT_SERVICE_PORT
+        value: 3001
+      - key: PREFERENCE_SERVICE_PORT
+        value: 3002
+      - key: PRIVACY_NOTICE_SERVICE_PORT
+        value: 3003
+      - key: AGREEMENT_SERVICE_PORT
+        value: 3004
+      - key: EVENT_SERVICE_PORT
+        value: 3005
+      - key: PARTY_SERVICE_PORT
+        value: 3006
+      - key: AUTH_SERVICE_PORT
+        value: 3007
+      - key: DSAR_SERVICE_PORT
+        value: 3008

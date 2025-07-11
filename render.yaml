@@ -1,0 +1,192 @@
+services:
+  # API Gateway - Main entry point
+  - type: web
+    name: consenhub-api-gateway
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm run start:gateway
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: API_GATEWAY_PORT
+        value: 3000
+      - key: CONSENT_SERVICE_URL
+        value: https://consenhub-consent-service.onrender.com
+      - key: PREFERENCE_SERVICE_URL
+        value: https://consenhub-preference-service.onrender.com
+      - key: PRIVACY_NOTICE_SERVICE_URL
+        value: https://consenhub-privacy-notice-service.onrender.com
+      - key: AGREEMENT_SERVICE_URL
+        value: https://consenhub-agreement-service.onrender.com
+      - key: EVENT_SERVICE_URL
+        value: https://consenhub-event-service.onrender.com
+      - key: PARTY_SERVICE_URL
+        value: https://consenhub-party-service.onrender.com
+      - key: AUTH_SERVICE_URL
+        value: https://consenhub-auth-service.onrender.com
+      - key: DSAR_SERVICE_URL
+        value: https://consenhub-dsar-service.onrender.com
+
+  # Consent Service
+  - type: web
+    name: consenhub-consent-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/consent-service && npm install
+    startCommand: cd backend/consent-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: CONSENT_SERVICE_PORT
+        value: 3001
+
+  # Preference Service
+  - type: web
+    name: consenhub-preference-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/preference-service && npm install
+    startCommand: cd backend/preference-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: PREFERENCE_SERVICE_PORT
+        value: 3002
+
+  # Privacy Notice Service
+  - type: web
+    name: consenhub-privacy-notice-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/privacy-notice-service && npm install
+    startCommand: cd backend/privacy-notice-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: PRIVACY_NOTICE_SERVICE_PORT
+        value: 3003
+
+  # Agreement Service
+  - type: web
+    name: consenhub-agreement-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/agreement-service && npm install
+    startCommand: cd backend/agreement-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: AGREEMENT_SERVICE_PORT
+        value: 3004
+
+  # Event Service
+  - type: web
+    name: consenhub-event-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/event-service && npm install
+    startCommand: cd backend/event-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: EVENT_SERVICE_PORT
+        value: 3005
+
+  # Party Service
+  - type: web
+    name: consenhub-party-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/party-service && npm install
+    startCommand: cd backend/party-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: PARTY_SERVICE_PORT
+        value: 3006
+
+  # Auth Service
+  - type: web
+    name: consenhub-auth-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/auth-service && npm install
+    startCommand: cd backend/auth-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: AUTH_SERVICE_PORT
+        value: 3007
+
+  # DSAR Service
+  - type: web
+    name: consenhub-dsar-service
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: cd backend/dsar-service && npm install
+    startCommand: cd backend/dsar-service && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: DSAR_SERVICE_PORT
+        value: 3008
