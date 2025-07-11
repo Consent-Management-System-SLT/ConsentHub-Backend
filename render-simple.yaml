@@ -5,8 +5,8 @@ services:
     env: node
     plan: free
     region: oregon
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm install && npm run install:all
+    startCommand: npm run start:gateway
     envVars:
       - key: NODE_ENV
         value: production

@@ -11,7 +11,7 @@
     "setup:atlas": "node setup-atlas.js",
     "cleanup:atlas": "node cleanup-atlas.js",
     "setup:local": "mongosh < mongodb-init/init.js",
-    "install:all": "cd backend/shared && npm install && cd ../consent-service && npm install && cd ../preference-service && npm install && cd ../privacy-notice-service && npm install && cd ../agreement-service && npm install && cd ../event-service && npm install && cd ../party-service && npm install && cd ../auth-service && npm install && cd ../dsar-service && npm install && cd ../api-gateway && npm install",
+    "install:all": "cd backend/api-gateway && npm install && cd ../consent-service && npm install && cd ../preference-service && npm install && cd ../privacy-notice-service && npm install && cd ../agreement-service && npm install && cd ../event-service && npm install && cd ../party-service && npm install && cd ../auth-service && npm install && cd ../dsar-service && npm install && cd ../shared && npm install",
     "start:gateway": "cd backend/api-gateway && npm start",
     "start:consent": "cd backend/consent-service && npm start",
     "start:preference": "cd backend/preference-service && npm start",
@@ -22,8 +22,8 @@
     "start:auth": "cd backend/auth-service && npm start",
     "start:dsar": "cd backend/dsar-service && npm start",
     "start:all": "concurrently \"npm run start:gateway\" \"npm run start:consent\" \"npm run start:preference\" \"npm run start:privacy-notice\" \"npm run start:agreement\" \"npm run start:event\" \"npm run start:party\" \"npm run start:auth\" \"npm run start:dsar\"",
-    "start": "npm run start:gateway",
-    "build": "echo 'Build completed'",
+    "start": "npm run install:all && npm run start:gateway",
+    "build": "npm run install:all",
     "dev:gateway": "cd backend/api-gateway && npm run dev",
     "dev:consent": "cd backend/consent-service && npm run dev",
     "dev:preference": "cd backend/preference-service && npm run dev",
@@ -55,6 +55,7 @@
     "nodemon": "^3.0.1"
   },
   "dependencies": {
+    "dotenv": "^16.3.1",
     "firebase-admin": "^13.4.0",
     "mongoose": "^8.16.3",
     "uuid": "^11.1.0",
