@@ -12,6 +12,7 @@ ConsentHub is a comprehensive, TM Forum-compliant Consent Management System buil
 - **event-service** (Port 3005) - TMF669 Event Schema with WebSocket support
 - **party-service** (Port 3006) - TMF641 Party Management API
 - **auth-service** (Port 3007) - Firebase-based authentication
+- **dsar-service** (Port 3008) - TMF632 Extended Data Subject Access Request API
 - **api-gateway** (Port 3000) - Single entry point with routing and rate limiting
 
 ### Technology Stack
@@ -141,6 +142,17 @@ POST   /api/v1/event/events/subscribe
 POST   /api/v1/party/party
 GET    /api/v1/party/party/{id}
 PATCH  /api/v1/party/party/{id}
+```
+
+### DSAR Management (TMF632 Extended)
+```http
+POST   /api/v1/dsar/dsarRequest
+GET    /api/v1/dsar/dsarRequest/party/{partyId}
+GET    /api/v1/dsar/dsarRequest/{id}
+PATCH  /api/v1/dsar/dsarRequest/{id}/status
+POST   /api/v1/dsar/dsarRequest/{id}/process-access
+POST   /api/v1/dsar/dsarRequest/{id}/process-erasure
+GET    /api/v1/dsar/dsarRequest/reports/compliance
 ```
 
 ## 🔐 Authentication & Authorization
@@ -408,11 +420,11 @@ Each service can be configured via environment variables:
 ## 🔮 Future Enhancements
 
 ### Planned Features
-1. **DSAR Support**: Data Subject Access Request handling
-2. **Admin UI**: React-based admin dashboard
-3. **Customer Portal**: Self-service portal
-4. **Analytics**: Advanced reporting and analytics
-5. **Multi-tenancy**: Support for multiple organizations
+1. **Admin UI**: React-based admin dashboard
+2. **Customer Portal**: Self-service portal
+3. **Advanced Analytics**: Enhanced reporting and analytics
+4. **Multi-tenancy**: Support for multiple organizations
+5. **Machine Learning**: Predictive consent analytics
 
 ### Integration Points
 - **MySLT App**: Mobile app integration

@@ -162,6 +162,27 @@ services:
     networks:
       - consenhub-network
 
+  # DSAR Service
+  dsar-service:
+    build: ./backend/dsar-service
+    container_name: consenhub-dsar-service
+    ports:
+      - "3008:3008"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3008
+      - EVENT_SERVICE_URL=http://event-service:3005
+      - CONSENT_SERVICE_URL=http://consent-service:3001
+      - PREFERENCE_SERVICE_URL=http://preference-service:3002
+      - AGREEMENT_SERVICE_URL=http://agreement-service:3004
+      - PARTY_SERVICE_URL=http://party-service:3006
+    depends_on:
+      - mongodb
+      - event-service
+    networks:
+      - consenhub-network
+
 networks:
   consenhub-network:
     driver: bridge

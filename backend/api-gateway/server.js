@@ -46,6 +46,7 @@ const services = {
   event: process.env.EVENT_SERVICE_URL || 'http://localhost:3005',
   party: process.env.PARTY_SERVICE_URL || 'http://localhost:3006',
   auth: process.env.AUTH_SERVICE_URL || 'http://localhost:3007',
+  dsar: process.env.DSAR_SERVICE_URL || 'http://localhost:3008',
 };
 
 // API Gateway routes with proxy middleware

@@ -96,9 +96,123 @@ const openApiSpec = {
       Error: {
         type: 'object',
         properties: {
-          error: { type: 'string' },
           message: { type: 'string' },
           code: { type: 'string' }
+        }
+      },
+      DSARRequest: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          partyId: { type: 'string' },
+          requestType: {
+            type: 'string',
+            enum: ['access', 'rectification', 'erasure', 'portability', 'objection', 'restriction', 'withdraw_consent']
+          },
+          status: {
+            type: 'string',
+            enum: ['pending', 'in_progress', 'completed', 'rejected', 'cancelled']
+          },
+          priority: {
+            type: 'string',
+            enum: ['low', 'normal', 'high', 'urgent']
+          },
+          requestDetails: {
+            type: 'object',
+            properties: {
+              description: { type: 'string' },
+              dataCategories: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  enum: ['personal_data', 'sensitive_data', 'behavioral_data', 'location_data', 'communication_data', 'device_data', 'consent_data', 'preference_data']
+                }
+              },
+              format: {
+                type: 'string',
+                enum: ['json', 'csv', 'pdf', 'xml']
+              }
+            }
+          },
+          submissionDetails: {
+            type: 'object',
+            properties: {
+              submittedBy: { type: 'string' },
+              submissionDate: { type: 'string', format: 'date-time' },
+              contactPreference: {
+                type: 'string',
+                enum: ['email', 'phone', 'postal', 'in_app']
+              }
+            }
+          },
+          processingDetails: {
+            type: 'object',
+            properties: {
+              assignedTo: { type: 'string' },
+              estimatedCompletion: { type: 'string', format: 'date-time' },
+              actualCompletion: { type: 'string', format: 'date-time' }
+            }
+          },
+          compliance: {
+            type: 'object',
+            properties: {
+              legalBasis: { type: 'string' },
+              responseTimeLimit: { type: 'integer' }
+            }
+          }
+        }
+      },
+      CreateDSARRequest: {
+        type: 'object',
+        required: ['partyId', 'requestType', 'requestDetails'],
+        properties: {
+          partyId: { type: 'string' },
+          requestType: {
+            type: 'string',
+            enum: ['access', 'rectification', 'erasure', 'portability', 'objection', 'restriction', 'withdraw_consent']
+          },
+          requestDetails: {
+            type: 'object',
+            required: ['description'],
+            properties: {
+              description: { type: 'string' },
+              dataCategories: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  enum: ['personal_data', 'sensitive_data', 'behavioral_data', 'location_data', 'communication_data', 'device_data', 'consent_data', 'preference_data']
+                }
+              },
+              format: {
+                type: 'string',
+                enum: ['json', 'csv', 'pdf', 'xml'],
+                default: 'json'
+              }
+            }
+          },
+          urgentRequest: { type: 'boolean', default: false },
+          contactPreference: {
+            type: 'string',
+            enum: ['email', 'phone', 'postal', 'in_app'],
+            default: 'email'
+          }
+        }
+      },
+      DSARComplianceReport: {
+        type: 'object',
+        properties: {
+          totalRequests: { type: 'integer' },
+          byStatus: {
+            type: 'object',
+            additionalProperties: { type: 'integer' }
+          },
+          byType: {
+            type: 'object',
+            additionalProperties: { type: 'integer' }
+          },
+          averageResponseTime: { type: 'number' },
+          complianceRate: { type: 'number' },
+          overdueRequests: { type: 'integer' }
         }
       }
     }
@@ -546,6 +660,10 @@ const openApiSpec = {
     {
       name: 'Agreement Management',
       description: 'TMF669 Party Agreement API operations'
+    },
+    {
+      name: 'DSAR Management',
+      description: 'TMF632 Extended - Data Subject Access Request operations'
     }
   ]
 };
