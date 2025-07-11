@@ -29,8 +29,27 @@ async function setupDatabase() {
     // Create collections with validation schemas
     console.log('🔄 Creating collections...');
 
+    // Function to create collection if it doesn't exist
+    async function createCollectionIfNotExists(collectionName, options) {
+      try {
+        const collections = await db.listCollections({ name: collectionName }).toArray();
+        if (collections.length === 0) {
+          await db.createCollection(collectionName, options);
+          console.log(`✅ Created collection: ${collectionName}`);
+        } else {
+          console.log(`ℹ️  Collection already exists: ${collectionName}`);
+        }
+      } catch (error) {
+        if (error.code === 48) { // NamespaceExists
+          console.log(`ℹ️  Collection already exists: ${collectionName}`);
+        } else {
+          throw error;
+        }
+      }
+    }
+
     // Privacy Consents Collection
-    await db.createCollection('privacyConsents', {
+    await createCollectionIfNotExists('privacyConsents', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -52,7 +71,7 @@ async function setupDatabase() {
     });
 
     // Privacy Preferences Collection
-    await db.createCollection('privacyPreferences', {
+    await createCollectionIfNotExists('privacyPreferences', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -70,7 +89,7 @@ async function setupDatabase() {
     });
 
     // Privacy Notices Collection
-    await db.createCollection('privacyNotices', {
+    await createCollectionIfNotExists('privacyNotices', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -90,7 +109,7 @@ async function setupDatabase() {
     });
 
     // Privacy Agreements Collection
-    await db.createCollection('privacyAgreements', {
+    await createCollectionIfNotExists('privacyAgreements', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -111,7 +130,7 @@ async function setupDatabase() {
     });
 
     // Parties Collection
-    await db.createCollection('parties', {
+    await createCollectionIfNotExists('parties', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -130,7 +149,7 @@ async function setupDatabase() {
     });
 
     // Events Collection
-    await db.createCollection('events', {
+    await createCollectionIfNotExists('events', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -148,7 +167,7 @@ async function setupDatabase() {
     });
 
     // DSAR Requests Collection
-    await db.createCollection('dsarRequests', {
+    await createCollectionIfNotExists('dsarRequests', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -168,7 +187,7 @@ async function setupDatabase() {
     });
 
     // Audit Logs Collection
-    await db.createCollection('auditLogs', {
+    await createCollectionIfNotExists('auditLogs', {
       validator: {
         $jsonSchema: {
           bsonType: 'object',
@@ -192,48 +211,67 @@ async function setupDatabase() {
     // Create indexes for better performance
     console.log('🔄 Creating indexes...');
 
+    // Function to create index if it doesn't exist
+    async function createIndexIfNotExists(collection, indexSpec, indexName) {
+      try {
+        const existingIndexes = await collection.listIndexes().toArray();
+        const indexExists = existingIndexes.some(index => 
+          JSON.stringify(index.key) === JSON.stringify(indexSpec)
+        );
+        
+        if (!indexExists) {
+          await collection.createIndex(indexSpec);
+          console.log(`✅ Created index on ${collection.collectionName}: ${JSON.stringify(indexSpec)}`);
+        } else {
+          console.log(`ℹ️  Index already exists on ${collection.collectionName}: ${JSON.stringify(indexSpec)}`);
+        }
+      } catch (error) {
+        console.log(`⚠️  Could not create index on ${collection.collectionName}: ${error.message}`);
+      }
+    }
+
     // Privacy Consents indexes
-    await db.collection('privacyConsents').createIndex({ partyId: 1 });
-    await db.collection('privacyConsents').createIndex({ privacyNoticeId: 1 });
-    await db.collection('privacyConsents').createIndex({ status: 1 });
-    await db.collection('privacyConsents').createIndex({ createdAt: -1 });
-    await db.collection('privacyConsents').createIndex({ purpose: 1 });
+    await createIndexIfNotExists(db.collection('privacyConsents'), { partyId: 1 });
+    await createIndexIfNotExists(db.collection('privacyConsents'), { privacyNoticeId: 1 });
+    await createIndexIfNotExists(db.collection('privacyConsents'), { status: 1 });
+    await createIndexIfNotExists(db.collection('privacyConsents'), { createdAt: -1 });
+    await createIndexIfNotExists(db.collection('privacyConsents'), { purpose: 1 });
 
     // Privacy Preferences indexes
-    await db.collection('privacyPreferences').createIndex({ partyId: 1 });
+    await createIndexIfNotExists(db.collection('privacyPreferences'), { partyId: 1 });
 
     // Privacy Notices indexes
-    await db.collection('privacyNotices').createIndex({ version: 1 });
-    await db.collection('privacyNotices').createIndex({ status: 1 });
-    await db.collection('privacyNotices').createIndex({ effectiveDate: -1 });
-    await db.collection('privacyNotices').createIndex({ category: 1 });
+    await createIndexIfNotExists(db.collection('privacyNotices'), { version: 1 });
+    await createIndexIfNotExists(db.collection('privacyNotices'), { status: 1 });
+    await createIndexIfNotExists(db.collection('privacyNotices'), { effectiveDate: -1 });
+    await createIndexIfNotExists(db.collection('privacyNotices'), { category: 1 });
 
     // Privacy Agreements indexes
-    await db.collection('privacyAgreements').createIndex({ partyId: 1 });
-    await db.collection('privacyAgreements').createIndex({ status: 1 });
-    await db.collection('privacyAgreements').createIndex({ agreementType: 1 });
+    await createIndexIfNotExists(db.collection('privacyAgreements'), { partyId: 1 });
+    await createIndexIfNotExists(db.collection('privacyAgreements'), { status: 1 });
+    await createIndexIfNotExists(db.collection('privacyAgreements'), { agreementType: 1 });
 
     // Parties indexes
-    await db.collection('parties').createIndex({ partyType: 1 });
-    await db.collection('parties').createIndex({ 'contactInformation.contactValue': 1 });
+    await createIndexIfNotExists(db.collection('parties'), { partyType: 1 });
+    await createIndexIfNotExists(db.collection('parties'), { 'contactInformation.contactValue': 1 });
 
     // Events indexes
-    await db.collection('events').createIndex({ eventType: 1 });
-    await db.collection('events').createIndex({ eventTime: -1 });
-    await db.collection('events').createIndex({ source: 1 });
-    await db.collection('events').createIndex({ correlationId: 1 });
+    await createIndexIfNotExists(db.collection('events'), { eventType: 1 });
+    await createIndexIfNotExists(db.collection('events'), { eventTime: -1 });
+    await createIndexIfNotExists(db.collection('events'), { source: 1 });
+    await createIndexIfNotExists(db.collection('events'), { correlationId: 1 });
 
     // DSAR Requests indexes
-    await db.collection('dsarRequests').createIndex({ partyId: 1 });
-    await db.collection('dsarRequests').createIndex({ requestType: 1 });
-    await db.collection('dsarRequests').createIndex({ status: 1 });
-    await db.collection('dsarRequests').createIndex({ createdAt: -1 });
+    await createIndexIfNotExists(db.collection('dsarRequests'), { partyId: 1 });
+    await createIndexIfNotExists(db.collection('dsarRequests'), { requestType: 1 });
+    await createIndexIfNotExists(db.collection('dsarRequests'), { status: 1 });
+    await createIndexIfNotExists(db.collection('dsarRequests'), { createdAt: -1 });
 
     // Audit Logs indexes
-    await db.collection('auditLogs').createIndex({ userId: 1 });
-    await db.collection('auditLogs').createIndex({ timestamp: -1 });
-    await db.collection('auditLogs').createIndex({ service: 1 });
-    await db.collection('auditLogs').createIndex({ action: 1 });
+    await createIndexIfNotExists(db.collection('auditLogs'), { userId: 1 });
+    await createIndexIfNotExists(db.collection('auditLogs'), { timestamp: -1 });
+    await createIndexIfNotExists(db.collection('auditLogs'), { service: 1 });
+    await createIndexIfNotExists(db.collection('auditLogs'), { action: 1 });
 
     console.log('✅ Indexes created successfully');
 
@@ -251,9 +289,16 @@ async function setupDatabase() {
       status: 'active'
     };
 
-    await db.collection('privacyNotices').insertOne(sampleNotice);
+    // Check if sample notice already exists
+    const existingNotice = await db.collection('privacyNotices').findOne({ id: sampleNotice.id });
+    if (!existingNotice) {
+      await db.collection('privacyNotices').insertOne(sampleNotice);
+      console.log('✅ Sample privacy notice inserted');
+    } else {
+      console.log('ℹ️  Sample privacy notice already exists');
+    }
 
-    console.log('✅ Sample data inserted');
+    console.log('✅ Sample data processed');
 
     console.log('\n🎉 ConsentHub database setup completed successfully!');
     console.log('\n📋 Next steps:');
