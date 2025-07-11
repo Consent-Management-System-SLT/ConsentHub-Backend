@@ -1,0 +1,170 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: consenhub-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: consenhub
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb-init:/docker-entrypoint-initdb.d
+    networks:
+      - consenhub-network
+
+  # API Gateway
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: consenhub-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+    depends_on:
+      - mongodb
+      - auth-service
+      - consent-service
+      - preference-service
+      - privacy-notice-service
+      - agreement-service
+      - event-service
+      - party-service
+    networks:
+      - consenhub-network
+
+  # Auth Service
+  auth-service:
+    build: ./backend/auth-service
+    container_name: consenhub-auth-service
+    ports:
+      - "3007:3007"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3007
+    depends_on:
+      - mongodb
+    networks:
+      - consenhub-network
+
+  # Consent Service
+  consent-service:
+    build: ./backend/consent-service
+    container_name: consenhub-consent-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3001
+      - EVENT_SERVICE_URL=http://event-service:3005
+    depends_on:
+      - mongodb
+      - event-service
+    networks:
+      - consenhub-network
+
+  # Preference Service
+  preference-service:
+    build: ./backend/preference-service
+    container_name: consenhub-preference-service
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3002
+      - EVENT_SERVICE_URL=http://event-service:3005
+    depends_on:
+      - mongodb
+      - event-service
+    networks:
+      - consenhub-network
+
+  # Privacy Notice Service
+  privacy-notice-service:
+    build: ./backend/privacy-notice-service
+    container_name: consenhub-privacy-notice-service
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3003
+    depends_on:
+      - mongodb
+    networks:
+      - consenhub-network
+
+  # Agreement Service
+  agreement-service:
+    build: ./backend/agreement-service
+    container_name: consenhub-agreement-service
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3004
+      - EVENT_SERVICE_URL=http://event-service:3005
+    depends_on:
+      - mongodb
+      - event-service
+    networks:
+      - consenhub-network
+
+  # Event Service
+  event-service:
+    build: ./backend/event-service
+    container_name: consenhub-event-service
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3005
+    depends_on:
+      - mongodb
+    networks:
+      - consenhub-network
+
+  # Party Service
+  party-service:
+    build: ./backend/party-service
+    container_name: consenhub-party-service
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/consenhub?authSource=admin
+      - PORT=3006
+      - EVENT_SERVICE_URL=http://event-service:3005
+    depends_on:
+      - mongodb
+      - event-service
+    networks:
+      - consenhub-network
+
+  # Swagger UI
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: consenhub-swagger-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - SWAGGER_JSON_URL=http://localhost:3000/api-docs/swagger.json
+    networks:
+      - consenhub-network
+
+networks:
+  consenhub-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
