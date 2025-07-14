@@ -39,7 +39,11 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "setup": "npm run install:all && npm run docker:build"
+    "setup": "npm run install:all && npm run docker:build",
+    "start:docs": "node swagger-server.js",
+    "dev:docs": "nodemon swagger-server.js",
+    "build:docs": "docker build -t consenhub-docs -f swagger.dockerfile .",
+    "deploy:docs": "npm run build:docs && docker run -p 8080:8080 consenhub-docs"
   },
   "keywords": [
     "consent-management",
@@ -48,7 +52,7 @@
     "privacy",
     "microservices"
   ],
-  "author": "SLT Mobitel",
+  "author": "ConsentHub Team",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2",
@@ -62,7 +66,9 @@
     "helmet": "^7.0.0",
     "mongoose": "^8.16.3",
     "morgan": "^1.10.0",
+    "swagger-ui-express": "^4.6.3",
     "uuid": "^11.1.0",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "yamljs": "^0.3.0"
   }
 }

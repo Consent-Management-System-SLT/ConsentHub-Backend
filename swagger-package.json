@@ -1,0 +1,25 @@
+{
+  "name": "consenhub-swagger-docs",
+  "version": "1.0.0",
+  "description": "Standalone Swagger documentation server for ConsentHub API",
+  "main": "swagger-server.js",
+  "scripts": {
+    "start": "node swagger-server.js",
+    "dev": "nodemon swagger-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "swagger-ui-express": "^4.6.3",
+    "yamljs": "^0.3.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "swagger",
+    "openapi",
+    "documentation",
+    "api"
+  ]
+}

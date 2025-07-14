@@ -5,8 +5,8 @@ const openApiSpec = {
     version: '1.0.0',
     description: 'Unified API Gateway for ConsentHub Microservices - TMF Forum Compliant',
     contact: {
-      name: 'SLT Mobitel',
-      email: 'api@slt.lk',
+      name: 'ConsentHub API Team',
+      email: 'api@consenhub.com',
     },
   },
   servers: [
