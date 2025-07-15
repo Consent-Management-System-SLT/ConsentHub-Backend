@@ -7,7 +7,6 @@
 
 const express = require('express');
 const path = require('path');
-const open = require('open');
 
 const app = express();
 const PORT = 8081;
@@ -25,7 +24,5 @@ app.listen(PORT, () => {
   console.log(`🌐 Open: http://localhost:${PORT}`);
   console.log(`📖 This simulates how your docs will look on GitHub Pages`);
   console.log(`🚀 GitHub Pages URL: https://consent-management-system-slt.github.io/ConsentHub-Backend/`);
-  
-  // Auto-open browser
-  open(`http://localhost:${PORT}`);
+  console.log(`\n💡 Open the URL above in your browser to preview the documentation!`);
 });
