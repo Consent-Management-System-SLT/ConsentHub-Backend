@@ -92,8 +92,11 @@ docker-compose up -d
 
 #### Option B: Individual Services
 ```bash
-# Start all services
+# Start all services (with URL display)
 npm run start:all
+
+# Start all services (simple mode)
+npm run start:all-simple
 
 # Or start individually
 npm run start:consent
@@ -105,6 +108,8 @@ npm run start:party
 npm run start:auth
 npm run start:gateway
 ```
+
+**Note**: The `npm run start:all` command will display all service URLs after startup for easy access.
 
 ### 5. Access APIs
 - **API Gateway**: http://localhost:3000
