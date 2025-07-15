@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "name": "consenhub-swagger",
+  "builds": [
+    {
+      "src": "swagger-standalone.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/swagger-standalone.js"
+    }
+  ],
+  "env": {
+    "SWAGGER_PORT": "8080"
+  }
+}
