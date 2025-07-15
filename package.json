@@ -26,6 +26,8 @@
     "swagger:standalone": "node swagger-standalone.js",
     "swagger:docker": "docker build -f swagger.dockerfile -t consenhub-swagger . && docker run -p 8080:8080 consenhub-swagger",
     "swagger:deploy": "vercel --prod -f vercel-swagger.json",
+    "docs:preview": "node test-github-pages.js",
+    "docs:deploy": "echo 'Pushing to GitHub will auto-deploy to Pages via GitHub Actions'",
     "start": "node simple-server.js",
     "build": "npm run install:all",
     "dev:gateway": "cd backend/api-gateway && npm run dev",
