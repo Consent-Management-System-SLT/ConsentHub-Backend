@@ -1,0 +1,19 @@
+{
+  "name": "consenhub-docs",
+  "version": "2",
+  "builds": [
+    {
+      "src": "swagger-server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "swagger-server.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
