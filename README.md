@@ -34,16 +34,17 @@ ConsentHub is a comprehensive, TM Forum-compliant Consent Management System buil
 
 ### 1. Clone and Setup
 ```bash
-git clone <repository-url>
+git clone https://github.com/Consent-Management-System-SLT/ConsentHub-Backend.git
 cd ConsentHub_Backend
 npm install
+npm run install:all
 ```
 
 ### 2. Environment Configuration
 Copy `.env.example` to `.env` and configure:
 ```bash
-# MongoDB
-MONGODB_URI=mongodb://localhost:27017/consenhub
+# MongoDB Atlas (Recommended)
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/consentDB?retryWrites=true&w=majority
 
 # Firebase
 FIREBASE_PROJECT_ID=your-project-id
@@ -66,7 +67,7 @@ PREFERENCE_SERVICE_PORT=3002
 4. Whitelist your IP address (or use 0.0.0.0/0 for development)
 5. Get your connection string and update `.env`:
    ```bash
-   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/consenhub?retryWrites=true&w=majority
+   MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/consentDB?retryWrites=true&w=majority
    ```
 6. Initialize the database:
    ```bash
@@ -108,7 +109,7 @@ npm run start:gateway
 ### 5. Access APIs
 - **API Gateway**: http://localhost:3000
 - **API Documentation**: http://localhost:3000/api-docs
-- **Swagger UI**: http://localhost:8080
+- **Individual Service Docs**: http://localhost:300X/api-docs (where X is service port)
 - **WebSocket Events**: ws://localhost:3005/ws
 
 ## 📋 API Endpoints
@@ -460,6 +461,13 @@ Each service can be configured via environment variables:
 - Review audit logs
 - Monitor WebSocket connections
 - Validate JWT tokens
+
+### Common Issues
+- **MongoDB Connection Timeout**: Ensure MongoDB Atlas cluster is running and connection string is correct
+- **Firebase Auth Errors**: Verify Firebase credentials are properly configured in `.env`
+- **Missing Dependencies**: Run `npm run install:all` to install all service dependencies
+- **Port Conflicts**: Ensure ports 3000-3008 are available
+- **Party Service Issues**: Check if shared middleware modules are properly installed
 
 ### Contact
 - **Technical Support**: api-support@slt.lk
