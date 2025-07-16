@@ -1,4 +1,4 @@
-name: Deploy Swagger to GitHub Pages
+name: Deploy Swagger Documentation to GitHub Pages
 
 on:
   push:

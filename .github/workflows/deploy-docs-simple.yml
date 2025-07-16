@@ -1,10 +1,6 @@
-name: Deploy Swagger Documentation to GitHub Pages
+name: Deploy Docs (Simple) to GitHub Pages
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +9,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: "pages-simple"
   cancel-in-progress: false
 
 jobs:
