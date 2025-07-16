@@ -31,54 +31,28 @@ jobs:
           
       - name: Install dependencies
         run: |
-          npm install swagger-ui-dist
-          npm install yamljs
+          npm install swagger-ui-dist yamljs
           
-      - name: Generate Swagger HTML
+      - name: Create deployment directory
         run: |
           mkdir -p public
-          node -e "
-          const fs = require('fs');
-          const YAML = require('yamljs');
-          const swaggerDoc = YAML.load('./docs/openapi.yaml');
           
-          const html = \`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>ConsentHub API Documentation</title>
-            <link rel='stylesheet' type='text/css' href='https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css' />
-            <style>
-              html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
-              *, *:before, *:after { box-sizing: inherit; }
-              body { margin:0; background: #fafafa; }
-            </style>
-          </head>
-          <body>
-            <div id='swagger-ui'></div>
-            <script src='https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js'></script>
-            <script>
-              const ui = SwaggerUIBundle({
-                spec: \${JSON.stringify(swaggerDoc)},
-                dom_id: '#swagger-ui',
-                deepLinking: true,
-                presets: [
-                  SwaggerUIBundle.presets.apis,
-                  SwaggerUIBundle.presets.standalone
-                ],
-                plugins: [
-                  SwaggerUIBundle.plugins.DownloadUrl
-                ],
-                layout: 'StandaloneLayout'
-              });
-            </script>
-          </body>
-          </html>
-          \`;
+      - name: Copy existing docs and ensure proper structure
+        run: |
+          # Copy the current index.html and openapi.yaml
+          cp docs/index.html public/index.html
+          cp docs/openapi.yaml public/openapi.yaml
           
-          fs.writeFileSync('./public/index.html', html);
-          fs.copyFileSync('./docs/openapi.yaml', './public/openapi.yaml');
-          "
+      - name: Verify files exist
+        run: |
+          ls -la public/
+          echo "Contents of index.html:"
+          head -20 public/index.html
+      - name: Verify files exist
+        run: |
+          ls -la public/
+          echo "Contents of index.html:"
+          head -20 public/index.html
           
       - name: Setup Pages
         uses: actions/configure-pages@v5
