@@ -48,11 +48,11 @@
         }
     </style>
 </head>
-<body>
-    <div class="custom-header">
-        <h1>🚀 ConsentHub API Documentation</h1>
-        <p>TM Forum Compliant Consent Management System - Interactive API Testing</p>
-    </div>
+<body>        <div class="custom-header">
+            <h1>🚀 ConsentHub API Documentation</h1>
+            <p>TM Forum Compliant Consent Management System - Interactive API Testing</p>
+            <p style="font-size: 0.9em; opacity: 0.8;">Backend: https://consenthub-backend.onrender.com</p>
+        </div>
     
     <div id="swagger-ui"></div>
     
@@ -82,8 +82,16 @@
                 docExpansion: 'list',
                 persistAuthorization: true,
                 supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch', 'options'],
+                requestInterceptor: function(req) {
+                    // Add CORS headers for requests to the hosted backend
+                    if (req.url.includes('consenthub-backend.onrender.com')) {
+                        req.headers['Access-Control-Allow-Origin'] = '*';
+                    }
+                    return req;
+                },
                 onComplete: function() {
                     console.log('✅ ConsentHub API Documentation loaded successfully!');
+                    console.log('🔗 Backend URL: https://consenthub-backend.onrender.com');
                 },
                 onFailure: function(data) {
                     console.error('❌ Failed to load API documentation:', data);

@@ -25,6 +25,8 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
+  - url: https://consenthub-backend.onrender.com
+    description: Hosted Backend Server (Render)
   - url: http://localhost:3000
     description: Local Development Server
   - url: https://api.consenhub.com
