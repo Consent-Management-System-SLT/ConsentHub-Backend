@@ -139,57 +139,6 @@ class PartyController {
     }
   }
 
-  // Update party
-  async updateParty(req, res) {
-    try {
-      const { id } = req.params;
-      console.log(`Mock updating party: ${id}`);
-      
-      const mockUpdatedParty = {
-        id: id,
-        partyType: 'individual',
-        name: req.body.name || 'Updated Name',
-        status: req.body.status || 'active',
-        updatedAt: new Date()
-      };
-
-      res.json({
-        id: mockUpdatedParty.id,
-        href: `/api/v1/party/party/${mockUpdatedParty.id}`,
-        ...mockUpdatedParty
-      });
-    } catch (error) {
-      console.error('Error updating party:', error);
-      res.status(500).json({
-        error: {
-          code: 'PARTY_UPDATE_FAILED',
-          message: 'Failed to update party'
-        }
-      });
-    }
-  }
-
-  // Delete party
-  async deleteParty(req, res) {
-    try {
-      const { id } = req.params;
-      console.log(`Mock deleting party: ${id}`);
-
-      res.json({
-        message: 'Party deleted successfully',
-        id: id
-      });
-    } catch (error) {
-      console.error('Error deleting party:', error);
-      res.status(500).json({
-        error: {
-          code: 'PARTY_DELETION_FAILED',
-          message: 'Failed to delete party'
-        }
-      });
-    }
-  }
-
   // Add contact information
   async addContactInformation(req, res) {
     try {

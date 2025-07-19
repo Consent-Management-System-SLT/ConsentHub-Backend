@@ -26,10 +26,10 @@ app.use(express.urlencoded({ extended: true }));
 // Trust proxy for accurate IP addresses
 app.set('trust proxy', true);
 
-// Rate limiting
+// Rate limiting - Relaxed for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 10000, // Increased limit for development - 10,000 requests per 15 minutes
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -51,12 +51,15 @@ const services = {
 
 // API Gateway routes with proxy middleware
 Object.entries(services).forEach(([serviceName, serviceUrl]) => {
+  // Services expect their own endpoint prefix, so we rewrite to include the service name
+  const pathRewriteConfig = { 
+    [`^/api/v1/${serviceName}`]: `/api/v1/${serviceName}` 
+  };
+    
   app.use(`/api/v1/${serviceName}`, createProxyMiddleware({
     target: serviceUrl,
     changeOrigin: true,
-    pathRewrite: {
-      [`^/api/v1/${serviceName}`]: '/api/v1',
-    },
+    pathRewrite: pathRewriteConfig,
     onError: (err, req, res) => {
       logger.error(`Proxy error for ${serviceName}:`, err);
       res.status(500).json({ 

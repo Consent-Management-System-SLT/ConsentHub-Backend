@@ -9,29 +9,14 @@ const winston = require('winston');
 require('dotenv').config();
 
 const partyRoutes = require('./routes/partyRoutes');
-const { authMiddleware } = require('../shared/middleware/authMiddleware');
-const { errorHandler } = require('../shared/middleware/errorHandler');
+const { verifyFirebaseToken, checkRole } = require('../shared/auth');
+const { connectDB, logger, errorHandler } = require('../shared/utils');
 
 const app = express();
 const PORT = process.env.PARTY_SERVICE_PORT || 3006;
 
-// Winston logger configuration
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'party-service' },
-  transports: [
-    new winston.transports.File({ filename: './logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: './logs/combined.log' }),
-    new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  ]
-});
+// Connect to MongoDB  
+connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/consenhub');
 
 // Swagger configuration
 const swaggerOptions = {
@@ -98,24 +83,9 @@ app.use('/api/v1', partyRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
-// MongoDB connection
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/consenhub', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    logger.info(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    logger.error('Database connection failed:', error);
-    process.exit(1);
-  }
-};
-
 // Start server
 const startServer = async () => {
   try {
-    await connectDB();
     app.listen(PORT, () => {
       logger.info(`Party Service running on port ${PORT}`);
       logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);

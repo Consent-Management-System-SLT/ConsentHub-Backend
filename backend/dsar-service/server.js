@@ -6,8 +6,8 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 require('dotenv').config();
 
-// Database connection
-const connectDB = require('../shared/config/database');
+// Database connection and utilities
+const { connectDB, logger, errorHandler } = require('../shared/utils');
 
 // Routes
 const dsarRoutes = require('./routes/dsar');
@@ -17,7 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3008;
 
 // Connect to database
-connectDB();
+connectDB(process.env.MONGODB_URI || 'mongodb://localhost:27017/consenhub');
 
 // Middleware
 app.use(helmet());

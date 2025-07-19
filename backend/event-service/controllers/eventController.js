@@ -10,6 +10,69 @@ class EventController {
     this.startEventProcessor();
   }
 
+  // Get all events/audit logs (simplified for dashboard)
+  async getAllEvents(req, res) {
+    try {
+      logger.info('Mock fetching all events/audit logs for dashboard');
+      
+      const mockEvents = [
+        {
+          id: 'event-001',
+          eventType: 'CONSENT_GRANTED',
+          eventTime: '2024-01-01T08:30:00Z',
+          title: 'Consent Granted',
+          description: 'Marketing consent granted by party-nimal-001',
+          priority: 'normal',
+          severity: 'info',
+          source: 'consent-service',
+          domain: 'privacy-consent',
+          metadata: {
+            partyId: 'party-nimal-001',
+            consentType: 'marketing',
+            createdBy: 'customer-demo'
+          }
+        },
+        {
+          id: 'event-002',
+          eventType: 'CONSENT_REVOKED',
+          eventTime: '2024-02-15T14:20:00Z',
+          title: 'Consent Revoked',
+          description: 'Data analytics consent revoked by CSR',
+          priority: 'normal',
+          severity: 'info',
+          source: 'consent-service',
+          domain: 'privacy-consent',
+          metadata: {
+            partyId: 'party-customer-002',
+            consentType: 'analytics',
+            createdBy: 'csr-demo'
+          }
+        },
+        {
+          id: 'event-003',
+          eventType: 'DSAR_REQUEST_CREATED',
+          eventTime: '2024-02-20T11:45:00Z',
+          title: 'DSAR Request Created',
+          description: 'Data access request submitted',
+          priority: 'high',
+          severity: 'major',
+          source: 'dsar-service',
+          domain: 'data-rights',
+          metadata: {
+            partyId: 'party-customer-003',
+            requestType: 'access',
+            createdBy: 'customer-demo'
+          }
+        }
+      ];
+
+      res.status(200).json(mockEvents);
+    } catch (error) {
+      logger.error('Error fetching all events:', error);
+      res.status(500).json({ error: 'Failed to fetch events' });
+    }
+  }
+
   // Create new event
   async createEvent(req, res) {
     try {

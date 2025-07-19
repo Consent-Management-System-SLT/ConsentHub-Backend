@@ -1,12 +1,67 @@
-const PrivacyConsent = require('../models/PrivacyConsent');
 const { generateUUID, logger, createAuditLog } = require('../../shared/utils');
 const axios = require('axios');
 
 class ConsentController {
+  // Get all consents (simplified for dashboard)
+  async getAllConsents(req, res) {
+    try {
+      logger.info('Mock fetching all consents for dashboard');
+      
+      const mockConsents = [
+        {
+          id: 'consent-001',
+          partyId: 'party-nimal-001',
+          privacyNoticeId: 'notice-001',
+          purpose: 'Marketing Communications',
+          status: 'granted',
+          validityPeriod: {
+            startDateTime: '2024-01-01T00:00:00Z',
+            endDateTime: '2024-12-31T23:59:59Z'
+          },
+          createdAt: '2024-01-01T08:30:00Z',
+          updatedAt: '2024-01-01T08:30:00Z'
+        },
+        {
+          id: 'consent-002',
+          partyId: 'party-customer-002',
+          privacyNoticeId: 'notice-001',
+          purpose: 'Data Analytics',
+          status: 'granted',
+          validityPeriod: {
+            startDateTime: '2024-01-15T00:00:00Z',
+            endDateTime: '2024-12-31T23:59:59Z'
+          },
+          createdAt: '2024-01-15T10:15:00Z',
+          updatedAt: '2024-01-15T10:15:00Z'
+        },
+        {
+          id: 'consent-003',
+          partyId: 'party-customer-003',
+          privacyNoticeId: 'notice-002',
+          purpose: 'Third-party Sharing',
+          status: 'revoked',
+          validityPeriod: {
+            startDateTime: '2024-02-01T00:00:00Z',
+            endDateTime: '2024-12-31T23:59:59Z'
+          },
+          createdAt: '2024-02-01T14:20:00Z',
+          updatedAt: '2024-03-15T09:45:00Z'
+        }
+      ];
+
+      res.status(200).json(mockConsents);
+    } catch (error) {
+      logger.error('Error fetching all consents:', error);
+      res.status(500).json({ error: 'Failed to fetch consents' });
+    }
+  }
+
   // Create new privacy consent
   async createConsent(req, res) {
     try {
-      const consentData = {
+      logger.info('Mock creating new consent');
+      
+      const mockConsent = {
         id: generateUUID(),
         partyId: req.body.partyId,
         privacyNoticeId: req.body.privacyNoticeId,
@@ -21,24 +76,23 @@ class ConsentController {
           userAgent: req.get('User-Agent'),
           timestamp: new Date(),
         },
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
-
-      const consent = new PrivacyConsent(consentData);
-      await consent.save();
 
       // Create audit log
       await createAuditLog(
         'CREATE_CONSENT',
-        req.user.uid,
+        req.user?.uid || 'admin-demo',
         'consent-service',
-        { consentId: consent.id, partyId: consent.partyId }
+        { consentId: mockConsent.id, partyId: mockConsent.partyId }
       );
 
       // Emit event
-      await this.emitConsentEvent('PrivacyConsentCreated', consent);
+      await this.emitConsentEvent('PrivacyConsentCreated', mockConsent);
 
-      logger.info(`Privacy consent created: ${consent.id}`);
-      res.status(201).json(consent);
+      logger.info(`Mock privacy consent created: ${mockConsent.id}`);
+      res.status(201).json(mockConsent);
     } catch (error) {
       logger.error('Error creating consent:', error);
       res.status(500).json({ error: 'Failed to create consent' });
@@ -51,24 +105,54 @@ class ConsentController {
       const { partyId } = req.params;
       const { status, purpose, limit = 10, offset = 0 } = req.query;
 
-      const filter = { partyId };
-      if (status) filter.status = status;
-      if (purpose) filter.purpose = purpose;
-
-      const consents = await PrivacyConsent.find(filter)
-        .sort({ createdAt: -1 })
-        .limit(parseInt(limit))
-        .skip(parseInt(offset));
-
-      const total = await PrivacyConsent.countDocuments(filter);
+      logger.info(`Mock serving consents for party: ${partyId}`);
+      
+      const mockConsents = [
+        {
+          id: 'consent-001',
+          partyId: partyId,
+          privacyNoticeId: 'notice-001',
+          purpose: 'Marketing Communications',
+          status: status || 'granted',
+          validityPeriod: {
+            startDateTime: new Date('2024-01-01'),
+            endDateTime: new Date('2024-12-31')
+          },
+          geoLocation: 'US',
+          consentData: {
+            emailMarketing: true,
+            smsMarketing: false
+          },
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-01-01')
+        },
+        {
+          id: 'consent-002',
+          partyId: partyId,
+          privacyNoticeId: 'notice-002',
+          purpose: 'Data Analytics',
+          status: status || 'granted',
+          validityPeriod: {
+            startDateTime: new Date('2024-02-01'),
+            endDateTime: new Date('2024-12-31')
+          },
+          geoLocation: 'EU',
+          consentData: {
+            analytics: true,
+            personalization: false
+          },
+          createdAt: new Date('2024-02-01'),
+          updatedAt: new Date('2024-02-01')
+        }
+      ].filter(consent => !purpose || consent.purpose.toLowerCase().includes(purpose.toLowerCase()));
 
       res.json({
-        consents,
+        consents: mockConsents,
         pagination: {
-          total,
+          total: mockConsents.length,
           limit: parseInt(limit),
           offset: parseInt(offset),
-          hasMore: (parseInt(offset) + parseInt(limit)) < total,
+          hasMore: false,
         },
       });
     } catch (error) {
@@ -81,13 +165,29 @@ class ConsentController {
   async getConsentById(req, res) {
     try {
       const { id } = req.params;
-      const consent = await PrivacyConsent.findOne({ id });
+      
+      logger.info(`Mock serving consent for ID: ${id}`);
+      
+      const mockConsent = {
+        id: id,
+        partyId: 'party-001',
+        privacyNoticeId: 'notice-001',
+        purpose: 'Marketing Communications',
+        status: 'granted',
+        validityPeriod: {
+          startDateTime: new Date('2024-01-01'),
+          endDateTime: new Date('2024-12-31')
+        },
+        geoLocation: 'US',
+        consentData: {
+          emailMarketing: true,
+          smsMarketing: false
+        },
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01')
+      };
 
-      if (!consent) {
-        return res.status(404).json({ error: 'Consent not found' });
-      }
-
-      res.json(consent);
+      res.json(mockConsent);
     } catch (error) {
       logger.error('Error fetching consent:', error);
       res.status(500).json({ error: 'Failed to fetch consent' });
@@ -100,44 +200,69 @@ class ConsentController {
       const { id } = req.params;
       const updateData = req.body;
 
-      const consent = await PrivacyConsent.findOne({ id });
-      if (!consent) {
-        return res.status(404).json({ error: 'Consent not found' });
-      }
-
-      // Check if user has permission to update this consent
-      if (req.user.role === 'customer' && consent.partyId !== req.user.uid) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
-      }
-
-      const previousStatus = consent.status;
-      Object.assign(consent, updateData);
-      consent.metadata.timestamp = new Date();
-      await consent.save();
+      logger.info(`Mock updating consent: ${id}`);
+      
+      const mockUpdatedConsent = {
+        id: id,
+        partyId: 'party-001',
+        privacyNoticeId: 'notice-001',
+        purpose: 'Marketing Communications',
+        status: updateData.status || 'granted',
+        validityPeriod: updateData.validityPeriod || {
+          startDateTime: new Date('2024-01-01'),
+          endDateTime: new Date('2024-12-31')
+        },
+        geoLocation: updateData.geoLocation || 'US',
+        consentData: updateData.consentData || {
+          emailMarketing: true,
+          smsMarketing: false
+        },
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date()
+      };
 
       // Create audit log
       await createAuditLog(
         'UPDATE_CONSENT',
-        req.user.uid,
+        req.user?.uid || 'admin-demo',
         'consent-service',
-        { 
-          consentId: consent.id, 
-          partyId: consent.partyId,
-          previousStatus,
-          newStatus: consent.status
-        }
+        { consentId: id, changes: updateData }
       );
 
-      // Emit event if status changed
-      if (previousStatus !== consent.status) {
-        await this.emitConsentEvent('PrivacyConsentStatusChanged', consent);
-      }
+      // Emit event
+      await this.emitConsentEvent('PrivacyConsentUpdated', mockUpdatedConsent);
 
-      logger.info(`Privacy consent updated: ${consent.id}`);
-      res.json(consent);
+      logger.info(`Mock consent updated: ${id}`);
+      res.json(mockUpdatedConsent);
     } catch (error) {
       logger.error('Error updating consent:', error);
       res.status(500).json({ error: 'Failed to update consent' });
+    }
+  }
+
+  // Delete consent
+  async deleteConsent(req, res) {
+    try {
+      const { id } = req.params;
+
+      logger.info(`Mock deleting consent: ${id}`);
+
+      // Create audit log
+      await createAuditLog(
+        'DELETE_CONSENT',
+        req.user?.uid || 'admin-demo',
+        'consent-service',
+        { consentId: id }
+      );
+
+      // Emit event
+      await this.emitConsentEvent('PrivacyConsentDeleted', { id });
+
+      logger.info(`Mock consent deleted: ${id}`);
+      res.json({ message: 'Consent deleted successfully', id });
+    } catch (error) {
+      logger.error('Error deleting consent:', error);
+      res.status(500).json({ error: 'Failed to delete consent' });
     }
   }
 
@@ -145,34 +270,42 @@ class ConsentController {
   async revokeConsent(req, res) {
     try {
       const { id } = req.params;
-      const consent = await PrivacyConsent.findOne({ id });
 
-      if (!consent) {
-        return res.status(404).json({ error: 'Consent not found' });
-      }
-
-      // Check if user has permission to revoke this consent
-      if (req.user.role === 'customer' && consent.partyId !== req.user.uid) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
-      }
-
-      consent.status = 'revoked';
-      consent.metadata.timestamp = new Date();
-      await consent.save();
+      logger.info(`Mock revoking consent: ${id}`);
+      
+      const mockRevokedConsent = {
+        id: id,
+        partyId: 'party-001',
+        privacyNoticeId: 'notice-001',
+        purpose: 'Marketing Communications',
+        status: 'revoked',
+        validityPeriod: {
+          startDateTime: new Date('2024-01-01'),
+          endDateTime: new Date('2024-12-31')
+        },
+        geoLocation: 'US',
+        consentData: {
+          emailMarketing: false,
+          smsMarketing: false
+        },
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date(),
+        revokedAt: new Date()
+      };
 
       // Create audit log
       await createAuditLog(
         'REVOKE_CONSENT',
-        req.user.uid,
+        req.user?.uid || 'admin-demo',
         'consent-service',
-        { consentId: consent.id, partyId: consent.partyId }
+        { consentId: id }
       );
 
       // Emit event
-      await this.emitConsentEvent('PrivacyConsentRevoked', consent);
+      await this.emitConsentEvent('PrivacyConsentRevoked', mockRevokedConsent);
 
-      logger.info(`Privacy consent revoked: ${consent.id}`);
-      res.json(consent);
+      logger.info(`Mock consent revoked: ${id}`);
+      res.json(mockRevokedConsent);
     } catch (error) {
       logger.error('Error revoking consent:', error);
       res.status(500).json({ error: 'Failed to revoke consent' });
@@ -182,16 +315,273 @@ class ConsentController {
   // Get expired consents
   async getExpiredConsents(req, res) {
     try {
-      const now = new Date();
-      const expiredConsents = await PrivacyConsent.find({
-        'validityPeriod.endDateTime': { $lt: now },
-        status: 'granted'
-      });
+      logger.info('Mock serving expired consents data');
+      
+      const mockExpiredConsents = [
+        {
+          id: 'consent-exp-001',
+          partyId: 'party-001',
+          privacyNoticeId: 'notice-001',
+          purpose: 'Marketing Communications',
+          status: 'expired',
+          validityPeriod: {
+            startDateTime: new Date('2024-01-01'),
+            endDateTime: new Date('2024-06-01')
+          },
+          geoLocation: 'US',
+          consentData: {
+            emailMarketing: false,
+            smsMarketing: false
+          },
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date('2024-06-01')
+        },
+        {
+          id: 'consent-exp-002',
+          partyId: 'party-002',
+          privacyNoticeId: 'notice-002',
+          purpose: 'Data Analytics',
+          status: 'expired',
+          validityPeriod: {
+            startDateTime: new Date('2024-02-01'),
+            endDateTime: new Date('2024-07-01')
+          },
+          geoLocation: 'EU',
+          consentData: {
+            analytics: false,
+            personalization: false
+          },
+          createdAt: new Date('2024-02-01'),
+          updatedAt: new Date('2024-07-01')
+        }
+      ];
 
-      res.json(expiredConsents);
+      res.json(mockExpiredConsents);
     } catch (error) {
       logger.error('Error fetching expired consents:', error);
       res.status(500).json({ error: 'Failed to fetch expired consents' });
+    }
+  }
+
+  // Get consent statistics
+  async getConsentStats(req, res) {
+    try {
+      logger.info('Mock serving consent statistics');
+      
+      const mockStats = {
+        total: 150,
+        granted: 120,
+        revoked: 20,
+        expired: 10,
+        byPurpose: {
+          'Marketing Communications': 60,
+          'Data Analytics': 40,
+          'Personalization': 30,
+          'Third Party Sharing': 20
+        },
+        byGeoLocation: {
+          'US': 70,
+          'EU': 50,
+          'UK': 20,
+          'Other': 10
+        },
+        recent: {
+          lastDay: 5,
+          lastWeek: 25,
+          lastMonth: 80
+        }
+      };
+
+      res.json(mockStats);
+    } catch (error) {
+      logger.error('Error fetching consent statistics:', error);
+      res.status(500).json({ error: 'Failed to fetch consent statistics' });
+    }
+  }
+
+  // CRITICAL: Campaign-ready consent filtering (SLTMobitel scenario)
+  async searchConsentsForCampaign(req, res) {
+    try {
+      const { purpose, status, channel, includePreferences } = req.query;
+      
+      logger.info(`Campaign consent search: purpose=${purpose}, status=${status}, channel=${channel}`);
+      
+      // Mock eligible customers for SLTMobitel promo campaign
+      const mockEligibleCustomers = [
+        {
+          partyId: 'party-nimal-001',
+          consentDetails: {
+            id: 'consent-marketing-001',
+            purpose: 'marketing',
+            status: 'granted',
+            validityPeriod: {
+              startDateTime: new Date('2024-01-01'),
+              endDateTime: new Date('2025-12-31')
+            }
+          },
+          preferenceDetails: includePreferences ? {
+            email: {
+              enabled: true,
+              categories: {
+                promotional: true,
+                marketing: true
+              }
+            },
+            doNotDisturb: {
+              enabled: true,
+              schedule: {
+                startTime: '21:00',
+                endTime: '06:00'
+              }
+            }
+          } : undefined,
+          contactInfo: {
+            email: 'nimal@example.com',
+            phone: '+94771234567'
+          },
+          eligibilityStatus: 'eligible',
+          lastUpdated: new Date('2024-07-19')
+        },
+        {
+          partyId: 'party-customer-002',
+          consentDetails: {
+            id: 'consent-marketing-002', 
+            purpose: 'marketing',
+            status: 'granted',
+            validityPeriod: {
+              startDateTime: new Date('2024-03-01'),
+              endDateTime: new Date('2025-12-31')
+            }
+          },
+          preferenceDetails: includePreferences ? {
+            email: {
+              enabled: true,
+              categories: {
+                promotional: true,
+                marketing: true
+              }
+            },
+            doNotDisturb: {
+              enabled: false
+            }
+          } : undefined,
+          contactInfo: {
+            email: 'customer2@example.com',
+            phone: '+94771234568'
+          },
+          eligibilityStatus: 'eligible',
+          lastUpdated: new Date('2024-07-19')
+        }
+      ];
+
+      // Filter out customers who don't meet criteria (like Nimal after CSR update)
+      const filteredCustomers = mockEligibleCustomers.filter(customer => {
+        // If purpose filter is applied
+        if (purpose && customer.consentDetails.purpose !== purpose.toLowerCase()) {
+          return false;
+        }
+        
+        // If status filter is applied
+        if (status && customer.consentDetails.status !== status.toLowerCase()) {
+          return false;
+        }
+        
+        // If channel filter is applied and preferences are included
+        if (channel && includePreferences === 'true') {
+          const prefs = customer.preferenceDetails;
+          if (channel === 'email' && (!prefs?.email?.enabled || !prefs?.email?.categories?.promotional)) {
+            customer.eligibilityStatus = 'ineligible_preferences';
+            return false;
+          }
+        }
+        
+        return true;
+      });
+
+      const response = {
+        campaignEligibility: {
+          totalRequested: mockEligibleCustomers.length,
+          eligible: filteredCustomers.filter(c => c.eligibilityStatus === 'eligible').length,
+          ineligible: filteredCustomers.filter(c => c.eligibilityStatus.startsWith('ineligible')).length
+        },
+        customers: filteredCustomers,
+        queryParams: { purpose, status, channel, includePreferences },
+        timestamp: new Date(),
+        campaignReady: true
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('Error searching consents for campaign:', error);
+      res.status(500).json({ error: 'Failed to search consents for campaign' });
+    }
+  }
+
+  // Admin compliance filtering (Dilini's use case)
+  async getConsentComplianceReport(req, res) {
+    try {
+      const { purpose, status, dateFrom, dateTo, format } = req.query;
+      
+      logger.info(`Compliance report: purpose=${purpose}, status=${status}, format=${format}`);
+      
+      const mockComplianceData = [
+        {
+          partyId: 'party-customer-003',
+          consentId: 'consent-revoked-001',
+          purpose: 'marketing',
+          status: 'revoked',
+          revokedAt: new Date('2024-07-15'),
+          revokedBy: 'customer',
+          contactInfo: {
+            email: 'customer3@example.com',
+            phone: '+94771234569'
+          }
+        },
+        {
+          partyId: 'party-customer-004',
+          consentId: 'consent-revoked-002', 
+          purpose: 'marketing',
+          status: 'revoked',
+          revokedAt: new Date('2024-07-18'),
+          revokedBy: 'csr',
+          csrId: 'csr-tharushi-001',
+          contactInfo: {
+            email: 'customer4@example.com',
+            phone: '+94771234570'
+          }
+        }
+      ];
+
+      // Filter by purpose and status
+      const filteredData = mockComplianceData.filter(record => {
+        if (purpose && record.purpose !== purpose.toLowerCase()) return false;
+        if (status && record.status !== status.toLowerCase()) return false;
+        return true;
+      });
+
+      if (format === 'csv') {
+        // Simulate CSV format
+        const csvHeader = 'PartyId,ConsentId,Purpose,Status,RevokedAt,RevokedBy,Email,Phone\n';
+        const csvRows = filteredData.map(record => 
+          `${record.partyId},${record.consentId},${record.purpose},${record.status},${record.revokedAt.toISOString()},${record.revokedBy},${record.contactInfo.email},${record.contactInfo.phone}`
+        ).join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="consent-compliance-report.csv"');
+        res.send(csvHeader + csvRows);
+      } else {
+        res.json({
+          reportMetadata: {
+            generatedAt: new Date(),
+            filters: { purpose, status, dateFrom, dateTo },
+            recordCount: filteredData.length
+          },
+          records: filteredData
+        });
+      }
+    } catch (error) {
+      logger.error('Error generating compliance report:', error);
+      res.status(500).json({ error: 'Failed to generate compliance report' });
     }
   }
 
@@ -204,6 +594,7 @@ class ConsentController {
         source: 'consent-service',
         data: consent,
       });
+      logger.info(`Event emitted: ${eventType}`);
     } catch (error) {
       logger.error('Failed to emit event:', error);
     }

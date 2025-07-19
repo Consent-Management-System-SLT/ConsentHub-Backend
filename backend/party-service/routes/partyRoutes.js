@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const partyController = require('../controllers/partyController');
-const { authenticateToken } = require('../../shared/middleware/auth');
+const { verifyFirebaseToken } = require('../../shared/auth');
 
 /**
  * @swagger
@@ -175,7 +175,7 @@ const { authenticateToken } = require('../../shared/middleware/auth');
  *       403:
  *         description: Forbidden
  */
-router.post('/party', authenticateToken, partyController.createParty);
+router.post('/party', verifyFirebaseToken, partyController.createParty);
 
 /**
  * @swagger
@@ -207,7 +207,7 @@ router.post('/party', authenticateToken, partyController.createParty);
  *       403:
  *         description: Forbidden
  */
-router.get('/party/:id', authenticateToken, partyController.getPartyById);
+router.get('/party/:id', verifyFirebaseToken, partyController.getPartyById);
 
 /**
  * @swagger
@@ -276,7 +276,7 @@ router.get('/party/:id', authenticateToken, partyController.getPartyById);
  *       403:
  *         description: Forbidden
  */
-router.get('/party', authenticateToken, partyController.getParties);
+router.get('/party', verifyFirebaseToken, partyController.getParties);
 
 /**
  * @swagger
@@ -336,7 +336,7 @@ router.get('/party', authenticateToken, partyController.getParties);
  *       403:
  *         description: Forbidden
  */
-router.patch('/party/:id', authenticateToken, partyController.updateParty);
+router.patch('/party/:id', verifyFirebaseToken, partyController.updateParty);
 
 /**
  * @swagger
@@ -364,7 +364,7 @@ router.patch('/party/:id', authenticateToken, partyController.updateParty);
  *       403:
  *         description: Forbidden (admin only)
  */
-router.delete('/party/:id', authenticateToken, partyController.deleteParty);
+router.delete('/party/:id', verifyFirebaseToken, partyController.deleteParty);
 
 /**
  * @swagger
@@ -404,7 +404,7 @@ router.delete('/party/:id', authenticateToken, partyController.deleteParty);
  *       403:
  *         description: Forbidden
  */
-router.post('/party/:id/contactInformation', authenticateToken, partyController.addContactInformation);
+router.post('/party/:id/contactInformation', verifyFirebaseToken, partyController.addContactInformation);
 
 /**
  * @swagger
@@ -443,7 +443,46 @@ router.post('/party/:id/contactInformation', authenticateToken, partyController.
  *       403:
  *         description: Forbidden
  */
-router.get('/party/:id/characteristic', authenticateToken, partyController.getPartyCharacteristics);
+router.get('/party/:id/characteristic', verifyFirebaseToken, partyController.getPartyCharacteristics);
+
+/**
+ * @swagger
+ * /party/search:
+ *   get:
+ *     summary: Search parties by contact information (CSR Tharushi scenario)
+ *     tags: [Party]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: phone
+ *         schema:
+ *           type: string
+ *         description: Search by phone number (e.g., +94771234567)
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *         description: Search by email address
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         description: Search by party name
+ *       - in: query
+ *         name: contact
+ *         schema:
+ *           type: string
+ *         description: Generic search across phone and email
+ *     responses:
+ *       200:
+ *         description: Search results with matching parties
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (CSR/Admin only)
+ */
+router.get('/party/search', verifyFirebaseToken, partyController.searchParties);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

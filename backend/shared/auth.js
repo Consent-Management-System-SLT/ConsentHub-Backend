@@ -37,7 +37,7 @@ const initializeFirebase = () => {
   return true;
 };
 
-// Middleware to verify Firebase JWT token
+// Middleware to verify Firebase JWT token or handle demo tokens
 const verifyFirebaseToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -47,6 +47,30 @@ const verifyFirebaseToken = async (req, res, next) => {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Handle demo tokens for development
+    if (token.includes('demo-token')) {
+      let role = 'customer';
+      if (token.includes('admin-demo-token')) {
+        role = 'admin';
+      } else if (token.includes('csr-demo-token')) {
+        role = 'csr';
+      } else if (token.includes('customer-demo-token')) {
+        role = 'customer';
+      }
+      
+      req.user = {
+        uid: `demo-user-${role}`,
+        email: `${role}@demo.com`,
+        role: role,
+        isDemoUser: true,
+      };
+      
+      console.log(`Demo authentication successful for role: ${role}`);
+      return next();
+    }
+    
+    // Try Firebase authentication for real tokens
     const decodedToken = await admin.auth().verifyIdToken(token);
     
     req.user = {

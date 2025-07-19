@@ -44,6 +44,13 @@ const validateRequest = (schema) => {
   };
 };
 
+// Simple GET endpoint for dashboard - returns recent events/audit logs
+router.get('/event',
+  verifyFirebaseToken,
+  checkRole(['csr', 'admin']),
+  eventController.getAllEvents
+);
+
 /**
  * @swagger
  * /events:

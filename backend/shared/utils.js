@@ -4,7 +4,16 @@ const logger = require('./utils/logger');
 // MongoDB connection utility
 const connectDB = async (uri) => {
   try {
-    await mongoose.connect(uri);
+    // Connect with proper options to prevent buffering timeouts
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+      connectTimeoutMS: 10000, // Give up initial connection after 10 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      maxPoolSize: 10, // Maintain up to 10 socket connections
+      minPoolSize: 5, // Maintain a minimum number of connections
+      maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
+    });
+    
     logger.info('MongoDB connected successfully');
   } catch (error) {
     logger.error('MongoDB connection error:', error);

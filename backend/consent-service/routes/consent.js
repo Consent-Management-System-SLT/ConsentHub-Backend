@@ -44,6 +44,13 @@ const validateRequest = (schema) => {
   };
 };
 
+// Simple GET endpoint for dashboard - returns all consents
+router.get('/consent',
+  verifyFirebaseToken,
+  checkRole(['csr', 'admin']),
+  consentController.getAllConsents
+);
+
 /**
  * @swagger
  * components:
@@ -267,6 +274,84 @@ router.get('/privacyConsent/expired',
   verifyFirebaseToken,
   checkRole(['csr', 'admin']),
   consentController.getExpiredConsents
+);
+
+/**
+ * @swagger
+ * /privacyConsent/campaign/search:
+ *   get:
+ *     summary: Search consents for marketing campaigns (SLTMobitel scenario)
+ *     tags: [Privacy Consent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: purpose
+ *         schema:
+ *           type: string
+ *         description: Consent purpose (e.g., 'marketing')
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [granted, revoked, pending]
+ *         description: Consent status
+ *       - in: query
+ *         name: channel
+ *         schema:
+ *           type: string
+ *           enum: [email, sms, push]
+ *         description: Communication channel
+ *       - in: query
+ *         name: includePreferences
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *         description: Include preference data for campaign eligibility
+ *     responses:
+ *       200:
+ *         description: Campaign-eligible customers with consent and preference details
+ */
+router.get('/privacyConsent/campaign/search',
+  verifyFirebaseToken,
+  checkRole(['admin']),
+  consentController.searchConsentsForCampaign
+);
+
+/**
+ * @swagger
+ * /privacyConsent/compliance/report:
+ *   get:
+ *     summary: Generate compliance report for admin dashboard (Dilini's scenario)
+ *     tags: [Privacy Consent]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: purpose
+ *         schema:
+ *           type: string
+ *         description: Filter by consent purpose
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [granted, revoked, pending]
+ *         description: Filter by consent status
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [json, csv]
+ *         description: Response format
+ *     responses:
+ *       200:
+ *         description: Compliance report data
+ */
+router.get('/privacyConsent/compliance/report',
+  verifyFirebaseToken,
+  checkRole(['admin']),
+  consentController.getConsentComplianceReport
 );
 
 module.exports = router;

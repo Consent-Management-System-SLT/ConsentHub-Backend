@@ -46,6 +46,13 @@ const validateRequest = (schema) => {
   };
 };
 
+// Simple GET endpoint for dashboard - returns all DSAR requests
+router.get('/',
+  verifyFirebaseToken,
+  checkRole(['csr', 'admin']),
+  dsarController.getAllDsarRequests
+);
+
 /**
  * @swagger
  * components:
