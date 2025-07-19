@@ -40,7 +40,14 @@ app.get('/api-docs', (req, res) => {
       event: '/api/v1/event',
       party: '/api/v1/party',
       auth: '/api/v1/auth',
-      dsar: '/api/v1/dsar'
+      dsar: '/api/v1/dsar',
+      // TMF API Endpoints
+      'tmf-party-individual': '/tmf-api/party/v5/individual',
+      'tmf-consent': '/tmf-api/consent/v1/consent'
+    },
+    tmfCompliance: {
+      'TMF641': 'Party Management API v5.0.0',
+      'TMF632': 'Consent Management API v1.0.0'
     }
   });
 });
@@ -408,6 +415,217 @@ app.get('/api/v1/dashboard/stats', (req, res) => {
     completedDSARRequests: 1,
     lastUpdated: new Date().toISOString()
   });
+});
+
+// TMF641 Party Management API Endpoints
+app.post('/tmf-api/party/v5/individual', (req, res) => {
+  console.log('🎯 TMF641 Create Individual Request:', req.body);
+  
+  try {
+    const individualData = req.body;
+    
+    // Generate unique ID
+    const individualId = `individual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create TMF641 compliant individual party response
+    const createdIndividual = {
+      id: individualId,
+      href: `/tmf-api/party/v5/individual/${individualId}`,
+      '@type': 'Individual',
+      '@baseType': 'Party',
+      '@schemaLocation': 'https://schemas.tmforum.org/Party/v5.0.0/schema/Individual.schema.json',
+      
+      // Basic information
+      givenName: individualData.givenName || '',
+      familyName: individualData.familyName || '',
+      fullName: individualData.fullName || `${individualData.givenName || ''} ${individualData.familyName || ''}`.trim(),
+      title: individualData.title || '',
+      
+      // Personal details
+      birthDate: individualData.birthDate || '',
+      gender: individualData.gender || 'unknown',
+      maritalStatus: individualData.maritalStatus || 'unknown',
+      nationality: individualData.nationality || '',
+      countryOfBirth: individualData.countryOfBirth || '',
+      placeOfBirth: individualData.placeOfBirth || '',
+      
+      // Status and lifecycle
+      status: 'active',
+      engagedParty: {
+        id: individualId,
+        href: `/tmf-api/party/v5/individual/${individualId}`,
+        '@type': 'Individual',
+        '@referredType': 'Individual',
+        name: individualData.fullName || `${individualData.givenName || ''} ${individualData.familyName || ''}`.trim()
+      },
+      
+      // Contact information
+      contactMedium: individualData.contactMedium || [],
+      
+      // TMF compliant timestamps
+      creationDate: new Date().toISOString(),
+      lastUpdate: new Date().toISOString(),
+      
+      // Metadata
+      version: '1.0',
+      lifecycleStatus: 'active',
+      validFor: {
+        startDateTime: new Date().toISOString()
+      }
+    };
+    
+    console.log('✅ TMF641 Individual Created:', createdIndividual);
+    
+    // Return success response with redirect header
+    res.status(201)
+       .header('Location', `/tmf-api/party/v5/individual/${individualId}`)
+       .header('X-Redirect-URL', 'https://myslt.slt.lk/')
+       .json(createdIndividual);
+       
+    console.log('🔄 User should be redirected to: https://myslt.slt.lk/');
+    
+  } catch (error) {
+    console.error('❌ TMF641 Individual Creation Error:', error);
+    res.status(400).json({
+      error: 'Bad Request',
+      message: 'Failed to create individual party',
+      code: 'TMF641_CREATION_FAILED',
+      details: error.message
+    });
+  }
+});
+
+app.get('/tmf-api/party/v5/individual', (req, res) => {
+  console.log('🔍 TMF641 Get All Individuals Request');
+  
+  // Return sample individuals list
+  const individuals = [
+    {
+      id: 'individual-sample-1',
+      href: '/tmf-api/party/v5/individual/individual-sample-1',
+      '@type': 'Individual',
+      '@baseType': 'Party',
+      givenName: 'John',
+      familyName: 'Doe',
+      fullName: 'John Doe',
+      status: 'active',
+      creationDate: '2024-01-15T10:30:00Z'
+    }
+  ];
+  
+  res.status(200).json(individuals);
+});
+
+app.get('/tmf-api/party/v5/individual/:id', (req, res) => {
+  console.log('🔍 TMF641 Get Individual by ID:', req.params.id);
+  
+  const individualId = req.params.id;
+  
+  // Return sample individual
+  const individual = {
+    id: individualId,
+    href: `/tmf-api/party/v5/individual/${individualId}`,
+    '@type': 'Individual',
+    '@baseType': 'Party',
+    '@schemaLocation': 'https://schemas.tmforum.org/Party/v5.0.0/schema/Individual.schema.json',
+    givenName: 'Sample',
+    familyName: 'User',
+    fullName: 'Sample User',
+    status: 'active',
+    creationDate: new Date().toISOString(),
+    lastUpdate: new Date().toISOString()
+  };
+  
+  res.status(200).json(individual);
+});
+
+// TMF632 Consent Management API Endpoints
+app.post('/tmf-api/consent/v1/consent', (req, res) => {
+  console.log('🎯 TMF632 Create Consent Request:', req.body);
+  
+  try {
+    const consentData = req.body;
+    
+    // Generate unique ID
+    const consentId = `consent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Create TMF632 compliant consent response
+    const createdConsent = {
+      id: consentId,
+      href: `/tmf-api/consent/v1/consent/${consentId}`,
+      '@type': 'Consent',
+      '@baseType': 'EntitySpecification',
+      '@schemaLocation': 'https://schemas.tmforum.org/Consent/v1.0.0/schema/Consent.schema.json',
+      
+      // Consent details
+      name: consentData.name || 'User Consent',
+      description: consentData.description || 'Consent for data processing',
+      consentType: consentData.consentType || 'explicit',
+      status: 'granted',
+      
+      // Associated party
+      party: consentData.party || {
+        id: 'unknown',
+        '@type': 'Individual',
+        '@referredType': 'Individual',
+        name: 'Unknown User'
+      },
+      
+      // Data categories and purposes
+      dataCategory: consentData.dataCategory || ['personal_data'],
+      processingPurpose: consentData.processingPurpose || ['service_provision'],
+      
+      // Timestamps
+      grantDate: new Date().toISOString(),
+      creationDate: new Date().toISOString(),
+      lastUpdate: new Date().toISOString(),
+      
+      // Validity period
+      validFor: {
+        startDateTime: new Date().toISOString(),
+        endDateTime: consentData.expiryDate || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year default
+      },
+      
+      // Metadata
+      version: '1.0',
+      lifecycleStatus: 'active'
+    };
+    
+    console.log('✅ TMF632 Consent Created:', createdConsent);
+    
+    res.status(201)
+       .header('Location', `/tmf-api/consent/v1/consent/${consentId}`)
+       .json(createdConsent);
+       
+  } catch (error) {
+    console.error('❌ TMF632 Consent Creation Error:', error);
+    res.status(400).json({
+      error: 'Bad Request',
+      message: 'Failed to create consent',
+      code: 'TMF632_CREATION_FAILED',
+      details: error.message
+    });
+  }
+});
+
+app.get('/tmf-api/consent/v1/consent', (req, res) => {
+  console.log('🔍 TMF632 Get All Consents Request');
+  
+  // Return sample consents list
+  const consents = [
+    {
+      id: 'consent-sample-1',
+      href: '/tmf-api/consent/v1/consent/consent-sample-1',
+      '@type': 'Consent',
+      '@baseType': 'EntitySpecification',
+      name: 'Data Processing Consent',
+      status: 'granted',
+      consentType: 'explicit',
+      grantDate: '2024-01-15T10:30:00Z'
+    }
+  ];
+  
+  res.status(200).json(consents);
 });
 
 // Catch-all route
