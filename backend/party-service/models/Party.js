@@ -129,6 +129,82 @@ const partySchema = new Schema({
       },
     },
   }],
+  // Enhanced relationship management for guardian consent workflows
+  relatedParty: [{
+    id: {
+      type: String,
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: ['guardian', 'parent', 'legalrepresentative', 'minor', 'dependent'],
+      required: true,
+    },
+    relationshipType: {
+      type: String,
+      enum: ['parent-child', 'legal-guardian', 'corporate-representative', 'power-of-attorney'],
+    },
+    validFor: {
+      startDateTime: {
+        type: Date,
+        default: Date.now,
+      },
+      endDateTime: {
+        type: Date,
+      },
+    },
+    // Legal documentation for guardian relationship
+    legalDocuments: [{
+      documentType: {
+        type: String,
+        enum: ['birth-certificate', 'guardianship-order', 'power-of-attorney', 'court-order'],
+      },
+      documentNumber: String,
+      issuingAuthority: String,
+      verificationStatus: {
+        type: String,
+        enum: ['pending', 'verified', 'rejected'],
+        default: 'pending',
+      },
+      verifiedAt: Date,
+      verifiedBy: String,
+    }],
+    // Guardian consent capabilities
+    consentAuthority: {
+      canGrantConsent: {
+        type: Boolean,
+        default: false,
+      },
+      canRevokeConsent: {
+        type: Boolean,
+        default: false,
+      },
+      purposes: [{
+        type: String,
+        enum: ['marketing', 'analytics', 'thirdPartySharing', 'dataProcessing', 'location', 'research', 'personalization'],
+      }],
+      expiresAt: Date,
+    },
+  }],
+  
+  // Age verification for minor consent requirements
+  ageVerification: {
+    dateOfBirth: Date,
+    isMinor: {
+      type: Boolean,
+      default: false,
+    },
+    ageVerifiedAt: Date,
+    jurisdictionAgeLimit: {
+      type: Number,
+      default: 18, // GDPR Article 8
+    },
+    requiresGuardianConsent: {
+      type: Boolean,
+      default: false,
+    },
+  },
+
   // Roles
   partyRoles: [{
     name: {

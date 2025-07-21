@@ -9,6 +9,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const { connectDB, logger, errorHandler } = require('../shared/utils');
 const { initializeFirebase } = require('../shared/auth');
 const consentRoutes = require('./routes/consent');
+const guardianConsentRoutes = require('./routes/guardianConsent');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -76,6 +77,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/v1', consentRoutes);
+app.use('/api/v1/guardian-consent', guardianConsentRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
