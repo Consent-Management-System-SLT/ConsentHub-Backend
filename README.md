@@ -490,14 +490,6 @@ http://localhost:3005/api-docs  # Event Service
 
 ---
 
-## 📞 **Support**
-
-### **Getting Help**
-- 🐛 **Issues**: [GitHub Issues](https://github.com/Consent-Management-System-SLT/ConsentHub-Frontend/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/Consent-Management-System-SLT/ConsentHub-Frontend/discussions)
-- 📧 **Email**: consenthub-backend@sltmobitel.lk
-- 🔗 **Slack**: #consenthub-backend-dev
-
 ### **Production Support**
 - 🚨 **Critical Issues**: Render.com dashboard monitoring
 - 📊 **Performance Issues**: MongoDB Atlas performance advisor
@@ -535,6 +527,6 @@ http://localhost:3005/api-docs  # Event Service
 [![GDPR](https://img.shields.io/badge/GDPR-Fully%20Compliant-blue.svg)](https://gdpr-info.eu/)
 [![Production](https://img.shields.io/badge/Production-Live-brightgreen.svg)](https://consenthub-backend.onrender.com)
 
-**Built with ❤️ by SLT Mobitel ConsentHub Team** 🇱🇰
+**Built by SLT Mobitel ConsentHub Team** 🇱🇰
 
 </div>
