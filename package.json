@@ -28,7 +28,8 @@
     "swagger:deploy": "vercel --prod -f vercel-swagger.json",
     "docs:preview": "node test-github-pages.js",
     "docs:deploy": "echo 'Pushing to GitHub will auto-deploy to Pages via GitHub Actions'",
-    "start": "node simple-server.js",
+    "start": "node render-server.js",
+    "start:dev": "node start-with-urls.js",
     "build": "npm run install:all",
     "dev:gateway": "cd backend/api-gateway && npm run dev",
     "dev:consent": "cd backend/consent-service && npm run dev",
@@ -65,6 +66,7 @@
     "nodemon": "^3.0.1"
   },
   "dependencies": {
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.21.2",
