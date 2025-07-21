@@ -24,10 +24,23 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: true, // Allow all origins for now - configure in production
+  origin: [
+    'https://consent-management-system-api.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:4173'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'x-correlation-id',
+    'x-api-key',
+    'x-client-id'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
 // Logging
@@ -104,21 +117,133 @@ app.use('/api/v1', (req, res, next) => {
   // Add API versioning headers
   res.setHeader('API-Version', 'v1');
   res.setHeader('Service', 'ConsentHub');
+  
+  // Simple token validation (for demo purposes)
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    // In production, you'd validate this JWT token properly
+    req.user = {
+      id: '6',
+      email: 'ojitharajapaksha@example.com',
+      name: 'Ojitha Rajapaksha',
+      phone: '+94775878565'
+    };
+  }
+  
   next();
 });
 
 // Consent endpoints
 app.get('/api/v1/consent', (req, res) => {
+  // Handle query parameters for filtering/pagination
+  const { page = 1, limit = 10, status, category } = req.query;
+  
+  // Mock consent data
+  const consents = [
+    {
+      id: 'consent_1',
+      customerId: '6', 
+      category: 'marketing',
+      purpose: 'Email marketing and promotional offers',
+      status: 'granted',
+      grantedAt: '2025-01-15T10:30:00Z',
+      expiresAt: '2026-01-15T10:30:00Z',
+      legalBasis: 'consent',
+      source: 'web_form',
+      metadata: {
+        ipAddress: '192.168.1.1',
+        userAgent: 'Mozilla/5.0...',
+        channel: 'website'
+      }
+    },
+    {
+      id: 'consent_2',
+      customerId: '6',
+      category: 'analytics',
+      purpose: 'Website usage analytics and performance monitoring', 
+      status: 'granted',
+      grantedAt: '2025-01-10T14:20:00Z',
+      expiresAt: '2026-01-10T14:20:00Z',
+      legalBasis: 'consent',
+      source: 'web_form',
+      metadata: {
+        ipAddress: '192.168.1.1', 
+        userAgent: 'Mozilla/5.0...',
+        channel: 'website'
+      }
+    },
+    {
+      id: 'consent_3',
+      customerId: '6',
+      category: 'functional',
+      purpose: 'Essential website functionality',
+      status: 'granted',
+      grantedAt: '2025-01-01T00:00:00Z',
+      expiresAt: null,
+      legalBasis: 'legitimate_interest',
+      source: 'system',
+      metadata: {
+        channel: 'automatic'
+      }
+    }
+  ];
+
+  // Apply filters if provided
+  let filteredConsents = consents;
+  if (status) {
+    filteredConsents = filteredConsents.filter(c => c.status === status);
+  }
+  if (category) {
+    filteredConsents = filteredConsents.filter(c => c.category === category);
+  }
+
+  // Calculate pagination
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + parseInt(limit);
+  const paginatedConsents = filteredConsents.slice(startIndex, endIndex);
+
   res.status(200).json({
-    message: 'Consent service endpoint',
+    success: true,
+    data: {
+      consents: paginatedConsents,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: filteredConsents.length,
+        pages: Math.ceil(filteredConsents.length / limit)
+      }
+    },
     service: 'consent-service',
-    available_endpoints: [
-      'GET /api/v1/consent',
-      'POST /api/v1/consent',
-      'GET /api/v1/consent/:id',
-      'PUT /api/v1/consent/:id',
-      'DELETE /api/v1/consent/:id'
-    ]
+    timestamp: new Date().toISOString()
+  });
+});
+
+// POST endpoint for creating consents
+app.post('/api/v1/consent', (req, res) => {
+  const { customerId, category, purpose, status = 'granted' } = req.body;
+  
+  const newConsent = {
+    id: `consent_${Date.now()}`,
+    customerId,
+    category,
+    purpose,
+    status,
+    grantedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+    legalBasis: 'consent',
+    source: 'api',
+    metadata: {
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+      channel: 'api'
+    }
+  };
+
+  res.status(201).json({
+    success: true,
+    data: newConsent,
+    message: 'Consent created successfully'
   });
 });
 
@@ -223,6 +348,184 @@ app.get('/api/v1/dsar', (req, res) => {
       'PUT /api/v1/dsar/:id',
       'DELETE /api/v1/dsar/:id'
     ]
+  });
+});
+
+// Customer Dashboard endpoints
+app.get('/api/v1/customer/dashboard/overview', (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      totalConsents: 15,
+      activeConsents: 12,
+      pendingConsents: 2,
+      expiredConsents: 1,
+      recentActivity: [
+        {
+          id: '1',
+          type: 'consent_updated',
+          description: 'Marketing consent updated',
+          timestamp: new Date().toISOString(),
+          status: 'completed'
+        },
+        {
+          id: '2', 
+          type: 'consent_granted',
+          description: 'Analytics consent granted',
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          status: 'completed'
+        }
+      ],
+      consentsByCategory: {
+        marketing: { granted: 8, denied: 2 },
+        analytics: { granted: 6, denied: 4 },
+        functional: { granted: 10, denied: 0 },
+        necessary: { granted: 10, denied: 0 }
+      }
+    }
+  });
+});
+
+app.get('/api/v1/customer/dashboard/profile', (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      id: '6',
+      email: 'ojitharajapaksha@example.com',
+      name: 'Ojitha Rajapaksha',
+      phone: '+94775878565',
+      preferences: {
+        language: 'en',
+        timezone: 'Asia/Colombo',
+        notifications: {
+          email: true,
+          sms: false,
+          push: true
+        }
+      },
+      consentHistory: [
+        {
+          id: 'consent_1',
+          category: 'marketing',
+          status: 'granted',
+          grantedAt: new Date(Date.now() - 86400000).toISOString(),
+          purpose: 'Email marketing and promotional offers'
+        },
+        {
+          id: 'consent_2',
+          category: 'analytics',
+          status: 'granted', 
+          grantedAt: new Date(Date.now() - 172800000).toISOString(),
+          purpose: 'Website analytics and performance tracking'
+        }
+      ]
+    }
+  });
+});
+
+app.get('/api/v1/customer/dashboard/consents', (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      consents: [
+        {
+          id: 'consent_marketing_1',
+          category: 'marketing',
+          purpose: 'Email marketing and promotional communications',
+          status: 'granted',
+          grantedAt: '2025-01-15T10:30:00Z',
+          expiresAt: '2026-01-15T10:30:00Z',
+          canWithdraw: true
+        },
+        {
+          id: 'consent_analytics_1',
+          category: 'analytics', 
+          purpose: 'Website usage analytics and performance monitoring',
+          status: 'granted',
+          grantedAt: '2025-01-10T14:20:00Z',
+          expiresAt: '2026-01-10T14:20:00Z',
+          canWithdraw: true
+        },
+        {
+          id: 'consent_functional_1',
+          category: 'functional',
+          purpose: 'Essential website functionality and user preferences',
+          status: 'granted',
+          grantedAt: '2025-01-01T00:00:00Z',
+          expiresAt: null,
+          canWithdraw: false
+        }
+      ],
+      totalCount: 3,
+      grantedCount: 3,
+      deniedCount: 0
+    }
+  });
+});
+
+// Individual consent management endpoints
+app.get('/api/v1/consent/:id', (req, res) => {
+  const { id } = req.params;
+  
+  const consent = {
+    id,
+    customerId: '6',
+    category: 'marketing',
+    purpose: 'Email marketing and promotional offers',
+    status: 'granted',
+    grantedAt: '2025-01-15T10:30:00Z',
+    expiresAt: '2026-01-15T10:30:00Z',
+    legalBasis: 'consent',
+    source: 'web_form',
+    withdrawHistory: [],
+    metadata: {
+      ipAddress: '192.168.1.1',
+      userAgent: 'Mozilla/5.0...',
+      channel: 'website'
+    }
+  };
+
+  res.status(200).json({
+    success: true,
+    data: consent
+  });
+});
+
+app.put('/api/v1/consent/:id', (req, res) => {
+  const { id } = req.params;
+  const { status, purpose } = req.body;
+  
+  const updatedConsent = {
+    id,
+    customerId: '6',
+    category: 'marketing',
+    purpose: purpose || 'Email marketing and promotional offers',
+    status: status || 'granted',
+    grantedAt: '2025-01-15T10:30:00Z',
+    updatedAt: new Date().toISOString(),
+    expiresAt: '2026-01-15T10:30:00Z',
+    legalBasis: 'consent',
+    source: 'api_update'
+  };
+
+  res.status(200).json({
+    success: true,
+    data: updatedConsent,
+    message: 'Consent updated successfully'
+  });
+});
+
+app.delete('/api/v1/consent/:id', (req, res) => {
+  const { id } = req.params;
+  
+  res.status(200).json({
+    success: true,
+    message: `Consent ${id} withdrawn successfully`,
+    data: {
+      id,
+      status: 'withdrawn',
+      withdrawnAt: new Date().toISOString()
+    }
   });
 });
 
