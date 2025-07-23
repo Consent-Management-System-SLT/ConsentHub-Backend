@@ -67,6 +67,74 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
+// Demo users for authentication
+const users = [
+    { 
+        id: "1", 
+        email: "admin@sltmobitel.lk", 
+        password: "admin123", 
+        role: "admin", 
+        name: "Admin User",
+        phone: "+94771234567",
+        organization: "SLT-Mobitel",
+        createdAt: new Date().toISOString()
+    },
+    { 
+        id: "2", 
+        email: "csr@sltmobitel.lk", 
+        password: "csr123", 
+        role: "csr", 
+        name: "CSR User",
+        phone: "+94771234568",
+        organization: "SLT-Mobitel",
+        createdAt: new Date().toISOString()
+    },
+    { 
+        id: "3", 
+        email: "customer@sltmobitel.lk", 
+        password: "customer123", 
+        role: "customer", 
+        name: "John Doe",
+        phone: "+94771234569",
+        organization: "SLT-Mobitel",
+        address: "123 Main St, Colombo 03",
+        createdAt: new Date().toISOString()
+    }
+];
+
+// JWT token generation (simple demo version)
+function generateToken(user) {
+    // Simple base64 encoding for demo purposes
+    const payload = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+    };
+    return Buffer.from(JSON.stringify(payload)).toString('base64');
+}
+
+// Token verification middleware
+function verifyToken(req, res, next) {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({ error: 'Access token required' });
+    }
+    
+    try {
+        const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+        if (decoded.exp < Date.now()) {
+            return res.status(401).json({ error: 'Token expired' });
+        }
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(403).json({ error: 'Invalid token' });
+    }
+}
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -334,6 +402,78 @@ app.get('/api/v1/auth', (req, res) => {
       'GET /api/v1/auth/profile'
     ]
   });
+});
+
+// Authentication login endpoint
+app.post('/api/v1/auth/login', (req, res) => {
+    const { email, password } = req.body;
+    console.log("Login attempt:", email);
+    
+    if (!email || !password) {
+        return res.status(400).json({ 
+            error: true, 
+            message: "Email and password required" 
+        });
+    }
+    
+    const user = users.find(u => u.email === email && u.password === password);
+    
+    if (!user) {
+        return res.status(401).json({ 
+            error: true, 
+            message: "Invalid credentials" 
+        });
+    }
+    
+    const token = generateToken(user);
+    console.log("Login successful:", user.email, "Role:", user.role);
+    
+    res.json({
+        success: true,
+        token: token,
+        user: { 
+            id: user.id, 
+            email: user.email, 
+            role: user.role, 
+            name: user.name,
+            phone: user.phone,
+            organization: user.organization
+        }
+    });
+});
+
+// Get user profile
+app.get('/api/v1/auth/profile', verifyToken, (req, res) => {
+    const user = users.find(u => u.id === req.user.id);
+    
+    if (!user) {
+        return res.status(404).json({ 
+            error: true, 
+            message: "User not found" 
+        });
+    }
+    
+    res.json({
+        success: true,
+        user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            name: user.name,
+            phone: user.phone,
+            organization: user.organization,
+            address: user.address,
+            createdAt: user.createdAt
+        }
+    });
+});
+
+// Logout endpoint
+app.post('/api/v1/auth/logout', verifyToken, (req, res) => {
+    res.json({
+        success: true,
+        message: "Logged out successfully"
+    });
 });
 
 // DSAR endpoints
