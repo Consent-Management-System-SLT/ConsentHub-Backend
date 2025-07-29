@@ -404,6 +404,98 @@ app.get('/api/v1/auth', (req, res) => {
   });
 });
 
+// Authentication registration endpoint
+app.post('/api/v1/auth/register', (req, res) => {
+    const { 
+        email, 
+        password, 
+        firstName, 
+        lastName, 
+        phone, 
+        company, 
+        department, 
+        jobTitle,
+        acceptTerms,
+        acceptPrivacy,
+        language 
+    } = req.body;
+    
+    console.log("Registration attempt:", email);
+    
+    // Validation
+    if (!email || !password) {
+        return res.status(400).json({
+            error: true,
+            message: "Email and password are required"
+        });
+    }
+    
+    if (!firstName || !lastName) {
+        return res.status(400).json({
+            error: true,
+            message: "First name and last name are required"
+        });
+    }
+
+    if (!phone) {
+        return res.status(400).json({
+            error: true,
+            message: "Phone number is required"
+        });
+    }
+
+    // Check if user already exists
+    const existingUser = users.find(u => u.email === email.toLowerCase());
+    if (existingUser) {
+        return res.status(400).json({
+            error: true,
+            message: "User with this email already exists"
+        });
+    }
+    
+    // Create new user
+    const newUser = {
+        id: String(users.length + 1),
+        email: email.toLowerCase(),
+        password,
+        firstName,
+        lastName,
+        phone,
+        company: company || "SLT-Mobitel",
+        department: department || "",
+        jobTitle: jobTitle || "",
+        role: "customer",
+        name: `${firstName} ${lastName}`,
+        organization: company || "SLT-Mobitel",
+        createdAt: new Date().toISOString()
+    };
+
+    // Add to users array
+    users.push(newUser);
+    
+    // Generate token
+    const token = generateToken(newUser);
+    
+    console.log("Registration successful:", newUser.email, "ID:", newUser.id);
+    
+    res.status(201).json({
+        success: true,
+        message: "Account created successfully",
+        token: token,
+        user: { 
+            id: newUser.id, 
+            email: newUser.email, 
+            role: newUser.role, 
+            name: newUser.name,
+            firstName: newUser.firstName,
+            lastName: newUser.lastName,
+            phone: newUser.phone,
+            company: newUser.company,
+            organization: newUser.organization
+        }
+    });
+});
+
 // Authentication login endpoint
 app.post('/api/v1/auth/login', (req, res) => {
     const { email, password } = req.body;
