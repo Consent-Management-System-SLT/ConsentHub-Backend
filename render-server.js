@@ -2,7 +2,7 @@
 
 /**
  * ConsentHub Backend - Render Deployment Server
- * Single-server deployment version for Render hosting
+ * Single-server deployment version for Render hosting with MongoDB Atlas
  */
 
 require('dotenv').config();
@@ -11,10 +11,158 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'production';
+
+// MongoDB Atlas connection
+const connectDB = async () => {
+  try {
+    const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://consentuser:12345@consentcluster.ylmrqgl.mongodb.net/consentDB?retryWrites=true&w=majority&appName=ConsentCluster';
+    console.log('🔗 Connecting to MongoDB Atlas...');
+    
+    await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    
+    console.log('✅ MongoDB Atlas Connected:', mongoose.connection.host);
+    console.log('📊 Database:', mongoose.connection.name);
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
+  }
+};
+
+// User Schema for MongoDB
+const UserSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  firstName: {
+    type: String,
+    required: true
+  },
+  lastName: {
+    type: String,
+    required: true
+  },
+  phone: String,
+  company: String,
+  department: String,
+  jobTitle: String,
+  role: {
+    type: String,
+    enum: ['customer', 'admin', 'csr'],
+    default: 'customer'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'suspended', 'pending_verification'],
+    default: 'active'
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  acceptTerms: Boolean,
+  acceptPrivacy: Boolean,
+  language: {
+    type: String,
+    default: 'en'
+  },
+  lastLoginAt: Date,
+  address: String
+}, {
+  timestamps: true // This adds createdAt and updatedAt automatically
+});
+
+// Add virtual for full name
+UserSchema.virtual('name').get(function() {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+const User = mongoose.model('User', UserSchema);
+
+// Function to create default admin users
+const createDefaultUsers = async () => {
+  try {
+    const adminExists = await User.findOne({ email: 'admin@sltmobitel.lk' });
+    if (!adminExists) {
+      const adminUser = new User({
+        email: 'admin@sltmobitel.lk',
+        password: 'admin123',
+        firstName: 'Admin',
+        lastName: 'User',
+        phone: '+94771234567',
+        company: 'SLT-Mobitel',
+        role: 'admin',
+        status: 'active',
+        isActive: true,
+        emailVerified: true
+      });
+      await adminUser.save();
+      console.log('✅ Default admin user created');
+    }
+
+    const csrExists = await User.findOne({ email: 'csr@sltmobitel.lk' });
+    if (!csrExists) {
+      const csrUser = new User({
+        email: 'csr@sltmobitel.lk',
+        password: 'csr123',
+        firstName: 'CSR',
+        lastName: 'User',
+        phone: '+94771234568',
+        company: 'SLT-Mobitel',
+        role: 'csr',
+        status: 'active',
+        isActive: true,
+        emailVerified: true
+      });
+      await csrUser.save();
+      console.log('✅ Default CSR user created');
+    }
+
+    const customerExists = await User.findOne({ email: 'customer@sltmobitel.lk' });
+    if (!customerExists) {
+      const customerUser = new User({
+        email: 'customer@sltmobitel.lk',
+        password: 'customer123',
+        firstName: 'John',
+        lastName: 'Doe',
+        phone: '+94771234569',
+        company: 'SLT-Mobitel',
+        address: '123 Main St, Colombo 03',
+        role: 'customer',
+        status: 'active',
+        isActive: true,
+        emailVerified: true
+      });
+      await customerUser.save();
+      console.log('✅ Default customer user created');
+    }
+  } catch (error) {
+    console.error('❌ Error creating default users:', error);
+  }
+};
+
+// Connect to MongoDB and setup default users
+connectDB().then(() => {
+  createDefaultUsers();
+});
 
 // Security middleware
 app.use(helmet({
@@ -67,46 +215,11 @@ const limiter = rateLimit({
 
 app.use('/api/', limiter);
 
-// Demo users for authentication
-const users = [
-    { 
-        id: "1", 
-        email: "admin@sltmobitel.lk", 
-        password: "admin123", 
-        role: "admin", 
-        name: "Admin User",
-        phone: "+94771234567",
-        organization: "SLT-Mobitel",
-        createdAt: new Date().toISOString()
-    },
-    { 
-        id: "2", 
-        email: "csr@sltmobitel.lk", 
-        password: "csr123", 
-        role: "csr", 
-        name: "CSR User",
-        phone: "+94771234568",
-        organization: "SLT-Mobitel",
-        createdAt: new Date().toISOString()
-    },
-    { 
-        id: "3", 
-        email: "customer@sltmobitel.lk", 
-        password: "customer123", 
-        role: "customer", 
-        name: "John Doe",
-        phone: "+94771234569",
-        organization: "SLT-Mobitel",
-        address: "123 Main St, Colombo 03",
-        createdAt: new Date().toISOString()
-    }
-];
-
 // JWT token generation (simple demo version)
 function generateToken(user) {
     // Simple base64 encoding for demo purposes
     const payload = {
-        id: user.id,
+        id: user._id || user.id,
         email: user.email,
         role: user.role,
         exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
@@ -405,159 +518,200 @@ app.get('/api/v1/auth', (req, res) => {
 });
 
 // Authentication registration endpoint
-app.post('/api/v1/auth/register', (req, res) => {
-    const { 
-        email, 
-        password, 
-        firstName, 
-        lastName, 
-        phone, 
-        company, 
-        department, 
-        jobTitle,
-        acceptTerms,
-        acceptPrivacy,
-        language 
-    } = req.body;
-    
-    console.log("Registration attempt:", email);
-    
-    // Validation
-    if (!email || !password) {
-        return res.status(400).json({
-            error: true,
-            message: "Email and password are required"
-        });
-    }
-    
-    if (!firstName || !lastName) {
-        return res.status(400).json({
-            error: true,
-            message: "First name and last name are required"
-        });
-    }
-
-    if (!phone) {
-        return res.status(400).json({
-            error: true,
-            message: "Phone number is required"
-        });
-    }
-
-    // Check if user already exists
-    const existingUser = users.find(u => u.email === email.toLowerCase());
-    if (existingUser) {
-        return res.status(400).json({
-            error: true,
-            message: "User with this email already exists"
-        });
-    }
-    
-    // Create new user
-    const newUser = {
-        id: String(users.length + 1),
-        email: email.toLowerCase(),
-        password,
-        firstName,
-        lastName,
-        phone,
-        company: company || "SLT-Mobitel",
-        department: department || "",
-        jobTitle: jobTitle || "",
-        role: "customer",
-        name: `${firstName} ${lastName}`,
-        organization: company || "SLT-Mobitel",
-        createdAt: new Date().toISOString()
-    };
-
-    // Add to users array
-    users.push(newUser);
-    
-    // Generate token
-    const token = generateToken(newUser);
-    
-    console.log("Registration successful:", newUser.email, "ID:", newUser.id);
-    
-    res.status(201).json({
-        success: true,
-        message: "Account created successfully",
-        token: token,
-        user: { 
-            id: newUser.id, 
-            email: newUser.email, 
-            role: newUser.role, 
-            name: newUser.name,
-            firstName: newUser.firstName,
-            lastName: newUser.lastName,
-            phone: newUser.phone,
-            company: newUser.company,
-            organization: newUser.organization
+app.post('/api/v1/auth/register', async (req, res) => {
+    try {
+        const { 
+            email, 
+            password, 
+            firstName, 
+            lastName, 
+            phone, 
+            company, 
+            department, 
+            jobTitle,
+            acceptTerms,
+            acceptPrivacy,
+            language 
+        } = req.body;
+        
+        console.log("Registration attempt:", email);
+        
+        // Validation
+        if (!email || !password) {
+            return res.status(400).json({
+                error: true,
+                message: "Email and password are required"
+            });
         }
-    });
+        
+        if (!firstName || !lastName) {
+            return res.status(400).json({
+                error: true,
+                message: "First name and last name are required"
+            });
+        }
+
+        if (!phone) {
+            return res.status(400).json({
+                error: true,
+                message: "Phone number is required"
+            });
+        }
+
+        // Check if user already exists in MongoDB
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
+        if (existingUser) {
+            return res.status(400).json({
+                error: true,
+                message: "User with this email already exists"
+            });
+        }
+        
+        // Create new user in MongoDB
+        const newUser = new User({
+            email: email.toLowerCase(),
+            password,
+            firstName,
+            lastName,
+            phone,
+            company: company || "SLT-Mobitel",
+            department: department || "",
+            jobTitle: jobTitle || "",
+            role: "customer",
+            acceptTerms: acceptTerms || false,
+            acceptPrivacy: acceptPrivacy || false,
+            language: language || "en",
+            status: "active",
+            isActive: true,
+            emailVerified: false
+        });
+
+        // Save to MongoDB
+        const savedUser = await newUser.save();
+        
+        // Generate token
+        const token = generateToken(savedUser);
+        
+        console.log("Registration successful - MongoDB:", savedUser.email, "ID:", savedUser._id);
+        
+        res.status(201).json({
+            success: true,
+            message: "Account created successfully",
+            token: token,
+            user: { 
+                id: savedUser._id, 
+                email: savedUser.email, 
+                role: savedUser.role, 
+                name: savedUser.name,
+                firstName: savedUser.firstName,
+                lastName: savedUser.lastName,
+                phone: savedUser.phone,
+                company: savedUser.company,
+                organization: savedUser.company
+            }
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({
+            error: true,
+            message: "Registration failed. Please try again.",
+            details: error.message
+        });
+    }
 });
 
 // Authentication login endpoint
-app.post('/api/v1/auth/login', (req, res) => {
-    const { email, password } = req.body;
-    console.log("Login attempt:", email);
-    
-    if (!email || !password) {
-        return res.status(400).json({ 
-            error: true, 
-            message: "Email and password required" 
-        });
-    }
-    
-    const user = users.find(u => u.email === email && u.password === password);
-    
-    if (!user) {
-        return res.status(401).json({ 
-            error: true, 
-            message: "Invalid credentials" 
-        });
-    }
-    
-    const token = generateToken(user);
-    console.log("Login successful:", user.email, "Role:", user.role);
-    
-    res.json({
-        success: true,
-        token: token,
-        user: { 
-            id: user.id, 
-            email: user.email, 
-            role: user.role, 
-            name: user.name,
-            phone: user.phone,
-            organization: user.organization
+app.post('/api/v1/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        console.log("Login attempt:", email);
+        
+        if (!email || !password) {
+            return res.status(400).json({ 
+                error: true, 
+                message: "Email and password required" 
+            });
         }
-    });
+        
+        // Find user in MongoDB
+        const user = await User.findOne({ 
+            email: email.toLowerCase(), 
+            password: password 
+        });
+        
+        if (!user) {
+            return res.status(401).json({ 
+                error: true, 
+                message: "Invalid credentials" 
+            });
+        }
+        
+        // Update last login
+        user.lastLoginAt = new Date();
+        await user.save();
+        
+        const token = generateToken(user);
+        console.log("Login successful - MongoDB:", user.email, "Role:", user.role);
+        
+        res.json({
+            success: true,
+            token: token,
+            user: { 
+                id: user._id, 
+                email: user.email, 
+                role: user.role, 
+                name: user.name,
+                phone: user.phone,
+                organization: user.company
+            }
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            error: true,
+            message: "Login failed. Please try again.",
+            details: error.message
+        });
+    }
 });
 
 // Get user profile
-app.get('/api/v1/auth/profile', verifyToken, (req, res) => {
-    const user = users.find(u => u.id === req.user.id);
-    
-    if (!user) {
-        return res.status(404).json({ 
-            error: true, 
-            message: "User not found" 
+app.get('/api/v1/auth/profile', verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        
+        if (!user) {
+            return res.status(404).json({ 
+                error: true, 
+                message: "User not found" 
+            });
+        }
+        
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                email: user.email,
+                role: user.role,
+                name: user.name,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                phone: user.phone,
+                company: user.company,
+                organization: user.company,
+                address: user.address,
+                createdAt: user.createdAt,
+                lastLoginAt: user.lastLoginAt
+            }
+        });
+    } catch (error) {
+        console.error('Profile fetch error:', error);
+        res.status(500).json({
+            error: true,
+            message: "Failed to fetch profile",
+            details: error.message
         });
     }
-    
-    res.json({
-        success: true,
-        user: {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-            name: user.name,
-            phone: user.phone,
-            organization: user.organization,
-            address: user.address,
-            createdAt: user.createdAt
-        }
-    });
 });
 
 // Logout endpoint
