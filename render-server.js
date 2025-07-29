@@ -97,6 +97,151 @@ UserSchema.virtual('name').get(function() {
 
 const User = mongoose.model('User', UserSchema);
 
+// Consent Schema for MongoDB
+const ConsentSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  category: {
+    type: String,
+    required: true,
+    enum: ['marketing', 'analytics', 'functional', 'necessary', 'advertising', 'personalization']
+  },
+  purpose: {
+    type: String,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['granted', 'denied', 'withdrawn', 'pending'],
+    default: 'pending'
+  },
+  grantedAt: Date,
+  withdrawnAt: Date,
+  expiresAt: Date,
+  legalBasis: {
+    type: String,
+    enum: ['consent', 'legitimate_interest', 'contract', 'legal_obligation'],
+    default: 'consent'
+  },
+  source: {
+    type: String,
+    default: 'web_form'
+  },
+  metadata: {
+    ipAddress: String,
+    userAgent: String,
+    channel: String
+  }
+}, {
+  timestamps: true
+});
+
+const Consent = mongoose.model('Consent', ConsentSchema);
+
+// Preference Schema for MongoDB
+const PreferenceSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  category: {
+    type: String,
+    required: true,
+    enum: ['communication', 'privacy', 'notifications', 'marketing', 'data_processing']
+  },
+  key: {
+    type: String,
+    required: true
+  },
+  value: {
+    type: mongoose.Schema.Types.Mixed,
+    required: true
+  },
+  description: String
+}, {
+  timestamps: true
+});
+
+const Preference = mongoose.model('Preference', PreferenceSchema);
+
+// Privacy Notice Schema for MongoDB
+const PrivacyNoticeSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true
+  },
+  content: {
+    type: String,
+    required: true
+  },
+  version: {
+    type: String,
+    required: true
+  },
+  effectiveDate: {
+    type: Date,
+    required: true
+  },
+  category: {
+    type: String,
+    enum: ['privacy_policy', 'terms_of_service', 'cookie_policy', 'data_processing'],
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['draft', 'active', 'archived'],
+    default: 'draft'
+  },
+  language: {
+    type: String,
+    default: 'en'
+  }
+}, {
+  timestamps: true
+});
+
+const PrivacyNotice = mongoose.model('PrivacyNotice', PrivacyNoticeSchema);
+
+// DSAR Request Schema for MongoDB
+const DSARRequestSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  requestType: {
+    type: String,
+    required: true,
+    enum: ['access', 'rectification', 'erasure', 'portability', 'restriction', 'objection']
+  },
+  description: String,
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'completed', 'rejected', 'cancelled'],
+    default: 'pending'
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high', 'urgent'],
+    default: 'medium'
+  },
+  submittedAt: {
+    type: Date,
+    default: Date.now
+  },
+  completedAt: Date,
+  responseData: String,
+  notes: String
+}, {
+  timestamps: true
+});
+
+const DSARRequest = mongoose.model('DSARRequest', DSARRequestSchema);
+
 // Function to create default admin users
 const createDefaultUsers = async () => {
   try {
@@ -159,9 +304,48 @@ const createDefaultUsers = async () => {
   }
 };
 
+// Function to create default sample data
+const createSampleData = async () => {
+  try {
+    // Create default privacy notices
+    const privacyNoticeExists = await PrivacyNotice.findOne({ title: 'Privacy Policy' });
+    if (!privacyNoticeExists) {
+      const privacyNotice = new PrivacyNotice({
+        title: 'Privacy Policy',
+        content: 'This is our comprehensive privacy policy that explains how we collect, use, and protect your personal data.',
+        version: '1.0',
+        effectiveDate: new Date(),
+        category: 'privacy_policy',
+        status: 'active',
+        language: 'en'
+      });
+      await privacyNotice.save();
+      console.log('✅ Default privacy notice created');
+    }
+
+    const cookiePolicyExists = await PrivacyNotice.findOne({ title: 'Cookie Policy' });
+    if (!cookiePolicyExists) {
+      const cookiePolicy = new PrivacyNotice({
+        title: 'Cookie Policy',
+        content: 'This policy explains how we use cookies and similar technologies on our website.',
+        version: '1.0',
+        effectiveDate: new Date(),
+        category: 'cookie_policy',
+        status: 'active',
+        language: 'en'
+      });
+      await cookiePolicy.save();
+      console.log('✅ Default cookie policy created');
+    }
+  } catch (error) {
+    console.error('❌ Error creating sample data:', error);
+  }
+};
+
 // Connect to MongoDB and setup default users
 connectDB().then(() => {
   createDefaultUsers();
+  createSampleData();
 });
 
 // Security middleware
@@ -315,117 +499,87 @@ app.use('/api/v1', (req, res, next) => {
   next();
 });
 
-// Consent endpoints
-app.get('/api/v1/consent', (req, res) => {
-  // Handle query parameters for filtering/pagination
-  const { page = 1, limit = 10, status, category } = req.query;
-  
-  // Mock consent data
-  const consents = [
-    {
-      id: 'consent_1',
-      customerId: '6', 
-      category: 'marketing',
-      purpose: 'Email marketing and promotional offers',
-      status: 'granted',
-      grantedAt: '2025-01-15T10:30:00Z',
-      expiresAt: '2026-01-15T10:30:00Z',
-      legalBasis: 'consent',
-      source: 'web_form',
-      metadata: {
-        ipAddress: '192.168.1.1',
-        userAgent: 'Mozilla/5.0...',
-        channel: 'website'
-      }
-    },
-    {
-      id: 'consent_2',
-      customerId: '6',
-      category: 'analytics',
-      purpose: 'Website usage analytics and performance monitoring', 
-      status: 'granted',
-      grantedAt: '2025-01-10T14:20:00Z',
-      expiresAt: '2026-01-10T14:20:00Z',
-      legalBasis: 'consent',
-      source: 'web_form',
-      metadata: {
-        ipAddress: '192.168.1.1', 
-        userAgent: 'Mozilla/5.0...',
-        channel: 'website'
-      }
-    },
-    {
-      id: 'consent_3',
-      customerId: '6',
-      category: 'functional',
-      purpose: 'Essential website functionality',
-      status: 'granted',
-      grantedAt: '2025-01-01T00:00:00Z',
-      expiresAt: null,
-      legalBasis: 'legitimate_interest',
-      source: 'system',
-      metadata: {
-        channel: 'automatic'
-      }
-    }
-  ];
-
-  // Apply filters if provided
-  let filteredConsents = consents;
-  if (status) {
-    filteredConsents = filteredConsents.filter(c => c.status === status);
+// Consent endpoints with MongoDB CRUD operations
+app.get('/api/v1/consent', verifyToken, async (req, res) => {
+  try {
+    // Handle query parameters for filtering/pagination
+    const { page = 1, limit = 10, status, category } = req.query;
+    
+    // Build filter query
+    const filter = { userId: req.user.id };
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    
+    // Get consents from MongoDB
+    const skip = (page - 1) * limit;
+    const consents = await Consent.find(filter)
+      .populate('userId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await Consent.countDocuments(filter);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        consents: consents,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: total,
+          pages: Math.ceil(total / limit)
+        }
+      },
+      service: 'consent-service',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Consent fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch consents",
+      details: error.message
+    });
   }
-  if (category) {
-    filteredConsents = filteredConsents.filter(c => c.category === category);
-  }
-
-  // Calculate pagination
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + parseInt(limit);
-  const paginatedConsents = filteredConsents.slice(startIndex, endIndex);
-
-  res.status(200).json({
-    success: true,
-    data: {
-      consents: paginatedConsents,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: filteredConsents.length,
-        pages: Math.ceil(filteredConsents.length / limit)
-      }
-    },
-    service: 'consent-service',
-    timestamp: new Date().toISOString()
-  });
 });
 
 // POST endpoint for creating consents
-app.post('/api/v1/consent', (req, res) => {
-  const { customerId, category, purpose, status = 'granted' } = req.body;
-  
-  const newConsent = {
-    id: `consent_${Date.now()}`,
-    customerId,
-    category,
-    purpose,
-    status,
-    grantedAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
-    legalBasis: 'consent',
-    source: 'api',
-    metadata: {
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent'),
-      channel: 'api'
-    }
-  };
-
-  res.status(201).json({
-    success: true,
-    data: newConsent,
-    message: 'Consent created successfully'
-  });
+app.post('/api/v1/consent', verifyToken, async (req, res) => {
+  try {
+    const { category, purpose, status = 'granted', legalBasis = 'consent' } = req.body;
+    
+    const newConsent = new Consent({
+      userId: req.user.id,
+      category,
+      purpose,
+      status,
+      legalBasis,
+      grantedAt: status === 'granted' ? new Date() : null,
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+      source: 'web_form',
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        channel: 'api'
+      }
+    });
+    
+    const savedConsent = await newConsent.save();
+    
+    res.status(201).json({
+      success: true,
+      data: savedConsent,
+      message: 'Consent created successfully'
+    });
+  } catch (error) {
+    console.error('Consent creation error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to create consent",
+      details: error.message
+    });
+  }
 });
 
 // Party endpoints
@@ -443,34 +597,345 @@ app.get('/api/v1/party', (req, res) => {
   });
 });
 
-// Preference endpoints
-app.get('/api/v1/preference', (req, res) => {
-  res.status(200).json({
-    message: 'Preference service endpoint',
-    service: 'preference-service',
-    available_endpoints: [
-      'GET /api/v1/preference',
-      'POST /api/v1/preference',
-      'GET /api/v1/preference/:id',
-      'PUT /api/v1/preference/:id',
-      'DELETE /api/v1/preference/:id'
-    ]
-  });
+// Preference endpoints with MongoDB CRUD operations
+app.get('/api/v1/preference', verifyToken, async (req, res) => {
+  try {
+    const { category } = req.query;
+    const filter = { userId: req.user.id };
+    if (category) filter.category = category;
+    
+    const preferences = await Preference.find(filter)
+      .populate('userId', 'firstName lastName email')
+      .sort({ category: 1, key: 1 });
+    
+    res.status(200).json({
+      success: true,
+      data: preferences,
+      service: 'preference-service',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Preference fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch preferences",
+      details: error.message
+    });
+  }
 });
 
-// Privacy Notice endpoints
-app.get('/api/v1/privacy-notice', (req, res) => {
-  res.status(200).json({
-    message: 'Privacy Notice service endpoint',
-    service: 'privacy-notice-service',
-    available_endpoints: [
-      'GET /api/v1/privacy-notice',
-      'POST /api/v1/privacy-notice',
-      'GET /api/v1/privacy-notice/:id',
-      'PUT /api/v1/privacy-notice/:id',
-      'DELETE /api/v1/privacy-notice/:id'
-    ]
-  });
+app.post('/api/v1/preference', verifyToken, async (req, res) => {
+  try {
+    const { category, key, value, description } = req.body;
+    
+    // Check if preference already exists, update if it does
+    const existingPreference = await Preference.findOne({
+      userId: req.user.id,
+      category,
+      key
+    });
+    
+    if (existingPreference) {
+      existingPreference.value = value;
+      existingPreference.description = description;
+      const updated = await existingPreference.save();
+      
+      return res.status(200).json({
+        success: true,
+        data: updated,
+        message: 'Preference updated successfully'
+      });
+    }
+    
+    const newPreference = new Preference({
+      userId: req.user.id,
+      category,
+      key,
+      value,
+      description
+    });
+    
+    const saved = await newPreference.save();
+    
+    res.status(201).json({
+      success: true,
+      data: saved,
+      message: 'Preference created successfully'
+    });
+  } catch (error) {
+    console.error('Preference creation error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to create preference",
+      details: error.message
+    });
+  }
+});
+
+app.get('/api/v1/preference/:id', verifyToken, async (req, res) => {
+  try {
+    const preference = await Preference.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    }).populate('userId', 'firstName lastName email');
+    
+    if (!preference) {
+      return res.status(404).json({
+        error: true,
+        message: 'Preference not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: preference
+    });
+  } catch (error) {
+    console.error('Preference fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch preference",
+      details: error.message
+    });
+  }
+});
+
+app.put('/api/v1/preference/:id', verifyToken, async (req, res) => {
+  try {
+    const { value, description } = req.body;
+    
+    const preference = await Preference.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+    
+    if (!preference) {
+      return res.status(404).json({
+        error: true,
+        message: 'Preference not found'
+      });
+    }
+    
+    preference.value = value;
+    if (description !== undefined) preference.description = description;
+    
+    const updated = await preference.save();
+    
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Preference updated successfully'
+    });
+  } catch (error) {
+    console.error('Preference update error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to update preference",
+      details: error.message
+    });
+  }
+});
+
+app.delete('/api/v1/preference/:id', verifyToken, async (req, res) => {
+  try {
+    const preference = await Preference.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+    
+    if (!preference) {
+      return res.status(404).json({
+        error: true,
+        message: 'Preference not found'
+      });
+    }
+    
+    await preference.deleteOne();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Preference deleted successfully'
+    });
+  } catch (error) {
+    console.error('Preference deletion error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to delete preference",
+      details: error.message
+    });
+  }
+});
+
+// Privacy Notice endpoints with MongoDB CRUD operations
+app.get('/api/v1/privacy-notice', async (req, res) => {
+  try {
+    const { category, status = 'active', language = 'en' } = req.query;
+    
+    const filter = { status, language };
+    if (category) filter.category = category;
+    
+    const notices = await PrivacyNotice.find(filter)
+      .sort({ effectiveDate: -1, createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: notices,
+      service: 'privacy-notice-service',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Privacy notice fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch privacy notices",
+      details: error.message
+    });
+  }
+});
+
+app.post('/api/v1/privacy-notice', verifyToken, async (req, res) => {
+  try {
+    // Only admin users can create privacy notices
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({
+        error: true,
+        message: 'Only administrators can create privacy notices'
+      });
+    }
+    
+    const { title, content, version, effectiveDate, category, language = 'en' } = req.body;
+    
+    const newNotice = new PrivacyNotice({
+      title,
+      content,
+      version,
+      effectiveDate: new Date(effectiveDate),
+      category,
+      language,
+      status: 'active'
+    });
+    
+    const saved = await newNotice.save();
+    
+    res.status(201).json({
+      success: true,
+      data: saved,
+      message: 'Privacy notice created successfully'
+    });
+  } catch (error) {
+    console.error('Privacy notice creation error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to create privacy notice",
+      details: error.message
+    });
+  }
+});
+
+app.get('/api/v1/privacy-notice/:id', async (req, res) => {
+  try {
+    const notice = await PrivacyNotice.findById(req.params.id);
+    
+    if (!notice) {
+      return res.status(404).json({
+        error: true,
+        message: 'Privacy notice not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: notice
+    });
+  } catch (error) {
+    console.error('Privacy notice fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch privacy notice",
+      details: error.message
+    });
+  }
+});
+
+app.put('/api/v1/privacy-notice/:id', verifyToken, async (req, res) => {
+  try {
+    // Only admin users can update privacy notices
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({
+        error: true,
+        message: 'Only administrators can update privacy notices'
+      });
+    }
+    
+    const { title, content, version, effectiveDate, category, status } = req.body;
+    
+    const notice = await PrivacyNotice.findById(req.params.id);
+    if (!notice) {
+      return res.status(404).json({
+        error: true,
+        message: 'Privacy notice not found'
+      });
+    }
+    
+    if (title) notice.title = title;
+    if (content) notice.content = content;
+    if (version) notice.version = version;
+    if (effectiveDate) notice.effectiveDate = new Date(effectiveDate);
+    if (category) notice.category = category;
+    if (status) notice.status = status;
+    
+    const updated = await notice.save();
+    
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Privacy notice updated successfully'
+    });
+  } catch (error) {
+    console.error('Privacy notice update error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to update privacy notice",
+      details: error.message
+    });
+  }
+});
+
+app.delete('/api/v1/privacy-notice/:id', verifyToken, async (req, res) => {
+  try {
+    // Only admin users can delete privacy notices
+    const user = await User.findById(req.user.id);
+    if (user.role !== 'admin') {
+      return res.status(403).json({
+        error: true,
+        message: 'Only administrators can delete privacy notices'
+      });
+    }
+    
+    const notice = await PrivacyNotice.findById(req.params.id);
+    if (!notice) {
+      return res.status(404).json({
+        error: true,
+        message: 'Privacy notice not found'
+      });
+    }
+    
+    await notice.deleteOne();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Privacy notice deleted successfully'
+    });
+  } catch (error) {
+    console.error('Privacy notice deletion error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to delete privacy notice",
+      details: error.message
+    });
+  }
 });
 
 // Agreement endpoints
@@ -722,19 +1187,188 @@ app.post('/api/v1/auth/logout', verifyToken, (req, res) => {
     });
 });
 
-// DSAR endpoints
-app.get('/api/v1/dsar', (req, res) => {
-  res.status(200).json({
-    message: 'DSAR service endpoint',
-    service: 'dsar-service',
-    available_endpoints: [
-      'GET /api/v1/dsar',
-      'POST /api/v1/dsar',
-      'GET /api/v1/dsar/:id',
-      'PUT /api/v1/dsar/:id',
-      'DELETE /api/v1/dsar/:id'
-    ]
-  });
+// DSAR endpoints with MongoDB CRUD operations
+app.get('/api/v1/dsar', verifyToken, async (req, res) => {
+  try {
+    const { status, requestType } = req.query;
+    
+    const filter = { userId: req.user.id };
+    if (status) filter.status = status;
+    if (requestType) filter.requestType = requestType;
+    
+    const requests = await DSARRequest.find(filter)
+      .populate('userId', 'firstName lastName email')
+      .sort({ createdAt: -1 });
+    
+    res.status(200).json({
+      success: true,
+      data: requests,
+      service: 'dsar-service',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('DSAR request fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch DSAR requests",
+      details: error.message
+    });
+  }
+});
+
+app.post('/api/v1/dsar', verifyToken, async (req, res) => {
+  try {
+    const { requestType, description, priority = 'medium' } = req.body;
+    
+    if (!requestType) {
+      return res.status(400).json({
+        error: true,
+        message: 'Request type is required'
+      });
+    }
+    
+    const newRequest = new DSARRequest({
+      userId: req.user.id,
+      requestType,
+      description,
+      priority,
+      status: 'pending',
+      submittedAt: new Date()
+    });
+    
+    const saved = await newRequest.save();
+    
+    res.status(201).json({
+      success: true,
+      data: saved,
+      message: 'DSAR request created successfully'
+    });
+  } catch (error) {
+    console.error('DSAR request creation error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to create DSAR request",
+      details: error.message
+    });
+  }
+});
+
+app.get('/api/v1/dsar/:id', verifyToken, async (req, res) => {
+  try {
+    const request = await DSARRequest.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    }).populate('userId', 'firstName lastName email');
+    
+    if (!request) {
+      return res.status(404).json({
+        error: true,
+        message: 'DSAR request not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: request
+    });
+  } catch (error) {
+    console.error('DSAR request fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch DSAR request",
+      details: error.message
+    });
+  }
+});
+
+app.put('/api/v1/dsar/:id', verifyToken, async (req, res) => {
+  try {
+    const { description, priority, status } = req.body;
+    
+    const request = await DSARRequest.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+    
+    if (!request) {
+      return res.status(404).json({
+        error: true,
+        message: 'DSAR request not found'
+      });
+    }
+    
+    // Users can only update certain fields, admins can update status
+    const user = await User.findById(req.user.id);
+    
+    if (description && request.status === 'pending') {
+      request.description = description;
+    }
+    
+    if (priority && request.status === 'pending') {
+      request.priority = priority;
+    }
+    
+    // Only admins can update status
+    if (status && user.role === 'admin') {
+      request.status = status;
+      if (status === 'completed') {
+        request.completedAt = new Date();
+      }
+    }
+    
+    const updated = await request.save();
+    
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'DSAR request updated successfully'
+    });
+  } catch (error) {
+    console.error('DSAR request update error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to update DSAR request",
+      details: error.message
+    });
+  }
+});
+
+app.delete('/api/v1/dsar/:id', verifyToken, async (req, res) => {
+  try {
+    const request = await DSARRequest.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+    
+    if (!request) {
+      return res.status(404).json({
+        error: true,
+        message: 'DSAR request not found'
+      });
+    }
+    
+    // Only allow deletion of pending requests
+    if (request.status !== 'pending') {
+      return res.status(400).json({
+        error: true,
+        message: 'Only pending requests can be deleted'
+      });
+    }
+    
+    await request.deleteOne();
+    
+    res.status(200).json({
+      success: true,
+      message: 'DSAR request deleted successfully'
+    });
+  } catch (error) {
+    console.error('DSAR request deletion error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to delete DSAR request",
+      details: error.message
+    });
+  }
 });
 
 // Customer Dashboard endpoints
@@ -863,110 +1497,160 @@ app.get('/api/v1/customer/dashboard/profile', verifyToken, async (req, res) => {
   }
 });
 
-app.get('/api/v1/customer/dashboard/consents', (req, res) => {
-  res.status(200).json({
-    success: true,
-    data: {
-      consents: [
-        {
-          id: 'consent_marketing_1',
-          category: 'marketing',
-          purpose: 'Email marketing and promotional communications',
-          status: 'granted',
-          grantedAt: '2025-01-15T10:30:00Z',
-          expiresAt: '2026-01-15T10:30:00Z',
-          canWithdraw: true
-        },
-        {
-          id: 'consent_analytics_1',
-          category: 'analytics', 
-          purpose: 'Website usage analytics and performance monitoring',
-          status: 'granted',
-          grantedAt: '2025-01-10T14:20:00Z',
-          expiresAt: '2026-01-10T14:20:00Z',
-          canWithdraw: true
-        },
-        {
-          id: 'consent_functional_1',
-          category: 'functional',
-          purpose: 'Essential website functionality and user preferences',
-          status: 'granted',
-          grantedAt: '2025-01-01T00:00:00Z',
-          expiresAt: null,
-          canWithdraw: false
-        }
-      ],
-      totalCount: 3,
-      grantedCount: 3,
-      deniedCount: 0
-    }
-  });
+app.get('/api/v1/customer/dashboard/consents', verifyToken, async (req, res) => {
+  try {
+    // Get user's consents from MongoDB
+    const consents = await Consent.find({ userId: req.user.id })
+      .sort({ createdAt: -1 });
+    
+    // Calculate counts
+    const totalCount = consents.length;
+    const grantedCount = consents.filter(c => c.status === 'granted').length;
+    const deniedCount = consents.filter(c => c.status === 'denied').length;
+    const withdrawnCount = consents.filter(c => c.status === 'withdrawn').length;
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        consents: consents.map(consent => ({
+          id: consent._id,
+          category: consent.category,
+          purpose: consent.purpose,
+          status: consent.status,
+          grantedAt: consent.grantedAt,
+          withdrawnAt: consent.withdrawnAt,
+          expiresAt: consent.expiresAt,
+          canWithdraw: consent.status === 'granted'
+        })),
+        totalCount,
+        grantedCount,
+        deniedCount,
+        withdrawnCount
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard consents fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch dashboard consents",
+      details: error.message
+    });
+  }
 });
 
-// Individual consent management endpoints
-app.get('/api/v1/consent/:id', (req, res) => {
-  const { id } = req.params;
-  
-  const consent = {
-    id,
-    customerId: '6',
-    category: 'marketing',
-    purpose: 'Email marketing and promotional offers',
-    status: 'granted',
-    grantedAt: '2025-01-15T10:30:00Z',
-    expiresAt: '2026-01-15T10:30:00Z',
-    legalBasis: 'consent',
-    source: 'web_form',
-    withdrawHistory: [],
-    metadata: {
-      ipAddress: '192.168.1.1',
-      userAgent: 'Mozilla/5.0...',
-      channel: 'website'
+// Individual consent management endpoints with MongoDB
+app.get('/api/v1/consent/:id', verifyToken, async (req, res) => {
+  try {
+    const consent = await Consent.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    }).populate('userId', 'firstName lastName email');
+    
+    if (!consent) {
+      return res.status(404).json({
+        error: true,
+        message: 'Consent not found'
+      });
     }
-  };
-
-  res.status(200).json({
-    success: true,
-    data: consent
-  });
+    
+    res.status(200).json({
+      success: true,
+      data: consent
+    });
+  } catch (error) {
+    console.error('Consent fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch consent",
+      details: error.message
+    });
+  }
 });
 
-app.put('/api/v1/consent/:id', (req, res) => {
-  const { id } = req.params;
-  const { status, purpose } = req.body;
-  
-  const updatedConsent = {
-    id,
-    customerId: '6',
-    category: 'marketing',
-    purpose: purpose || 'Email marketing and promotional offers',
-    status: status || 'granted',
-    grantedAt: '2025-01-15T10:30:00Z',
-    updatedAt: new Date().toISOString(),
-    expiresAt: '2026-01-15T10:30:00Z',
-    legalBasis: 'consent',
-    source: 'api_update'
-  };
-
-  res.status(200).json({
-    success: true,
-    data: updatedConsent,
-    message: 'Consent updated successfully'
-  });
+app.put('/api/v1/consent/:id', verifyToken, async (req, res) => {
+  try {
+    const { status, purpose } = req.body;
+    
+    const consent = await Consent.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+    
+    if (!consent) {
+      return res.status(404).json({
+        error: true,
+        message: 'Consent not found'
+      });
+    }
+    
+    if (status) {
+      consent.status = status;
+      if (status === 'granted') {
+        consent.grantedAt = new Date();
+        consent.withdrawnAt = null;
+      } else if (status === 'withdrawn') {
+        consent.withdrawnAt = new Date();
+      }
+    }
+    
+    if (purpose) {
+      consent.purpose = purpose;
+    }
+    
+    const updated = await consent.save();
+    
+    res.status(200).json({
+      success: true,
+      data: updated,
+      message: 'Consent updated successfully'
+    });
+  } catch (error) {
+    console.error('Consent update error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to update consent",
+      details: error.message
+    });
+  }
 });
 
-app.delete('/api/v1/consent/:id', (req, res) => {
-  const { id } = req.params;
-  
-  res.status(200).json({
-    success: true,
-    message: `Consent ${id} withdrawn successfully`,
-    data: {
-      id,
-      status: 'withdrawn',
-      withdrawnAt: new Date().toISOString()
+app.delete('/api/v1/consent/:id', verifyToken, async (req, res) => {
+  try {
+    const consent = await Consent.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+    
+    if (!consent) {
+      return res.status(404).json({
+        error: true,
+        message: 'Consent not found'
+      });
     }
-  });
+    
+    // Instead of deleting, withdraw the consent
+    consent.status = 'withdrawn';
+    consent.withdrawnAt = new Date();
+    
+    const updated = await consent.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Consent withdrawn successfully',
+      data: {
+        id: updated._id,
+        status: updated.status,
+        withdrawnAt: updated.withdrawnAt
+      }
+    });
+  } catch (error) {
+    console.error('Consent withdrawal error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to withdraw consent",
+      details: error.message
+    });
+  }
 });
 
 // Root endpoint
