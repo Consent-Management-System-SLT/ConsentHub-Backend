@@ -738,75 +738,129 @@ app.get('/api/v1/dsar', (req, res) => {
 });
 
 // Customer Dashboard endpoints
-app.get('/api/v1/customer/dashboard/overview', (req, res) => {
-  res.status(200).json({
-    success: true,
-    data: {
-      totalConsents: 15,
-      activeConsents: 12,
-      pendingConsents: 2,
-      expiredConsents: 1,
-      recentActivity: [
-        {
-          id: '1',
-          type: 'consent_updated',
-          description: 'Marketing consent updated',
-          timestamp: new Date().toISOString(),
-          status: 'completed'
-        },
-        {
-          id: '2', 
-          type: 'consent_granted',
-          description: 'Analytics consent granted',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          status: 'completed'
-        }
-      ],
-      consentsByCategory: {
-        marketing: { granted: 8, denied: 2 },
-        analytics: { granted: 6, denied: 4 },
-        functional: { granted: 10, denied: 0 },
-        necessary: { granted: 10, denied: 0 }
-      }
+app.get('/api/v1/customer/dashboard/overview', verifyToken, async (req, res) => {
+  try {
+    // Get the authenticated user from MongoDB
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        error: true, 
+        message: "User not found" 
+      });
     }
-  });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        userInfo: {
+          name: user.name,
+          email: user.email,
+          memberSince: user.createdAt,
+          lastLogin: user.lastLoginAt
+        },
+        totalConsents: 15,
+        activeConsents: 12,
+        pendingConsents: 2,
+        expiredConsents: 1,
+        recentActivity: [
+          {
+            id: '1',
+            type: 'consent_updated',
+            description: 'Marketing consent updated',
+            timestamp: new Date().toISOString(),
+            status: 'completed'
+          },
+          {
+            id: '2', 
+            type: 'consent_granted',
+            description: 'Analytics consent granted',
+            timestamp: new Date(Date.now() - 3600000).toISOString(),
+            status: 'completed'
+          }
+        ],
+        consentsByCategory: {
+          marketing: { granted: 8, denied: 2 },
+          analytics: { granted: 6, denied: 4 },
+          functional: { granted: 10, denied: 0 },
+          necessary: { granted: 10, denied: 0 }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard overview fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch dashboard data",
+      details: error.message
+    });
+  }
 });
 
-app.get('/api/v1/customer/dashboard/profile', (req, res) => {
-  res.status(200).json({
-    success: true,
-    data: {
-      id: '6',
-      email: 'ojitharajapaksha@example.com',
-      name: 'Ojitha Rajapaksha',
-      phone: '+94775878565',
-      preferences: {
-        language: 'en',
-        timezone: 'Asia/Colombo',
-        notifications: {
-          email: true,
-          sms: false,
-          push: true
-        }
-      },
-      consentHistory: [
-        {
-          id: 'consent_1',
-          category: 'marketing',
-          status: 'granted',
-          grantedAt: new Date(Date.now() - 86400000).toISOString(),
-          purpose: 'Email marketing and promotional offers'
-        },
-        {
-          id: 'consent_2',
-          category: 'analytics',
-          status: 'granted', 
-          grantedAt: new Date(Date.now() - 172800000).toISOString(),
-          purpose: 'Website analytics and performance tracking'
-        }
-      ]
+app.get('/api/v1/customer/dashboard/profile', verifyToken, async (req, res) => {
+  try {
+    // Get the authenticated user from MongoDB
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        error: true, 
+        message: "User not found" 
+      });
     }
-  });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        company: user.company || "Not provided",
+        department: user.department || "Not provided",
+        jobTitle: user.jobTitle || "Not provided",
+        address: user.address || "Not provided",
+        memberSince: user.createdAt,
+        accountStatus: user.status,
+        emailVerified: user.emailVerified,
+        lastLoginAt: user.lastLoginAt,
+        preferences: {
+          language: user.language || 'en',
+          timezone: 'Asia/Colombo',
+          notifications: {
+            email: true,
+            sms: false,
+            push: true
+          }
+        },
+        consentHistory: [
+          {
+            id: 'consent_1',
+            category: 'marketing',
+            status: 'granted',
+            grantedAt: new Date(Date.now() - 86400000).toISOString(),
+            purpose: 'Email marketing and promotional offers'
+          },
+          {
+            id: 'consent_2',
+            category: 'analytics',
+            status: 'granted', 
+            grantedAt: new Date(Date.now() - 172800000).toISOString(),
+            purpose: 'Website analytics and performance tracking'
+          }
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard profile fetch error:', error);
+    res.status(500).json({
+      error: true,
+      message: "Failed to fetch profile data",
+      details: error.message
+    });
+  }
 });
 
 app.get('/api/v1/customer/dashboard/consents', (req, res) => {
