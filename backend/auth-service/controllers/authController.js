@@ -1,8 +1,9 @@
 const admin = require('firebase-admin');
 const UserProfile = require('../models/UserProfile');
-const Party = require('../../csr-service/models/Party');  // <-- Import Party model
+// const Party = require('../../csr-service/models/Party');  // <-- Import Party model
 const { createAuditLog } = require('../../shared/utils/auditLogger');
 const { publishEvent } = require('../../shared/utils/eventPublisher');
+const { createPartyForCustomer } = require('../../csr-service/controllers/partyController');
 
 class AuthController {
   // Initialize Firebase Admin SDK
@@ -196,25 +197,15 @@ class AuthController {
 
       // 🌟 Create corresponding Party if role is customer
       let partyId = null;
-      if (role === 'customer') {
-        const party = new Party({
-          name: displayName || email,
-          email: email,
-          phone: phoneNumber,
-          type: 'individual',
-          status: 'active',
-          preferences: {
-            language: 'en',
-            timezone: 'Asia/Colombo'
-          },
-          metadata: {
-            source: 'firebase'
-          }
-        });
-
-        const savedParty = await party.save();
-        partyId = savedParty.id;
-      }
+   if (role === 'customer') {
+  const savedParty = await createPartyForCustomer({
+    email,
+    displayName,
+    phoneNumber,
+    createdBy: req.user?.uid
+  });
+  partyId = savedParty.id;
+}
 
       // Create user profile
       const userProfile = new UserProfile({

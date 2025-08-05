@@ -1,7 +1,48 @@
 const Party = require('../models/Party');
 const AuditLog = require('../models/AuditLog');
 const { logger } = require('../../shared/utils');
+const { createAuditLog } = require('../../shared/utils/auditLogger');
+const createPartyForCustomer = async ({ email, displayName, phoneNumber, createdBy }) => {
+  try {
+    const party = new Party({
+      name: displayName || email,
+      email,
+      phone: phoneNumber,
+      type: 'individual',
+      status: 'active',
+      preferences: {
+        language: 'en',
+        timezone: 'Asia/Colombo'
+      },
+      metadata: {
+        source: 'firebase'
+      },
+      createdBy
+    });
 
+    const savedParty = await party.save();
+
+    // Optional: audit log
+    await createAuditLog({
+      action: 'PARTY_CREATED',
+      userId: createdBy || 'system',
+      service: 'auth-service',
+      details: {
+        partyId: savedParty.id,
+        email
+      }
+    });
+
+    return savedParty;
+  } catch (error) {
+    console.error('Error creating party:', error);
+    throw new Error('Failed to create party');
+  }
+};
+
+module.exports = {
+  createPartyForCustomer
+};
 exports.getAllParties = async (req, res) => {
   try {
     const { type, status, search, limit = 50, offset = 0 } = req.query;

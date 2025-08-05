@@ -12,7 +12,7 @@ router.get('/:id', dsarController.getDSARRequestById);
 router.post('/', dsarController.createDSARRequest);
 
 // Update a DSAR request by ID
-router.patch('/:id', dsarController.updateDSARRequest);
+router.patch('/:id', dsarController.updateDSAR);
 
 // Delete a DSAR request by ID
 router.delete('/:id', dsarController.deleteDSARRequest);
