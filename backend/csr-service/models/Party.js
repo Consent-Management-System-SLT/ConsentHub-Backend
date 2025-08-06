@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const partyDb = require('../db/partyDb'); 
 
 const partySchema = new mongoose.Schema({
   id: {
@@ -107,4 +108,4 @@ partySchema.set('toJSON', {
   }
 });
 
-module.exports = mongoose.model('Party', partySchema);
+module.exports = partyDb.model('Party', partySchema);

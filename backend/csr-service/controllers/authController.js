@@ -1,9 +1,7 @@
 const admin = require('firebase-admin');
 const UserProfile = require('../models/UserProfile');
-// const Party = require('../../csr-service/models/Party');  // <-- Import Party model
 const { createAuditLog } = require('../../shared/utils/auditLogger');
 const { publishEvent } = require('../../shared/utils/eventPublisher');
-const { createPartyForCustomer } = require('../../csr-service/controllers/partyController');
 
 class AuthController {
   // Initialize Firebase Admin SDK
@@ -171,7 +169,7 @@ class AuthController {
     }
   }
 
-  // Create new user account (with Party creation for customers)
+  // Create new user account
   async createUser(req, res) {
     try {
       const { email, password, displayName, phoneNumber, role = 'customer' } = req.body;
@@ -195,18 +193,6 @@ class AuthController {
         emailVerified: false
       });
 
-      // 🌟 Create corresponding Party if role is customer
-      let partyId = null;
-   if (role === 'customer') {
-  const savedParty = await createPartyForCustomer({
-    email,
-    displayName,
-    phoneNumber,
-    createdBy: req.user?.uid
-  });
-  partyId = savedParty.id;
-}
-
       // Create user profile
       const userProfile = new UserProfile({
         firebaseUid: userRecord.uid,
@@ -217,7 +203,6 @@ class AuthController {
         displayName: displayName,
         role: role,
         status: 'pending_verification',
-        partyId: partyId,
         createdBy: req.user?.uid
       });
 
@@ -226,8 +211,7 @@ class AuthController {
       // Set custom claims
       const customClaims = {
         role: role,
-        status: 'pending_verification',
-        partyId: partyId
+        status: 'pending_verification'
       };
 
       await admin.auth().setCustomUserClaims(userRecord.uid, customClaims);
@@ -253,7 +237,6 @@ class AuthController {
           userId: userRecord.uid,
           email: email,
           role: role,
-          partyId: partyId,
           createdBy: req.user?.uid
         }
       });
@@ -265,7 +248,6 @@ class AuthController {
           email: email,
           displayName: displayName,
           role: role,
-          partyId: partyId,
           status: 'pending_verification'
         }
       });

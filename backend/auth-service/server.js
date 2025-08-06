@@ -6,7 +6,7 @@ const { connectDB } = require('../shared/config/database');
 const authRoutes = require('./routes/authRoutes');
 const authController = require('./controllers/authController');
 const logger = require('../shared/utils/logger');
-
+const partyRoutes = require('./routes/partyRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -49,6 +49,8 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/party', partyRoutes);
+app.use('/api/v1/parties', partyRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
