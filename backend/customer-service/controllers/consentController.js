@@ -172,36 +172,69 @@ class CustomerConsentController {
     }
   }
 
-  // Grant consent
+  // Grant consent (can be new consent or re-granting revoked consent)
   async grantConsent(req, res) {
     try {
-      const { purpose, consentType, description } = req.body;
+      const { purpose, consentType, description, consentId } = req.body;
+      const customerId = req.customer.customerId;
       
-      // Mock response for granting consent
-      const mockResponse = {
-        id: Date.now().toString(),
-        purpose,
-        consentType,
-        description,
-        status: 'granted',
-        grantedDate: new Date().toISOString(),
-        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        channel: 'web',
-        jurisdiction: 'LK',
-        legalBasis: 'consent',
-        lastModified: new Date().toISOString(),
-        version: '1.0'
-      };
+      logger.info(`Granting consent - ID: ${consentId}, Customer: ${customerId}`);
+      
+      // If consentId is provided, we're re-granting an existing consent
+      if (consentId) {
+        // Mock response for re-granting existing consent
+        const mockResponse = {
+          id: consentId,
+          purpose: purpose || 'Data Processing',
+          status: 'granted',
+          consentType: consentType || 'explicit',
+          description: description || 'Consent granted by customer',
+          grantedDate: new Date().toISOString(),
+          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          channel: 'web',
+          jurisdiction: 'LK',
+          legalBasis: 'consent',
+          categories: ['data-processing'],
+          lastModified: new Date().toISOString(),
+          version: '1.0',
+          revokedDate: null // Clear revoked date
+        };
 
-      res.json({
-        success: true,
-        data: mockResponse,
-        message: 'Consent granted successfully'
-      });
+        res.json({
+          success: true,
+          data: mockResponse,
+          message: 'Consent granted successfully'
+        });
+      } else {
+        // Create new consent
+        const mockResponse = {
+          id: Date.now().toString(),
+          purpose: purpose || 'Data Processing',
+          consentType: consentType || 'explicit',
+          description: description || 'New consent granted by customer',
+          status: 'granted',
+          grantedDate: new Date().toISOString(),
+          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          channel: 'web',
+          jurisdiction: 'LK',
+          legalBasis: 'consent',
+          categories: ['data-processing'],
+          lastModified: new Date().toISOString(),
+          version: '1.0'
+        };
+
+        res.json({
+          success: true,
+          data: mockResponse,
+          message: 'New consent granted successfully'
+        });
+      }
     } catch (error) {
       logger.error('Error granting consent:', error);
       res.status(500).json({
-        error: 'Failed to grant consent'
+        success: false,
+        error: 'Failed to grant consent',
+        message: error.message
       });
     }
   }
@@ -240,17 +273,56 @@ class CustomerConsentController {
     }
   }
 
+  // Grant consent for specific consent ID
+  async grantConsentById(req, res) {
+    try {
+      const consentId = req.params.id;
+      const customerId = req.customer.customerId;
+      const { notes } = req.body || {};
+      
+      logger.info(`Granting consent by ID - ID: ${consentId}, Customer: ${customerId}`);
+      
+      // Mock response for granting existing consent
+      const mockResponse = {
+        id: consentId,
+        status: 'granted',
+        grantedDate: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+        notes: notes || 'Granted by customer',
+        revokedDate: null // Clear revoked date
+      };
+
+      res.json({
+        success: true,
+        data: mockResponse,
+        message: 'Consent granted successfully'
+      });
+    } catch (error) {
+      logger.error('Error granting consent by ID:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to grant consent',
+        message: error.message
+      });
+    }
+  }
+
   // Revoke consent
   async revokeConsent(req, res) {
     try {
       const consentId = req.params.id;
+      const customerId = req.customer.customerId;
+      const { reason } = req.body || {};
+      
+      logger.info(`Revoking consent - ID: ${consentId}, Customer: ${customerId}`);
       
       // Mock response for revoking consent
       const mockResponse = {
         id: consentId,
         status: 'revoked',
         revokedDate: new Date().toISOString(),
-        lastModified: new Date().toISOString()
+        lastModified: new Date().toISOString(),
+        reason: reason || 'Revoked by customer'
       };
 
       res.json({
@@ -261,7 +333,9 @@ class CustomerConsentController {
     } catch (error) {
       logger.error('Error revoking consent:', error);
       res.status(500).json({
-        error: 'Failed to revoke consent'
+        success: false,
+        error: 'Failed to revoke consent',
+        message: error.message
       });
     }
   }
