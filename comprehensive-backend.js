@@ -7794,27 +7794,6 @@ app.post("/api/v1/customer/dsar", verifyToken, async (req, res) => {
         });
     }
 });
-        
-        // Get customer-specific DSAR requests
-        const { getCustomerIsolatedData } = require('./customer-data-provisioning');
-        const dsarRequests = await getCustomerIsolatedData(req.user.id, 'dsar_requests');
-        
-        console.log(`Found ${dsarRequests.length} DSAR requests for customer ${req.user.id}`);
-        
-        res.json({
-            success: true,
-            data: {
-                requests: dsarRequests
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching DSAR requests:', error);
-        res.status(500).json({
-            error: true,
-            message: 'Internal server error'
-        });
-    }
-});
 
 // Consent Management
 app.get("/api/v1/consent", verifyToken, async (req, res) => {
