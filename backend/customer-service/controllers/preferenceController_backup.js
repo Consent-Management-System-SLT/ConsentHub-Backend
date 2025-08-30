@@ -72,51 +72,73 @@ class CustomerPreferenceController {
         
         // Fallback to mock data if database query fails
         preferences = [
-          {
-            id: '1',
-            preferenceType: 'communication',
-            channelType: 'email',
-            isAllowed: true,
-            description: 'Email notifications for account updates',
-            category: 'notifications',
-            frequency: 'immediate',
-            lastModified: '2024-01-15T10:30:00Z',
-            version: '1.0'
-          },
-          {
-            id: '2',
-            preferenceType: 'communication',
-            channelType: 'sms',
-            isAllowed: true,
-            description: 'SMS notifications for urgent updates',
-            category: 'notifications',
-            frequency: 'immediate',
-            lastModified: '2024-01-15T10:30:00Z',
-            version: '1.0'
-          },
-          {
-            id: '3',
-            preferenceType: 'marketing',
-            channelType: 'email',
-            isAllowed: false,
-            description: 'Marketing emails and promotional content',
-            category: 'marketing',
-            frequency: 'weekly',
-            lastModified: '2024-02-01T09:15:00Z',
-            version: '1.0'
-          },
-          {
-            id: '4',
-            preferenceType: 'marketing',
-            channelType: 'push',
-            isAllowed: true,
-            description: 'Push notifications for special offers',
-            category: 'marketing',
-            frequency: 'daily',
-            lastModified: '2024-01-15T10:30:00Z',
-            version: '1.0'
-          }
-        ];
+        {
+          id: '1',
+          preferenceType: 'communication',
+          channelType: 'email',
+          isAllowed: true,
+          description: 'Email notifications for account updates',
+          category: 'notifications',
+          frequency: 'immediate',
+          lastModified: '2024-01-15T10:30:00Z',
+          version: '1.0'
+        },
+        {
+          id: '2',
+          preferenceType: 'communication',
+          channelType: 'sms',
+          isAllowed: true,
+          description: 'SMS notifications for urgent updates',
+          category: 'notifications',
+          frequency: 'immediate',
+          lastModified: '2024-01-15T10:30:00Z',
+          version: '1.0'
+        },
+        {
+          id: '3',
+          preferenceType: 'marketing',
+          channelType: 'email',
+          isAllowed: false,
+          description: 'Marketing emails and promotional content',
+          category: 'marketing',
+          frequency: 'weekly',
+          lastModified: '2024-02-01T09:15:00Z',
+          version: '1.0'
+        },
+        {
+          id: '4',
+          preferenceType: 'marketing',
+          channelType: 'push',
+          isAllowed: true,
+          description: 'Push notifications for special offers',
+          category: 'marketing',
+          frequency: 'daily',
+          lastModified: '2024-01-15T10:30:00Z',
+          version: '1.0'
+        },
+        {
+          id: '5',
+          preferenceType: 'data_usage',
+          channelType: 'web',
+          isAllowed: true,
+          description: 'Website personalization based on usage data',
+          category: 'personalization',
+          frequency: 'continuous',
+          lastModified: '2024-01-15T10:30:00Z',
+          version: '1.0'
+        },
+        {
+          id: '6',
+          preferenceType: 'data_usage',
+          channelType: 'mobile',
+          isAllowed: false,
+          description: 'Mobile app analytics and usage tracking',
+          category: 'analytics',
+          frequency: 'continuous',
+          lastModified: '2024-03-10T14:20:00Z',
+          version: '1.0'
+        }
+      ];
       }
 
       // Apply filters
@@ -166,6 +188,13 @@ class CustomerPreferenceController {
           }
         }
       });
+              communication: mockPreferences.filter(p => p.preferenceType === 'communication').length,
+              marketing: mockPreferences.filter(p => p.preferenceType === 'marketing').length,
+              data_usage: mockPreferences.filter(p => p.preferenceType === 'data_usage').length
+            }
+          }
+        }
+      });
     } catch (error) {
       logger.error('Error fetching customer preferences:', error);
       res.status(500).json({
@@ -177,22 +206,44 @@ class CustomerPreferenceController {
   // Get specific preference by ID
   async getPreferenceById(req, res) {
     try {
-      const customerId = req.customer.id || req.customer.customerId;
+      const customerId = req.customer.customerId;
+      
+      // Filter preferences by customer ID
+      const customerPreferences = mockPreferences.filter(pref => pref.customerId === customerId);
+      
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedPreferences = customerPreferences.slice(startIndex, endIndex);
+      
+      res.json({
+        success: true,
+        data: paginatedPreferences,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(customerPreferences.length / limit),
+          totalItems: customerPreferences.length,
+          itemsPerPage: limit
+        }
+      });
+    } catch (error) {
+      logger.error('Error fetching customer preferences:', error);
+      res.status(500).json({
+        error: 'Failed to retrieve preferences'
+      });
+    }
+  }
+
+  // Get specific preference by ID
+  async getPreferenceById(req, res) {
+    try {
+      const customerId = req.customer.id;
       const preferenceId = req.params.id;
 
-      // Try CSR Preference model first
-      let preference = await Preference.findOne({
+      const preference = await Preference.findOne({
         _id: preferenceId,
         partyId: customerId
       }).select('-__v');
-
-      // If not found, try UserPreference model
-      if (!preference) {
-        preference = await UserPreference.findOne({
-          _id: preferenceId,
-          $or: [{ partyId: customerId }, { userId: customerId }]
-        }).populate('preferenceId', 'name description type').select('-__v');
-      }
 
       if (!preference) {
         return res.status(404).json({
@@ -280,22 +331,18 @@ class CustomerPreferenceController {
         await existingPreference.save();
 
         // Log the action
-        try {
-          await AuditLog.create({
-            partyId: customerId,
-            action: 'updated',
-            entityType: 'preference',
-            entityId: existingPreference._id,
-            details: `Communication preferences updated`,
-            metadata: {
-              preferenceType: 'communication',
-              changes: req.body,
-              timestamp: new Date()
-            }
-          });
-        } catch (auditError) {
-          logger.warn('Audit log creation failed:', auditError.message);
-        }
+        await AuditLog.create({
+          partyId: customerId,
+          action: 'updated',
+          entityType: 'preference',
+          entityId: existingPreference._id,
+          details: `Communication preferences updated`,
+          metadata: {
+            preferenceType: 'communication',
+            changes: req.body,
+            timestamp: new Date()
+          }
+        });
 
         logger.info('Communication preferences updated', { 
           customerId, 
@@ -312,7 +359,9 @@ class CustomerPreferenceController {
 
       // Check if individual preference already exists
       existingPreference = await Preference.findOne({
-        partyId: customerId
+        partyId: customerId,
+        // Note: CSR Preference model doesn't have preferenceType/channelType
+        // This is for compatibility with the legacy API
       });
 
       if (existingPreference && preferenceType && channelType) {
@@ -332,23 +381,19 @@ class CustomerPreferenceController {
         await existingPreference.save();
 
         // Log the action
-        try {
-          await AuditLog.create({
-            partyId: customerId,
-            action: 'updated',
-            entityType: 'preference',
-            entityId: existingPreference._id,
-            details: `Preference updated for ${preferenceType} via ${channelType}`,
-            metadata: {
-              preferenceType,
-              channelType,
-              isAllowed,
-              timestamp: new Date()
-            }
-          });
-        } catch (auditError) {
-          logger.warn('Audit log creation failed:', auditError.message);
-        }
+        await AuditLog.create({
+          partyId: customerId,
+          action: 'updated',
+          entityType: 'preference',
+          entityId: existingPreference._id,
+          details: `Preference updated for ${preferenceType} via ${channelType}`,
+          metadata: {
+            preferenceType,
+            channelType,
+            isAllowed,
+            timestamp: new Date()
+          }
+        });
 
         logger.info('Individual preference updated', { 
           customerId, 
@@ -398,23 +443,19 @@ class CustomerPreferenceController {
       await newPreference.save();
 
       // Log the action
-      try {
-        await AuditLog.create({
-          partyId: customerId,
-          action: 'created',
-          entityType: 'preference',
-          entityId: newPreference._id,
-          details: `New communication preferences created`,
-          metadata: {
-            preferenceType: preferenceType || 'communication',
-            channelType: channelType || 'all',
-            isAllowed: isAllowed !== undefined ? isAllowed : true,
-            timestamp: new Date()
-          }
-        });
-      } catch (auditError) {
-        logger.warn('Audit log creation failed:', auditError.message);
-      }
+      await AuditLog.create({
+        partyId: customerId,
+        action: 'created',
+        entityType: 'preference',
+        entityId: newPreference._id,
+        details: `New communication preferences created`,
+        metadata: {
+          preferenceType: preferenceType || 'communication',
+          channelType: channelType || 'all',
+          isAllowed: isAllowed !== undefined ? isAllowed : true,
+          timestamp: new Date()
+        }
+      });
 
       logger.info('New communication preferences created', { 
         customerId, 
@@ -548,7 +589,7 @@ class CustomerPreferenceController {
   // Update preference
   async updatePreference(req, res) {
     try {
-      const customerId = req.customer.id || req.customer.customerId;
+      const customerId = req.customer.id;
       const preferenceId = req.params.id;
       const updates = req.body;
 
@@ -561,19 +602,10 @@ class CustomerPreferenceController {
         });
       }
 
-      // Try CSR Preference model first
-      let preference = await Preference.findOne({
+      const preference = await Preference.findOne({
         _id: preferenceId,
         partyId: customerId
       });
-
-      if (!preference) {
-        // Try UserPreference model
-        preference = await UserPreference.findOne({
-          _id: preferenceId,
-          $or: [{ partyId: customerId }, { userId: customerId }]
-        });
-      }
 
       if (!preference) {
         return res.status(404).json({
@@ -582,7 +614,11 @@ class CustomerPreferenceController {
       }
 
       // Store previous values for audit
-      const previousValues = preference.toObject ? preference.toObject() : preference;
+      const previousValues = {
+        isAllowed: preference.isAllowed,
+        description: preference.description,
+        validFor: preference.validFor
+      };
 
       // Update fields
       Object.assign(preference, updates);
@@ -591,22 +627,20 @@ class CustomerPreferenceController {
       await preference.save();
 
       // Log the action
-      try {
-        await AuditLog.create({
-          partyId: customerId,
-          action: 'updated',
-          entityType: 'preference',
-          entityId: preference._id,
-          details: `Preference updated`,
-          metadata: {
-            previousValues,
-            newValues: updates,
-            timestamp: new Date()
-          }
-        });
-      } catch (auditError) {
-        logger.warn('Audit log creation failed:', auditError.message);
-      }
+      await AuditLog.create({
+        partyId: customerId,
+        action: 'updated',
+        entityType: 'preference',
+        entityId: preference._id,
+        details: `Preference updated for ${preference.preferenceType} via ${preference.channelType}`,
+        metadata: {
+          preferenceType: preference.preferenceType,
+          channelType: preference.channelType,
+          previousValues,
+          newValues: updates,
+          timestamp: new Date()
+        }
+      });
 
       logger.info('Preference updated', { 
         customerId, 
@@ -629,22 +663,13 @@ class CustomerPreferenceController {
   // Delete preference
   async deletePreference(req, res) {
     try {
-      const customerId = req.customer.id || req.customer.customerId;
+      const customerId = req.customer.id;
       const preferenceId = req.params.id;
 
-      // Try CSR Preference model first
-      let preference = await Preference.findOne({
+      const preference = await Preference.findOne({
         _id: preferenceId,
         partyId: customerId
       });
-
-      if (!preference) {
-        // Try UserPreference model
-        preference = await UserPreference.findOne({
-          _id: preferenceId,
-          $or: [{ partyId: customerId }, { userId: customerId }]
-        });
-      }
 
       if (!preference) {
         return res.status(404).json({
@@ -652,28 +677,28 @@ class CustomerPreferenceController {
         });
       }
 
-      await preference.deleteOne();
+      await Preference.findByIdAndDelete(preferenceId);
 
       // Log the action
-      try {
-        await AuditLog.create({
-          partyId: customerId,
-          action: 'deleted',
-          entityType: 'preference',
-          entityId: preferenceId,
-          details: `Preference deleted`,
-          metadata: {
-            deletedPreference: preference.toObject ? preference.toObject() : preference,
-            timestamp: new Date()
-          }
-        });
-      } catch (auditError) {
-        logger.warn('Audit log creation failed:', auditError.message);
-      }
+      await AuditLog.create({
+        partyId: customerId,
+        action: 'deleted',
+        entityType: 'preference',
+        entityId: preferenceId,
+        details: `Preference deleted for ${preference.preferenceType} via ${preference.channelType}`,
+        metadata: {
+          preferenceType: preference.preferenceType,
+          channelType: preference.channelType,
+          deletedPreference: preference.toObject(),
+          timestamp: new Date()
+        }
+      });
 
       logger.info('Preference deleted', { 
         customerId, 
-        preferenceId
+        preferenceId,
+        preferenceType: preference.preferenceType,
+        channelType: preference.channelType
       });
 
       res.json({
@@ -691,55 +716,48 @@ class CustomerPreferenceController {
   // Get preference summary grouped by type
   async getPreferenceSummary(req, res) {
     try {
-      const customerId = req.customer.id || req.customer.customerId;
+      const customerId = req.customer.id;
 
-      // Get preferences from both models
-      const csrPreferences = await Preference.find({ partyId: customerId });
-      const userPreferences = await UserPreference.find({ 
-        $or: [{ partyId: customerId }, { userId: customerId }]
-      }).populate('preferenceId', 'name type');
-
-      // Build summary
-      const summary = {
-        communication: { total: 0, enabled: 0, channels: [] },
-        marketing: { total: 0, enabled: 0, channels: [] },
-        data_usage: { total: 0, enabled: 0, channels: [] }
-      };
-
-      // Process CSR preferences
-      csrPreferences.forEach(pref => {
-        if (pref.preferredChannels) {
-          Object.entries(pref.preferredChannels).forEach(([channel, enabled]) => {
-            summary.communication.total++;
-            if (enabled) {
-              summary.communication.enabled++;
-              summary.communication.channels.push(channel);
-            }
-          });
-        }
-        
-        if (pref.topicSubscriptions) {
-          if (pref.topicSubscriptions.marketing) {
-            summary.marketing.enabled++;
+      const summary = await Preference.aggregate([
+        { $match: { partyId: customerId } },
+        {
+          $group: {
+            _id: {
+              preferenceType: '$preferenceType',
+              isAllowed: '$isAllowed'
+            },
+            count: { $sum: 1 },
+            channels: { $addToSet: '$channelType' },
+            latestDate: { $max: '$updatedAt' }
           }
-          summary.marketing.total++;
-        }
-      });
-
-      // Process user preferences
-      userPreferences.forEach(pref => {
-        const type = pref.preferenceId?.type || 'communication';
-        if (summary[type]) {
-          summary[type].total++;
-          if (pref.value) {
-            summary[type].enabled++;
+        },
+        {
+          $group: {
+            _id: '$_id.preferenceType',
+            settings: {
+              $push: {
+                isAllowed: '$_id.isAllowed',
+                count: '$count',
+                channels: '$channels',
+                latestDate: '$latestDate'
+              }
+            },
+            totalCount: { $sum: '$count' }
           }
+        },
+        {
+          $sort: { _id: 1 }
         }
-      });
+      ]);
 
       res.json({
         success: true,
-        data: summary
+        data: summary.map(item => ({
+          preferenceType: item._id,
+          totalCount: item.totalCount,
+          settings: item.settings,
+          lastUpdated: Math.max(...item.settings.map(s => s.latestDate))
+        }))
       });
     } catch (error) {
       logger.error('Error fetching preference summary:', error);
@@ -752,44 +770,44 @@ class CustomerPreferenceController {
   // Get preferences organized by channel type
   async getPreferencesByChannel(req, res) {
     try {
-      const customerId = req.customer.id || req.customer.customerId;
+      const customerId = req.customer.id;
 
-      const preferences = await Preference.find({ partyId: customerId });
-
-      const channelPreferences = {
-        email: { preferences: [], totalCount: 0, allowedCount: 0 },
-        sms: { preferences: [], totalCount: 0, allowedCount: 0 },
-        push: { preferences: [], totalCount: 0, allowedCount: 0 },
-        phone: { preferences: [], totalCount: 0, allowedCount: 0 },
-        mail: { preferences: [], totalCount: 0, allowedCount: 0 }
-      };
-
-      preferences.forEach(pref => {
-        if (pref.preferredChannels) {
-          Object.entries(pref.preferredChannels).forEach(([channel, enabled]) => {
-            if (channelPreferences[channel]) {
-              channelPreferences[channel].totalCount++;
-              if (enabled) {
-                channelPreferences[channel].allowedCount++;
+      const preferences = await Preference.aggregate([
+        { $match: { partyId: customerId } },
+        {
+          $group: {
+            _id: '$channelType',
+            preferences: {
+              $push: {
+                id: '$_id',
+                preferenceType: '$preferenceType',
+                isAllowed: '$isAllowed',
+                description: '$description',
+                validFor: '$validFor',
+                updatedAt: '$updatedAt'
               }
-              channelPreferences[channel].preferences.push({
-                id: pref._id,
-                isAllowed: enabled,
-                description: `${channel.charAt(0).toUpperCase() + channel.slice(1)} communication`,
-                updatedAt: pref.updatedAt
-              });
+            },
+            totalCount: { $sum: 1 },
+            allowedCount: {
+              $sum: {
+                $cond: ['$isAllowed', 1, 0]
+              }
             }
-          });
+          }
+        },
+        {
+          $sort: { _id: 1 }
         }
-      });
+      ]);
 
       res.json({
         success: true,
-        data: Object.entries(channelPreferences).map(([channel, data]) => ({
-          channelType: channel,
-          totalCount: data.totalCount,
-          allowedCount: data.allowedCount,
-          preferences: data.preferences
+        data: preferences.map(channel => ({
+          channelType: channel._id,
+          totalCount: channel.totalCount,
+          allowedCount: channel.allowedCount,
+          deniedCount: channel.totalCount - channel.allowedCount,
+          preferences: channel.preferences
         }))
       });
     } catch (error) {
@@ -801,14 +819,21 @@ class CustomerPreferenceController {
   }
 }
 
-// Validation middleware for preference operations
-const preferenceValidation = [
-  body('preferenceType').optional().isIn(['communication', 'marketing', 'data_usage']).withMessage('Invalid preference type'),
-  body('channelType').optional().isIn(['email', 'sms', 'push', 'phone', 'web', 'mobile', 'all']).withMessage('Invalid channel type'),
+// Validation middleware
+const validatePreference = [
+  body('preferenceType').notEmpty().withMessage('Preference type is required'),
+  body('channelType').notEmpty().withMessage('Channel type is required'),
+  body('isAllowed').isBoolean().withMessage('isAllowed must be a boolean'),
+  body('description').optional().isString().withMessage('Description must be a string'),
+  body('validFor.startDateTime').optional().isISO8601().withMessage('Start date must be valid ISO date'),
+  body('validFor.endDateTime').optional().isISO8601().withMessage('End date must be valid ISO date')
+];
+
+const validatePreferenceUpdate = [
   body('isAllowed').optional().isBoolean().withMessage('isAllowed must be a boolean'),
   body('description').optional().isString().withMessage('Description must be a string'),
   body('validFor.startDateTime').optional().isISO8601().withMessage('Start date must be valid ISO date'),
   body('validFor.endDateTime').optional().isISO8601().withMessage('End date must be valid ISO date')
 ];
 
-module.exports = { CustomerPreferenceController, preferenceValidation };
+module.exports = new CustomerPreferenceController();

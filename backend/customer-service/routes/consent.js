@@ -149,6 +149,45 @@ router.get('/:id', consentController.getConsentById);
 
 /**
  * @swagger
+ * /api/v1/customer/consents/{id}/grant:
+ *   post:
+ *     summary: Grant or re-grant consent
+ *     tags: [Customer Consents]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Consent ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes
+ *     responses:
+ *       200:
+ *         description: Consent granted successfully
+ *       400:
+ *         description: Consent already granted
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Consent not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/grant', consentController.grantConsent);
+
+/**
+ * @swagger
  * /api/v1/customer/consents/{id}/revoke:
  *   post:
  *     summary: Revoke consent
@@ -162,6 +201,16 @@ router.get('/:id', consentController.getConsentById);
  *         schema:
  *           type: string
  *         description: Consent ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for revocation
  *     responses:
  *       200:
  *         description: Consent revoked successfully
@@ -174,6 +223,8 @@ router.get('/:id', consentController.getConsentById);
  *       500:
  *         description: Server error
  */
+router.post('/:id/grant', consentController.grantConsentById);
+
 router.post('/:id/revoke', consentController.revokeConsent);
 
 /**

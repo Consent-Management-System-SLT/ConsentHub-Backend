@@ -47,6 +47,7 @@ const services = {
   party: process.env.PARTY_SERVICE_URL || 'http://localhost:3006',
   auth: process.env.AUTH_SERVICE_URL || 'http://localhost:3007',
   dsar: process.env.DSAR_SERVICE_URL || 'http://localhost:3008',
+  admin: process.env.ADMIN_SERVICE_URL || 'http://localhost:3009', // New admin service
   customer: process.env.CUSTOMER_SERVICE_URL || 'http://localhost:3011',
 };
 

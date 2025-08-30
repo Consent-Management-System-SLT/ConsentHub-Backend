@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const preferenceController = require('../controllers/preferenceController');
+const { CustomerPreferenceController, preferenceValidation } = require('../controllers/preferenceController');
 const { authenticateCustomer, customerRateLimit } = require('../middleware/auth');
+
+// Create controller instance
+const preferenceController = new CustomerPreferenceController();
 
 // Apply rate limiting to all preference routes
 router.use(customerRateLimit);
@@ -141,7 +144,7 @@ router.get('/by-channel', preferenceController.getPreferencesByChannel);
  *       500:
  *         description: Server error
  */
-router.post('/', preferenceController.createOrUpdatePreference);
+router.post('/', preferenceValidation, preferenceController.createOrUpdatePreference);
 
 /**
  * @swagger
@@ -219,7 +222,7 @@ router.get('/:id', preferenceController.getPreferenceById);
  *       500:
  *         description: Server error
  */
-router.put('/:id', preferenceController.updatePreference);
+router.put('/:id', preferenceValidation, preferenceController.updatePreference);
 
 /**
  * @swagger
