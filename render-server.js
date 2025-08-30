@@ -14,7 +14,7 @@ const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; // Updated for Render deployment
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
 // MongoDB Atlas connection
