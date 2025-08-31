@@ -6703,6 +6703,14 @@ app.get("/api/v1/customer/dashboard/overview", verifyToken, async (req, res) => 
     }
 });
 
+// Logout endpoint
+app.post("/api/v1/auth/logout", verifyToken, (req, res) => {
+    res.json({
+        success: true,
+        message: "Logged out successfully"
+    });
+});
+
 // Customer Consent Endpoints - MongoDB Based
 app.get("/api/v1/customer/consents", verifyToken, async (req, res) => {
     try {
@@ -9943,6 +9951,7 @@ server.listen(PORT, async () => {
     console.log('   AUTH:');
     console.log('     POST /api/v1/auth/login');
     console.log('     POST /api/v1/auth/register');
+    console.log('     POST /api/v1/auth/logout');
     console.log('     GET  /api/v1/auth/profile');
     console.log('     PUT  /api/v1/auth/profile');
     console.log('   USERS:');
