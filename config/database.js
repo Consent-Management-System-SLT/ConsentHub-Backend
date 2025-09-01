@@ -1,14 +1,17 @@
 const mongoose = require('mongoose');
+const { getSecureEnvVar, maskForLogging } = require('../utils/envEncryption');
 require('dotenv').config();
 
 const connectDB = async () => {
   try {
     console.log('Attempting to connect to MongoDB...');
-    console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Found' : 'Not found');
+    
+    const mongoUri = getSecureEnvVar('MONGODB_URI');
+    console.log('MongoDB URI:', mongoUri ? `Found (${maskForLogging(mongoUri, 8)})` : 'Not found');
     
     // Try multiple connection options
     const connectionOptions = [
-      process.env.MONGODB_URI,
+      mongoUri,
       'mongodb+srv://consentuser:12345@consentcluster.ylmrqgl.mongodb.net/consentDB?retryWrites=true&w=majority&appName=ConsentCluster',
       'mongodb+srv://sltuser:Slt_DigitalPlatform2024@cluster0.ylmrqgl.mongodb.net/consentDB?retryWrites=true&w=majority',
       'mongodb://localhost:27017/consentDB'

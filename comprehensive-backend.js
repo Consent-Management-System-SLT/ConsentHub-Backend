@@ -8,6 +8,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const mongoose = require("mongoose");
 require('dotenv').config();
+const { getSecureEnvVar, validateRequiredEnvVars, maskForLogging } = require('./utils/envEncryption');
 const connectDB = require('./config/database');
 const User = require('./models/User');
 const Consent = require('./models/Consent');
@@ -202,7 +203,16 @@ let privacyNotices = [
 ];
 
 // Utility functions
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-2023';
+const JWT_SECRET = getSecureEnvVar('JWT_SECRET', 'your-super-secret-jwt-key-2023');
+
+// Validate required environment variables on startup
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+if (!validateRequiredEnvVars(requiredEnvVars)) {
+  process.exit(1);
+}
+
+console.log('🔐 Security: Using encrypted environment variables');
+console.log('📊 JWT Secret:', maskForLogging(JWT_SECRET));
 
 function generateToken(user) {
     const payload = { 
