@@ -715,6 +715,37 @@ async function ensureDefaultPrivacyNotices() {
     }
 }
 
+// Seed demo users for authentication
+async function seedDemoUsers() {
+    console.log('🌱 Seeding demo users...');
+    
+    for (const demoUser of demoUsers) {
+        try {
+            const existingUser = await User.findOne({ email: demoUser.email });
+            if (!existingUser) {
+                const newUser = new User({
+                    email: demoUser.email,
+                    password: demoUser.password,
+                    role: demoUser.role,
+                    firstName: demoUser.name?.split(' ')[0] || demoUser.email.split('@')[0],
+                    lastName: demoUser.name?.split(' ').slice(1).join(' ') || '',
+                    phone: demoUser.phone,
+                    organization: demoUser.organization,
+                    address: demoUser.address,
+                    isActive: true,
+                    createdAt: new Date()
+                });
+                await newUser.save();
+                console.log(`✅ Created demo user: ${demoUser.email} (${demoUser.role})`);
+            } else {
+                console.log(`ℹ️ Demo user already exists: ${demoUser.email}`);
+            }
+        } catch (error) {
+            console.log(`❌ Failed to create demo user ${demoUser.email}: ${error.message}`);
+        }
+    }
+}
+
 // Health check
 app.get("/api/v1/health", (req, res) => {
     res.json({ 
@@ -9941,6 +9972,13 @@ global.io = io;
 // Start server
 server.listen(PORT, async () => {
     console.log(`🎯 ConsentHub Comprehensive Backend running on http://localhost:${PORT}`);
+    
+    // Seed demo users on startup
+    try {
+        await seedDemoUsers();
+    } catch (error) {
+        console.error('⚠️ Demo user seeding failed:', error.message);
+    }
     
     // Seed guardian data on startup
     try {
