@@ -719,6 +719,36 @@ async function ensureDefaultPrivacyNotices() {
 async function seedDemoUsers() {
     console.log('🌱 Seeding demo users...');
     
+    const demoUsers = [
+        {
+            name: 'Admin User',
+            email: 'admin@sltmobitel.lk',
+            password: 'admin123',
+            role: 'admin',
+            phone: '+94701234567',
+            organization: 'SLT Mobitel',
+            address: 'Colombo, Sri Lanka'
+        },
+        {
+            name: 'Customer User',
+            email: 'customer@sltmobitel.lk',
+            password: 'customer123',
+            role: 'customer',
+            phone: '+94701234568',
+            organization: 'Individual',
+            address: 'Colombo, Sri Lanka'
+        },
+        {
+            name: 'CSR User',
+            email: 'csr@sltmobitel.lk',
+            password: 'csr123',
+            role: 'csr',
+            phone: '+94701234569',
+            organization: 'SLT Mobitel',
+            address: 'Colombo, Sri Lanka'
+        }
+    ];
+    
     for (const demoUser of demoUsers) {
         try {
             const existingUser = await User.findOne({ email: demoUser.email });
@@ -744,6 +774,7 @@ async function seedDemoUsers() {
             console.log(`❌ Failed to create demo user ${demoUser.email}: ${error.message}`);
         }
     }
+    console.log('✅ Demo user seeding completed');
 }
 
 // Health check
