@@ -1,38 +1,62 @@
 const jwt = require('jsonwebtoken');
 const { logger } = require('../../shared/utils');
 
-// Customer authentication middleware - Simple version for demo
+// Customer authentication middleware - Using the same token format as main backend
 const authenticateCustomer = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
+    console.log('🔍 VAS Auth Debug: Authorization header:', authHeader ? 'Present' : 'Missing');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('❌ VAS Auth: No Bearer token provided');
       return res.status(401).json({
         error: 'Access denied. No token provided.'
       });
     }
 
     const token = authHeader.substring(7);
+    console.log('🔍 VAS Auth Debug: Token length:', token.length);
+    console.log('🔍 VAS Auth Debug: Token starts with:', token.substring(0, 20) + '...');
     
-    // For demo purposes, we'll accept any token and set a default customer
-    // In production, this would verify JWT tokens properly
-    if (token && token.length > 0) {
+    // Decode base64 token (same format as main backend)
+    try {
+      const payload = JSON.parse(Buffer.from(token, 'base64').toString());
+      
+      console.log('✅ VAS Auth: Token decoded successfully');
+      console.log('🔍 VAS Auth Debug: Decoded payload keys:', Object.keys(payload));
+      
+      // Check token expiration
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+        console.log('❌ VAS Auth: Token has expired');
+        return res.status(401).json({
+          error: 'Token has expired'
+        });
+      }
+      
+      // Set customer information from the decoded token
       req.customer = {
-        customerId: 'eea08c27-9f0f-4f8e-bba0-5a49f3fe8be5', // Default customer ID
-        role: 'customer',
-        email: 'customer@sltmobitel.lk',
-        name: 'Robert Johnson'
+        customerId: payload.id,
+        role: payload.role || 'customer',
+        email: payload.email,
+        name: payload.name || `${payload.firstName || ''} ${payload.lastName || ''}`.trim()
       };
+      
+      console.log(`🔐 VAS Auth: Customer ${req.customer.customerId} (${req.customer.email}) authenticated`);
       next();
-    } else {
+    } catch (decodeError) {
+      console.error('❌ VAS Auth: Token decode failed:', decodeError.message);
+      console.log('🔍 VAS Auth Debug: Decode Error type:', decodeError.name);
       return res.status(401).json({
-        error: 'Invalid token.'
+        error: 'Invalid token.',
+        details: decodeError.message
       });
     }
   } catch (error) {
-    logger.error('Authentication middleware error:', error);
-    return res.status(500).json({
-      error: 'Internal server error during authentication.'
+    console.error('❌ VAS Auth: General authentication error:', error);
+    logger.error('Authentication error:', error);
+    res.status(500).json({
+      error: 'Authentication failed'
     });
   }
 };
@@ -45,7 +69,7 @@ const optionalAuth = (req, res, next) => {
     const token = authHeader.substring(7);
     
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-2023');
       req.customer = decoded;
     } catch (error) {
       // Continue without authentication

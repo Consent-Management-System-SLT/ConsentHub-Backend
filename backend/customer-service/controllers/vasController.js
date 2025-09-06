@@ -1,10 +1,31 @@
 const { logger } = require('../../shared/utils');
+const VASSubscription = require('../../../../models/VASSubscription');
 
 class VASController {
   // Get all available VAS services
   async getVASServices(req, res) {
     try {
       const customerId = req.customer.customerId;
+      const customerEmail = req.customer.email;
+      
+      // Fetch customer's current subscriptions from MongoDB
+      const customerSubscriptions = await VASSubscription.getCustomerSubscriptions(customerId, customerEmail);
+      
+      // Create a map of subscribed services for quick lookup
+      // All services default to unsubscribed (false) unless explicitly subscribed
+      const subscriptionMap = {};
+      
+      console.log(`🔍 VAS: Found ${customerSubscriptions.length} subscription records for customer ${customerId}`);
+      console.log('🔍 VAS: Customer subscriptions:', customerSubscriptions.map(s => ({ serviceId: s.serviceId, isSubscribed: s.isSubscribed })));
+      
+      customerSubscriptions.forEach(sub => {
+        // Only set to true if explicitly subscribed in database
+        const isSubscribedValue = sub.isSubscribed === true;
+        subscriptionMap[sub.serviceId] = isSubscribedValue;
+        console.log(`🔍 VAS: Service ${sub.serviceId} -> ${isSubscribedValue}`);
+      });
+      
+      console.log('✅ VAS: Using actual subscription status from MongoDB');
       
       // Mock VAS services data - 6 popular SLT services for subscription
       const vasServices = [
@@ -23,7 +44,7 @@ class VASController {
             'Offline viewing capability',
             'Family sharing (up to 5 profiles)'
           ],
-          isSubscribed: false,
+          isSubscribed: subscriptionMap['slt-filmhall'] === true, // Explicitly check for true
           popularity: 95,
           benefits: ['Premium content', 'No ads', 'Family friendly']
         },
@@ -42,7 +63,7 @@ class VASController {
             '4K Ultra HD content',
             'Multi-room viewing'
           ],
-          isSubscribed: true,
+          isSubscribed: subscriptionMap['peo-tv'] === true, // Explicitly check for true
           popularity: 92,
           benefits: ['Live sports', 'Premium channels', 'Family entertainment']
         },
@@ -61,7 +82,7 @@ class VASController {
             'Safe banking & shopping',
             'Identity theft protection'
           ],
-          isSubscribed: false,
+          isSubscribed: subscriptionMap['kaspersky-security'] === true, // Explicitly check for true
           popularity: 88,
           benefits: ['Complete security', 'Family protection', 'Privacy shield']
         },
@@ -80,7 +101,7 @@ class VASController {
             '24/7 medical helpline',
             'Specialist referrals'
           ],
-          isSubscribed: true,
+          isSubscribed: subscriptionMap['e-channelling-plus'] === true, // Explicitly check for true
           popularity: 86,
           benefits: ['Healthcare access', 'Home services', 'Emergency support']
         },
@@ -99,9 +120,28 @@ class VASController {
             'Version control & history',
             'Enterprise-grade security'
           ],
-          isSubscribed: false,
+          isSubscribed: subscriptionMap['slt-cloud-pro'] === true, // Explicitly check for true
           popularity: 78,
           benefits: ['Secure storage', 'Team collaboration', 'Business tools']
+        },
+        {
+          id: 'slt-international-roaming',
+          name: 'International Roaming Plus',
+          description: 'Affordable international roaming with data packages and competitive call rates worldwide.',
+          category: 'connectivity',
+          provider: 'SLT Mobitel',
+          price: 'LKR 950/month',
+          features: [
+            'Global roaming coverage',
+            'Discounted international calls',
+            'Data roaming packages',
+            'SMS bundles worldwide',
+            'Emergency support 24/7',
+            'Usage monitoring & alerts'
+          ],
+          isSubscribed: subscriptionMap['slt-international-roaming'] === true, // Explicitly check for true
+          popularity: 75,
+          benefits: ['Global connectivity', 'Cost savings', 'Travel convenience']
         },
         {
           id: 'slt-wifi-plus',
@@ -114,17 +154,28 @@ class VASController {
             'Priority bandwidth allocation',
             'Advanced parental controls',
             'Guest network management',
-            'Speed boost during peak hours',
-            'Premium technical support',
-            'Network security monitoring'
+            'Network security monitoring',
+            '24/7 premium technical support',
+            'Speed optimization tools'
           ],
-          isSubscribed: true,
+          isSubscribed: subscriptionMap['slt-wifi-plus'] === true, // Explicitly check for true
           popularity: 83,
           benefits: ['Faster speeds', 'Family safety', 'Priority support']
         }
       ];
 
-      logger.info('VAS services retrieved successfully', { customerId, serviceCount: vasServices.length });
+      console.log(`VAS Services loaded for customer: ${customerEmail}`);
+      console.log(`Total subscriptions found: ${customerSubscriptions.length}`);
+      console.log(`Active subscriptions: ${Object.values(subscriptionMap).filter(status => status === true).length}`);
+      console.log(`Default behavior: All services start as UNSUBSCRIBED`);
+
+      logger.info('VAS services retrieved successfully', { 
+        customerId, 
+        customerEmail,
+        serviceCount: vasServices.length,
+        activeSubscriptions: Object.values(subscriptionMap).filter(status => status === true).length,
+        defaultBehavior: 'unsubscribed'
+      });
 
       res.json({
         success: true,
@@ -150,12 +201,14 @@ class VASController {
   async toggleVASSubscription(req, res) {
     try {
       const customerId = req.customer.customerId;
+      const customerEmail = req.customer.email;
       const { serviceId } = req.params;
       const { action } = req.body; // 'subscribe' or 'unsubscribe'
 
       // Enhanced console logging for VAS subscription operations
       console.log('\n========== VAS SUBSCRIPTION REQUEST ==========');
       console.log(`Customer ID: ${customerId}`);
+      console.log(`Customer Email: ${customerEmail}`);
       console.log(`Service ID: ${serviceId}`);
       console.log(`Action: ${action.toUpperCase()}`);
       console.log(`Request Time: ${new Date().toISOString()}`);
@@ -171,22 +224,61 @@ class VASController {
         });
       }
 
-      // In production, this would update the database
-      // For now, simulate the operation
-      console.log(`Processing ${action} request for service ${serviceId}...`);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate processing delay
+      // Validate serviceId
+      const validServices = ['slt-filmhall', 'peo-tv', 'kaspersky-security', 'e-channelling-plus', 'slt-cloud-pro', 'slt-international-roaming', 'slt-wifi-plus'];
+      if (!validServices.includes(serviceId)) {
+        console.log(`Invalid service ID: ${serviceId}`);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid service ID'
+        });
+      }
 
-      const isSubscribed = action === 'subscribe';
+      // Get service name for record keeping
+      const serviceNames = {
+        'slt-filmhall': 'SLT Filmhall',
+        'peo-tv': 'PEO TV Plus',
+        'kaspersky-security': 'Kaspersky Total Security',
+        'e-channelling-plus': 'e-Channelling Health+',
+        'slt-cloud-pro': 'SLT Cloud Pro',
+        'slt-international-roaming': 'International Roaming Plus',
+        'slt-wifi-plus': 'SLT WiFi Plus'
+      };
+
+      const serviceName = serviceNames[serviceId];
+
+      console.log(`Processing ${action} request for service ${serviceName}...`);
+
+      // Update subscription in MongoDB
+      const requestInfo = {
+        ip: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent']
+      };
+
+      const subscription = await VASSubscription.updateSubscription(
+        customerId,
+        customerEmail,
+        serviceId,
+        serviceName,
+        action,
+        requestInfo
+      );
+
+      const isSubscribed = subscription.isSubscribed;
 
       console.log(`VAS service ${action} successful!`);
       console.log(`New subscription status: ${isSubscribed ? 'SUBSCRIBED' : 'UNSUBSCRIBED'}`);
       console.log(`Billing impact: ${isSubscribed ? 'Service will be added to next bill' : 'Service will be removed from next bill'}`);
+      console.log(`Database record updated: ${subscription._id}`);
 
       logger.info(`VAS service ${action} successful`, { 
         customerId, 
+        customerEmail,
         serviceId, 
+        serviceName,
         action, 
         isSubscribed,
+        subscriptionId: subscription._id,
         timestamp: new Date().toISOString(),
         ip: req.ip || req.connection.remoteAddress
       });
@@ -199,16 +291,19 @@ class VASController {
         message: `Successfully ${action}d to service`,
         data: {
           serviceId,
+          serviceName,
           isSubscribed,
           action,
-          timestamp: new Date().toISOString()
+          timestamp: subscription.updatedAt || new Date().toISOString(),
+          subscriptionId: subscription._id,
+          subscriptionHistory: subscription.subscriptionHistory.slice(-3) // Last 3 actions
         }
       });
 
     } catch (error) {
-      console.log('\n💥 ========== VAS SUBSCRIPTION ERROR ==========');
-      console.error('❌ Error details:', error);
-      console.log(`🕐 Error time: ${new Date().toISOString()}`);
+      console.log('\n========== VAS SUBSCRIPTION ERROR ==========');
+      console.error('Error details:', error);
+      console.log(`Error time: ${new Date().toISOString()}`);
       console.log('==============================================\n');
       
       logger.error('Error toggling VAS subscription:', error);
