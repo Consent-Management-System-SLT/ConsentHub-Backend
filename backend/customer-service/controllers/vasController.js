@@ -433,6 +433,295 @@ class VASController {
       });
     }
   }
+
+  // CSR Methods for Managing Customer VAS Subscriptions
+
+  // Get customer VAS services for CSR dashboard
+  async getCustomerVASForCSR(req, res) {
+    try {
+      const csrUser = req.user; // CSR authentication
+      const customerEmail = req.headers['customer-email'];
+      const customerId = req.headers['customer-id'];
+
+      console.log('\n========== CSR VAS REQUEST ==========');
+      console.log(`CSR User: ${csrUser.email} (ID: ${csrUser.id})`);
+      console.log(`Target Customer: ${customerEmail} (ID: ${customerId})`);
+      console.log(`Request Time: ${new Date().toISOString()}`);
+
+      if (!customerEmail || !customerId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Customer email and ID are required in headers'
+        });
+      }
+
+      // Fetch customer's current subscriptions from MongoDB
+      const customerSubscriptions = await VASSubscription.getCustomerSubscriptions(customerId, customerEmail);
+      
+      // Create a map of subscribed services for quick lookup
+      const subscriptionMap = {};
+      
+      console.log(`🔍 CSR VAS: Found ${customerSubscriptions.length} subscription records for customer ${customerId}`);
+      
+      customerSubscriptions.forEach(sub => {
+        const isSubscribedValue = sub.isSubscribed === true;
+        subscriptionMap[sub.serviceId] = isSubscribedValue;
+        console.log(`🔍 CSR VAS: Service ${sub.serviceId} -> ${isSubscribedValue}`);
+      });
+      
+      // VAS services data (same as customer view)
+      const vasServices = [
+        {
+          id: 'slt-filmhall',
+          name: 'SLT Filmhall',
+          description: 'Premium OTT streaming platform with movies, TV shows, music, and games. Enjoy unlimited entertainment on any device.',
+          category: 'entertainment',
+          provider: 'SLT Mobitel',
+          price: 'LKR 299/month',
+          isSubscribed: subscriptionMap['slt-filmhall'] === true,
+          popularity: 95
+        },
+        {
+          id: 'peo-tv',
+          name: 'PEO TV Plus',
+          description: 'Enhanced digital TV experience with premium channels, on-demand content, and interactive features.',
+          category: 'entertainment',
+          provider: 'SLT Mobitel',
+          price: 'LKR 450/month',
+          isSubscribed: subscriptionMap['peo-tv'] === true,
+          popularity: 88
+        },
+        {
+          id: 'kaspersky-security',
+          name: 'Kaspersky Total Security',
+          description: 'Complete cybersecurity solution protecting your devices from malware, viruses, and online threats.',
+          category: 'security',
+          provider: 'Kaspersky',
+          price: 'LKR 650/month',
+          isSubscribed: subscriptionMap['kaspersky-security'] === true,
+          popularity: 92
+        },
+        {
+          id: 'e-channelling-plus',
+          name: 'e-Channelling Health+',
+          description: 'Comprehensive healthcare services including doctor consultations, home services, and health monitoring.',
+          category: 'healthcare',
+          provider: 'e-Channelling',
+          price: 'LKR 1200/month',
+          isSubscribed: subscriptionMap['e-channelling-plus'] === true,
+          popularity: 86
+        },
+        {
+          id: 'slt-cloud-pro',
+          name: 'SLT Cloud Pro',
+          description: 'Professional cloud storage and collaboration suite with advanced security and team features.',
+          category: 'cloud',
+          provider: 'SLT Digital Services',
+          price: 'LKR 850/month',
+          isSubscribed: subscriptionMap['slt-cloud-pro'] === true,
+          popularity: 78
+        },
+        {
+          id: 'slt-international-roaming',
+          name: 'International Roaming Plus',
+          description: 'Affordable international roaming with data packages and competitive call rates worldwide.',
+          category: 'connectivity',
+          provider: 'SLT Mobitel',
+          price: 'LKR 950/month',
+          isSubscribed: subscriptionMap['slt-international-roaming'] === true,
+          popularity: 75
+        },
+        {
+          id: 'slt-wifi-plus',
+          name: 'SLT WiFi Plus',
+          description: 'Enhanced internet experience with priority bandwidth, parental controls, and premium support.',
+          category: 'connectivity',
+          provider: 'SLT Mobitel',
+          price: 'LKR 750/month',
+          isSubscribed: subscriptionMap['slt-wifi-plus'] === true,
+          popularity: 83
+        }
+      ];
+
+      console.log(`CSR VAS services loaded for customer: ${customerEmail}`);
+      console.log(`Active subscriptions: ${vasServices.filter(s => s.isSubscribed).length}`);
+
+      logger.info('CSR VAS services retrieved successfully', { 
+        csrUserId: csrUser.id,
+        csrEmail: csrUser.email,
+        customerId, 
+        customerEmail,
+        serviceCount: vasServices.length,
+        activeSubscriptions: vasServices.filter(s => s.isSubscribed).length
+      });
+
+      res.json({
+        success: true,
+        data: vasServices,
+        meta: {
+          total: vasServices.length,
+          subscribed: vasServices.filter(s => s.isSubscribed).length,
+          categories: [...new Set(vasServices.map(s => s.category))],
+          customerInfo: {
+            customerId,
+            customerEmail
+          },
+          csrInfo: {
+            csrId: csrUser.id,
+            csrEmail: csrUser.email
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('CSR VAS Error:', error);
+      logger.error('Error retrieving customer VAS for CSR:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve customer VAS services',
+        error: error.message
+      });
+    }
+  }
+
+  // Toggle customer VAS subscription for CSR dashboard
+  async toggleCustomerVASForCSR(req, res) {
+    try {
+      const csrUser = req.user; // CSR authentication
+      const customerEmail = req.headers['customer-email'];
+      const customerId = req.headers['customer-id'];
+      const { serviceId } = req.params;
+      const { action } = req.body; // 'subscribe' or 'unsubscribe'
+
+      console.log('\n========== CSR VAS SUBSCRIPTION REQUEST ==========');
+      console.log(`CSR User: ${csrUser.email} (ID: ${csrUser.id})`);
+      console.log(`Target Customer: ${customerEmail} (ID: ${customerId})`);
+      console.log(`Service ID: ${serviceId}`);
+      console.log(`Action: ${action.toUpperCase()}`);
+      console.log(`Request Time: ${new Date().toISOString()}`);
+
+      if (!customerEmail || !customerId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Customer email and ID are required in headers'
+        });
+      }
+
+      // Validate action
+      if (!['subscribe', 'unsubscribe'].includes(action)) {
+        console.log(`Invalid action: ${action}`);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid action. Must be "subscribe" or "unsubscribe"'
+        });
+      }
+
+      // Validate serviceId
+      const validServices = ['slt-filmhall', 'peo-tv', 'kaspersky-security', 'e-channelling-plus', 'slt-cloud-pro', 'slt-international-roaming', 'slt-wifi-plus'];
+      if (!validServices.includes(serviceId)) {
+        console.log(`Invalid service ID: ${serviceId}`);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid service ID'
+        });
+      }
+
+      // Get service name for record keeping
+      const serviceNames = {
+        'slt-filmhall': 'SLT Filmhall',
+        'peo-tv': 'PEO TV Plus',
+        'kaspersky-security': 'Kaspersky Total Security',
+        'e-channelling-plus': 'e-Channelling Health+',
+        'slt-cloud-pro': 'SLT Cloud Pro',
+        'slt-international-roaming': 'International Roaming Plus',
+        'slt-wifi-plus': 'SLT WiFi Plus'
+      };
+
+      const serviceName = serviceNames[serviceId];
+
+      console.log(`CSR processing ${action} request for service ${serviceName}...`);
+
+      // Update subscription in MongoDB with CSR info
+      const requestInfo = {
+        ip: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        csrUser: {
+          id: csrUser.id,
+          email: csrUser.email,
+          name: csrUser.name || csrUser.email
+        },
+        actionBy: 'CSR'
+      };
+
+      const subscription = await VASSubscription.updateSubscription(
+        customerId,
+        customerEmail,
+        serviceId,
+        serviceName,
+        action,
+        requestInfo
+      );
+
+      const isSubscribed = subscription.isSubscribed;
+
+      console.log(`CSR VAS service ${action} successful!`);
+      console.log(`New subscription status: ${isSubscribed ? 'SUBSCRIBED' : 'UNSUBSCRIBED'}`);
+      console.log(`Action performed by CSR: ${csrUser.email}`);
+      console.log(`Database record updated: ${subscription._id}`);
+
+      logger.info(`CSR VAS service ${action} successful`, { 
+        csrUserId: csrUser.id,
+        csrEmail: csrUser.email,
+        customerId, 
+        customerEmail,
+        serviceId, 
+        serviceName,
+        action, 
+        isSubscribed,
+        subscriptionId: subscription._id,
+        timestamp: new Date().toISOString(),
+        actionBy: 'CSR'
+      });
+
+      console.log(`CSR request completed successfully at: ${new Date().toISOString()}`);
+      console.log('=====================================================\n');
+
+      res.json({
+        success: true,
+        message: `Successfully ${action}d customer to service`,
+        data: {
+          serviceId,
+          serviceName,
+          isSubscribed,
+          action,
+          timestamp: subscription.updatedAt || new Date().toISOString(),
+          subscriptionId: subscription._id,
+          customerInfo: {
+            customerId,
+            customerEmail
+          },
+          csrInfo: {
+            csrId: csrUser.id,
+            csrEmail: csrUser.email
+          },
+          subscriptionHistory: subscription.subscriptionHistory.slice(-3) // Last 3 actions
+        }
+      });
+
+    } catch (error) {
+      console.log('\n========== CSR VAS SUBSCRIPTION ERROR ==========');
+      console.error('Error details:', error);
+      console.log(`Error time: ${new Date().toISOString()}`);
+      console.log('===============================================\n');
+      
+      logger.error('Error toggling customer VAS subscription for CSR:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update customer subscription',
+        error: error.message
+      });
+    }
+  }
 }
 
 module.exports = new VASController();
