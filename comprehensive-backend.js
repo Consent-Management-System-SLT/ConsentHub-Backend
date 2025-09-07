@@ -8441,8 +8441,11 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         // Get all active VAS services
         const allVASServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
         
-        // Get user's current subscriptions
-        const userSubscriptions = await VASSubscription.find({ userId: req.user.id, status: 'active' });
+        // Get user's current subscriptions using correct field structure
+        const userSubscriptions = await VASSubscription.find({ 
+            customerId: req.user.id, 
+            isSubscribed: true 
+        });
         const subscribedServiceIds = userSubscriptions.map(sub => sub.serviceId);
         
         // Add subscription status to each service
@@ -8453,6 +8456,7 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         }));
         
         console.log(`✅ Customer VAS: Retrieved ${servicesWithSubscriptionStatus.length} services`);
+        console.log(`✅ Customer VAS: User ${req.user.id} has ${subscribedServiceIds.length} active subscriptions: [${subscribedServiceIds.join(', ')}]`);
         
         res.json({
             success: true,
@@ -8488,11 +8492,11 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
             });
         }
         
-        // Check if already subscribed
+        // Check if already subscribed using correct field structure
         const existingSubscription = await VASSubscription.findOne({
-            userId: req.user.id,
+            customerId: req.user.id,
             serviceId: serviceId,
-            status: 'active'
+            isSubscribed: true
         });
         
         if (existingSubscription) {
@@ -8502,17 +8506,27 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
             });
         }
         
-        // Create new subscription
+        // Create new subscription using correct schema
         const subscription = new VASSubscription({
-            userId: req.user.id,
+            customerId: req.user.id,
+            customerEmail: req.user.email,
             serviceId: serviceId,
             serviceName: service.name,
-            monthlyPrice: service.priceNumeric,
-            currency: service.currency,
-            status: 'active',
-            subscribedAt: new Date(),
-            nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-            autoRenewal: true
+            isSubscribed: true,
+            billingInfo: {
+                startDate: new Date(),
+                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                amount: service.price,
+                currency: service.currency
+            },
+            subscriptionHistory: [{
+                action: 'subscribe',
+                timestamp: new Date(),
+                requestInfo: {
+                    ip: req.ip,
+                    userAgent: req.get('User-Agent')
+                }
+            }]
         });
         
         await subscription.save();
@@ -8557,17 +8571,25 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
         const { serviceId } = req.body;
         console.log('🔄 Customer VAS: Processing unsubscription for service:', serviceId, 'user:', req.user.id);
         
-        // Find and update the subscription
+        // Find and update the subscription using correct field structure
         const subscription = await VASSubscription.findOneAndUpdate(
             {
-                userId: req.user.id,
+                customerId: req.user.id,
                 serviceId: serviceId,
-                status: 'active'
+                isSubscribed: true
             },
             {
-                status: 'cancelled',
-                cancelledAt: new Date(),
-                updatedAt: new Date()
+                isSubscribed: false,
+                $push: {
+                    subscriptionHistory: {
+                        action: 'unsubscribe',
+                        timestamp: new Date(),
+                        requestInfo: {
+                            ip: req.ip,
+                            userAgent: req.get('User-Agent')
+                        }
+                    }
+                }
             },
             { new: true }
         );
@@ -8619,25 +8641,33 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
         const { serviceId } = req.params;
         console.log('🔄 Customer VAS: Processing toggle for service:', serviceId, 'user:', req.user.id);
         
-        // Check current subscription status
+        // Check current subscription status using the correct field structure
         const existingSubscription = await VASSubscription.findOne({
-            userId: req.user.id,
+            customerId: req.user.id,
             serviceId: serviceId,
-            status: 'active'
+            isSubscribed: true
         });
         
         if (existingSubscription) {
             // User is subscribed, so unsubscribe
             const updatedSubscription = await VASSubscription.findOneAndUpdate(
                 {
-                    userId: req.user.id,
+                    customerId: req.user.id,
                     serviceId: serviceId,
-                    status: 'active'
+                    isSubscribed: true
                 },
                 {
-                    status: 'cancelled',
-                    cancelledAt: new Date(),
-                    updatedAt: new Date()
+                    isSubscribed: false,
+                    $push: {
+                        subscriptionHistory: {
+                            action: 'unsubscribe',
+                            timestamp: new Date(),
+                            requestInfo: {
+                                ip: req.ip,
+                                userAgent: req.get('User-Agent')
+                            }
+                        }
+                    }
                 },
                 { new: true }
             );
@@ -8680,49 +8710,126 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 });
             }
             
-            // Create new subscription
-            const subscription = new VASSubscription({
-                userId: req.user.id,
-                serviceId: serviceId,
-                serviceName: service.name,
-                monthlyPrice: service.priceNumeric,
-                currency: service.currency,
-                status: 'active',
-                subscribedAt: new Date(),
-                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-                autoRenewal: true
+            // Check if subscription record exists but is disabled
+            const existingRecord = await VASSubscription.findOne({
+                customerId: req.user.id,
+                serviceId: serviceId
             });
             
-            await subscription.save();
-            
-            // Update service subscriber count
-            await VASService.findOneAndUpdate(
-                { id: serviceId },
-                { 
-                    $inc: { totalSubscribers: 1 },
-                    $set: { updatedAt: new Date() }
-                }
-            );
-            
-            // Emit real-time update
-            io.emit('vasSubscriptionUpdate', {
-                userId: req.user.id,
-                serviceId: serviceId,
-                action: 'subscribed',
-                timestamp: new Date()
-            });
-            
-            console.log('✅ Customer VAS: Successfully subscribed to service');
-            
-            res.json({
-                success: true,
-                action: 'subscribed',
-                message: `Successfully subscribed to ${service.name}`,
-                data: {
-                    subscription: subscription,
-                    isSubscribed: true
-                }
-            });
+            if (existingRecord) {
+                // Update existing record
+                const updatedSubscription = await VASSubscription.findOneAndUpdate(
+                    {
+                        customerId: req.user.id,
+                        serviceId: serviceId
+                    },
+                    {
+                        isSubscribed: true,
+                        serviceName: service.name,
+                        customerEmail: req.user.email,
+                        billingInfo: {
+                            startDate: new Date(),
+                            nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                            amount: service.price,
+                            currency: service.currency
+                        },
+                        $push: {
+                            subscriptionHistory: {
+                                action: 'subscribe',
+                                timestamp: new Date(),
+                                requestInfo: {
+                                    ip: req.ip,
+                                    userAgent: req.get('User-Agent')
+                                }
+                            }
+                        }
+                    },
+                    { new: true }
+                );
+                
+                // Update service subscriber count
+                await VASService.findOneAndUpdate(
+                    { id: serviceId },
+                    { 
+                        $inc: { totalSubscribers: 1 },
+                        $set: { updatedAt: new Date() }
+                    }
+                );
+                
+                // Emit real-time update
+                io.emit('vasSubscriptionUpdate', {
+                    userId: req.user.id,
+                    serviceId: serviceId,
+                    action: 'subscribed',
+                    timestamp: new Date()
+                });
+                
+                console.log('✅ Customer VAS: Successfully subscribed to service (updated existing)');
+                
+                res.json({
+                    success: true,
+                    action: 'subscribed',
+                    message: `Successfully subscribed to ${service.name}`,
+                    data: {
+                        subscription: updatedSubscription,
+                        isSubscribed: true
+                    }
+                });
+            } else {
+                // Create new subscription
+                const subscription = new VASSubscription({
+                    customerId: req.user.id,
+                    customerEmail: req.user.email,
+                    serviceId: serviceId,
+                    serviceName: service.name,
+                    isSubscribed: true,
+                    billingInfo: {
+                        startDate: new Date(),
+                        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+                        amount: service.price,
+                        currency: service.currency
+                    },
+                    subscriptionHistory: [{
+                        action: 'subscribe',
+                        timestamp: new Date(),
+                        requestInfo: {
+                            ip: req.ip,
+                            userAgent: req.get('User-Agent')
+                        }
+                    }]
+                });
+                
+                await subscription.save();
+                
+                // Update service subscriber count
+                await VASService.findOneAndUpdate(
+                    { id: serviceId },
+                    { 
+                        $inc: { totalSubscribers: 1 },
+                        $set: { updatedAt: new Date() }
+                    }
+                );
+                
+                // Emit real-time update
+                io.emit('vasSubscriptionUpdate', {
+                    userId: req.user.id,
+                    serviceId: serviceId,
+                    action: 'subscribed',
+                    timestamp: new Date()
+                });
+                
+                console.log('✅ Customer VAS: Successfully subscribed to service (new subscription)');
+                
+                res.json({
+                    success: true,
+                    action: 'subscribed',
+                    message: `Successfully subscribed to ${service.name}`,
+                    data: {
+                        subscription: subscription,
+                        isSubscribed: true
+                    }
+                });
+            }
         }
     } catch (error) {
         console.error('❌ Customer VAS toggle error:', error);
@@ -8739,14 +8846,22 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
     try {
         console.log('📋 Customer VAS: Fetching subscriptions for user:', req.user.id);
         
-        const subscriptions = await VASSubscription.find({ userId: req.user.id })
-            .sort({ subscribedAt: -1 });
+        const subscriptions = await VASSubscription.find({ customerId: req.user.id })
+            .sort({ createdAt: -1 });
         
-        // Calculate monthly total
-        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active');
-        const monthlyTotal = activeSubscriptions.reduce((total, sub) => total + (sub.monthlyPrice || 0), 0);
+        // Calculate monthly total for active subscriptions
+        const activeSubscriptions = subscriptions.filter(sub => sub.isSubscribed === true);
         
-        console.log(`✅ Customer VAS: Retrieved ${subscriptions.length} subscriptions, monthly total: ${monthlyTotal}`);
+        // Get pricing from VAS services for monthly total calculation
+        let monthlyTotal = 0;
+        for (const sub of activeSubscriptions) {
+            const service = await VASService.findOne({ id: sub.serviceId });
+            if (service) {
+                monthlyTotal += service.priceNumeric || 0;
+            }
+        }
+        
+        console.log(`✅ Customer VAS: Retrieved ${subscriptions.length} subscriptions, ${activeSubscriptions.length} active, monthly total: ${monthlyTotal}`);
         
         res.json({
             success: true,
