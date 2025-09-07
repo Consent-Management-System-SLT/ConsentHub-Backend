@@ -76,7 +76,9 @@ const corsOptions = {
     'X-Correlation-Id',
     'Access-Control-Allow-Origin',
     'customer-id',
-    'customer-email'
+    'customer-email',
+    'customerid',
+    'customeremail'
   ],
   credentials: true,
   optionsSuccessStatus: 200
