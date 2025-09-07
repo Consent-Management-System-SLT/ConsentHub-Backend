@@ -6469,12 +6469,35 @@ app.get('/api/csr/customer-vas', async (req, res) => {
         console.log(`👤 [CSR VAS] Found customer: ${customer.name} (${customer.email})`);
 
         // Get customer's VAS subscriptions
+        console.log(`🔍 [CSR VAS] Querying subscriptions with userId: ${customer._id} (type: ${typeof customer._id})`);
+        
         const subscriptions = await VASSubscription.find({
             userId: customer._id,
             status: { $in: ['active', 'suspended'] }
         }).populate('serviceId');
 
         console.log(`📱 [CSR VAS] Found ${subscriptions.length} subscriptions for customer`);
+        
+        if (subscriptions.length > 0) {
+            console.log(`📱 [CSR VAS] Subscription details:`, subscriptions.map(s => ({
+                id: s._id,
+                userId: s.userId,
+                serviceId: s.serviceId ? s.serviceId._id : s.serviceId,
+                status: s.status,
+                isSubscribed: s.isSubscribed
+            })));
+        } else {
+            console.log(`📱 [CSR VAS] No subscriptions found - checking database directly...`);
+            // Debug query to check what's in the database
+            const allSubs = await VASSubscription.find({}).limit(5);
+            console.log(`📱 [CSR VAS] Sample subscriptions in database:`, allSubs.map(s => ({
+                id: s._id,
+                userId: s.userId,
+                serviceId: s.serviceId,
+                status: s.status,
+                collection: s.constructor.collection.name
+            })));
+        }
 
         // Map services with subscription status
         const servicesWithSubscriptions = allServices.map(service => {
