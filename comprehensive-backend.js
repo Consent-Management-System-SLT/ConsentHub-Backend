@@ -272,10 +272,12 @@ async function initializeVASServices() {
                 {
                     id: 'slt-filmhall',
                     name: 'SLT Filmhall',
-                    category: 'Entertainment',
+                    category: 'entertainment',
                     description: 'Premium movie and TV series streaming service with latest releases',
-                    monthlyPrice: 299.00,
+                    price: 'Rs. 299/month',
+                    priceNumeric: 299.00,
                     currency: 'LKR',
+                    provider: 'SLT Mobitel',
                     features: [
                         'HD Quality Streaming',
                         'Latest Movies & TV Shows',
@@ -287,7 +289,6 @@ async function initializeVASServices() {
                     popularity: 95,
                     totalSubscribers: 125000,
                     monthlyRevenue: 37375000,
-                    setupFee: 0,
                     contractDuration: 'monthly',
                     autoRenewal: true,
                     eligibilityRules: ['postpaid_customer', 'active_account'],
@@ -307,12 +308,14 @@ async function initializeVASServices() {
                     updatedAt: new Date()
                 },
                 {
-                    id: 'peo-tv-plus',
+                    id: 'peo-tv',
                     name: 'PEO TV Plus',
-                    category: 'Entertainment',
+                    category: 'entertainment',
                     description: 'Live TV channels and sports streaming with premium content access',
-                    monthlyPrice: 399.00,
+                    price: 'Rs. 399/month',
+                    priceNumeric: 399.00,
                     currency: 'LKR',
+                    provider: 'SLT Mobitel',
                     features: [
                         '150+ Live TV Channels',
                         'Premium Sports Content',
@@ -324,7 +327,6 @@ async function initializeVASServices() {
                     popularity: 88,
                     totalSubscribers: 98000,
                     monthlyRevenue: 39102000,
-                    setupFee: 0,
                     contractDuration: 'monthly',
                     autoRenewal: true,
                     eligibilityRules: ['postpaid_customer'],
@@ -344,12 +346,14 @@ async function initializeVASServices() {
                     updatedAt: new Date()
                 },
                 {
-                    id: 'slt-smart-security',
-                    name: 'SLT Smart Security',
-                    category: 'Security',
+                    id: 'kaspersky-security',
+                    name: 'Kaspersky Total Security',
+                    category: 'security',
                     description: 'Comprehensive home security monitoring and alert system',
-                    monthlyPrice: 1299.00,
+                    price: 'Rs. 1299/month',
+                    priceNumeric: 1299.00,
                     currency: 'LKR',
+                    provider: 'SLT Mobitel',
                     features: [
                         '24/7 Security Monitoring',
                         'Mobile App Alerts',
@@ -360,8 +364,92 @@ async function initializeVASServices() {
                     status: 'active',
                     popularity: 76,
                     totalSubscribers: 45000,
-                    monthlyRevenue: 58455000,
-                    setupFee: 2500,
+                    monthlyRevenue: 58455000
+                },
+                {
+                    id: 'e-channelling-plus',
+                    name: 'e-Channelling Health+',
+                    category: 'healthcare',
+                    description: 'Premium healthcare services with doctor consultations and health monitoring',
+                    price: 'Rs. 899/month',
+                    priceNumeric: 899.00,
+                    currency: 'LKR',
+                    provider: 'SLT Mobitel',
+                    features: [
+                        'Online Doctor Consultations',
+                        'Health Record Management',
+                        'Prescription Delivery',
+                        'Lab Test Booking',
+                        '24/7 Medical Helpline'
+                    ],
+                    status: 'active',
+                    popularity: 82,
+                    totalSubscribers: 67000,
+                    monthlyRevenue: 60233000
+                },
+                {
+                    id: 'slt-wifi-plus',
+                    name: 'SLT WiFi Plus',
+                    category: 'connectivity',
+                    description: 'Enhanced WiFi connectivity with premium features and support',
+                    price: 'Rs. 599/month',
+                    priceNumeric: 599.00,
+                    currency: 'LKR',
+                    provider: 'SLT Mobitel',
+                    features: [
+                        'High-Speed WiFi',
+                        'Extended Coverage',
+                        'Priority Support',
+                        'Advanced Security',
+                        'Multiple Device Support'
+                    ],
+                    status: 'active',
+                    popularity: 91,
+                    totalSubscribers: 156000,
+                    monthlyRevenue: 93444000
+                },
+                {
+                    id: 'slt-cloud-pro',
+                    name: 'SLT Cloud Pro',
+                    category: 'cloud',
+                    description: 'Professional cloud storage and backup solution with advanced features',
+                    price: 'Rs. 799/month',
+                    priceNumeric: 799.00,
+                    currency: 'LKR',
+                    provider: 'SLT Mobitel',
+                    features: [
+                        '1TB Cloud Storage',
+                        'Automatic Backup',
+                        'File Sharing',
+                        'Version Control',
+                        'Enterprise Security'
+                    ],
+                    status: 'active',
+                    popularity: 78,
+                    totalSubscribers: 89000,
+                    monthlyRevenue: 71111000
+                },
+                {
+                    id: 'slt-international-roaming',
+                    name: 'International Roaming Plus',
+                    category: 'connectivity',
+                    description: 'Global connectivity with competitive international roaming rates',
+                    price: 'Rs. 1599/month',
+                    priceNumeric: 1599.00,
+                    currency: 'LKR',
+                    provider: 'SLT Mobitel',
+                    features: [
+                        'Global Coverage',
+                        'Competitive Rates',
+                        'Data Roaming',
+                        'Voice & SMS',
+                        '24/7 Support'
+                    ],
+                    status: 'active',
+                    popularity: 65,
+                    totalSubscribers: 34000,
+                    monthlyRevenue: 54366000
+                },
                     contractDuration: '12_months',
                     autoRenewal: true,
                     eligibilityRules: ['postpaid_customer', 'fiber_customer'],
@@ -383,7 +471,7 @@ async function initializeVASServices() {
             ];
 
             await VASService.insertMany(defaultServices);
-            console.log('✅ Default VAS services initialized successfully');
+            console.log('✅ Initialized 7 VAS services successfully');
         } else {
             console.log(`📋 Found ${existingCount} existing VAS services`);
         }
@@ -8379,7 +8467,7 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         const servicesWithSubscriptionStatus = allVASServices.map(service => ({
             ...service.toObject(),
             isSubscribed: subscribedServiceIds.includes(service.id),
-            monthlyTotal: service.monthlyPrice || 0
+            monthlyTotal: service.priceNumeric || 0
         }));
         
         console.log(`✅ Customer VAS: Retrieved ${servicesWithSubscriptionStatus.length} services`);
@@ -8437,7 +8525,7 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
             userId: req.user.id,
             serviceId: serviceId,
             serviceName: service.name,
-            monthlyPrice: service.monthlyPrice,
+            monthlyPrice: service.priceNumeric,
             currency: service.currency,
             status: 'active',
             subscribedAt: new Date(),
@@ -8615,7 +8703,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 userId: req.user.id,
                 serviceId: serviceId,
                 serviceName: service.name,
-                monthlyPrice: service.monthlyPrice,
+                monthlyPrice: service.priceNumeric,
                 currency: service.currency,
                 status: 'active',
                 subscribedAt: new Date(),
@@ -8800,7 +8888,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
             userId: customerId,
             serviceId: serviceId,
             serviceName: service.name,
-            monthlyPrice: service.monthlyPrice,
+            monthlyPrice: service.priceNumeric,
             currency: service.currency,
             status: 'active',
             subscribedAt: new Date(),
