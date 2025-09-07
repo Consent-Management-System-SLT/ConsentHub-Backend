@@ -365,8 +365,8 @@ class VASController {
   async getCustomerVASForCSR(req, res) {
     try {
       const csrUser = req.user; // CSR authentication
-      const customerEmail = req.headers['customer-email'];
-      const customerId = req.headers['customer-id'];
+      const customerEmail = req.query.customerEmail;
+      const customerId = req.query.customerId;
 
       console.log('\n========== CSR VAS REQUEST ==========');
       console.log(`CSR User: ${csrUser.email} (ID: ${csrUser.id})`);
@@ -455,8 +455,8 @@ class VASController {
   async toggleCustomerVASForCSR(req, res) {
     try {
       const csrUser = req.user; // CSR authentication
-      const customerEmail = req.headers['customer-email'];
-      const customerId = req.headers['customer-id'];
+      const customerEmail = req.body.customerEmail;
+      const customerId = req.body.customerId;
       const { serviceId } = req.params;
       const { action } = req.body; // 'subscribe' or 'unsubscribe'
 
