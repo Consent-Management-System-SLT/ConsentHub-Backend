@@ -1,5 +1,6 @@
 const { logger } = require('../../shared/utils');
 const VASSubscription = require('../../../../models/VASSubscription');
+const VASService = require('../../../../models/VASService');
 
 class VASController {
   // Get all available VAS services
@@ -8,15 +9,19 @@ class VASController {
       const customerId = req.customer.customerId;
       const customerEmail = req.customer.email;
       
+      console.log(`🔍 VAS: Fetching services for customer ${customerId} (${customerEmail})`);
+      
+      // Fetch all VAS services from MongoDB (same as admin sees)
+      const allVASServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
+      console.log(`📋 VAS: Found ${allVASServices.length} active VAS services in database`);
+      
       // Fetch customer's current subscriptions from MongoDB
       const customerSubscriptions = await VASSubscription.getCustomerSubscriptions(customerId, customerEmail);
       
       // Create a map of subscribed services for quick lookup
-      // All services default to unsubscribed (false) unless explicitly subscribed
       const subscriptionMap = {};
       
       console.log(`🔍 VAS: Found ${customerSubscriptions.length} subscription records for customer ${customerId}`);
-      console.log('🔍 VAS: Customer subscriptions:', customerSubscriptions.map(s => ({ serviceId: s.serviceId, isSubscribed: s.isSubscribed })));
       
       customerSubscriptions.forEach(sub => {
         // Only set to true if explicitly subscribed in database
@@ -25,166 +30,27 @@ class VASController {
         console.log(`🔍 VAS: Service ${sub.serviceId} -> ${isSubscribedValue}`);
       });
       
-      console.log('✅ VAS: Using actual subscription status from MongoDB');
+      // Map database services to customer format with subscription status
+      const servicesWithSubscriptionStatus = allVASServices.map(service => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        category: service.category,
+        provider: service.provider,
+        price: service.price,
+        features: service.features || [],
+        benefits: service.benefits || [],
+        popularity: service.popularity || 0,
+        isSubscribed: subscriptionMap[service.id] === true, // Check if customer is subscribed
+      }));
       
-      // Mock VAS services data - 6 popular SLT services for subscription
-      const vasServices = [
-        {
-          id: 'slt-filmhall',
-          name: 'SLT Filmhall',
-          description: 'Premium OTT streaming platform with movies, TV shows, music, and games. Enjoy unlimited entertainment on any device.',
-          category: 'entertainment',
-          provider: 'SLT Mobitel',
-          price: 'LKR 299/month',
-          features: [
-            'HD & 4K video streaming',
-            'Unlimited music downloads',
-            'Interactive gaming platform',
-            'Multi-device access',
-            'Offline viewing capability',
-            'Family sharing (up to 5 profiles)'
-          ],
-          isSubscribed: subscriptionMap['slt-filmhall'] === true, // Explicitly check for true
-          popularity: 95,
-          benefits: ['Premium content', 'No ads', 'Family friendly']
-        },
-        {
-          id: 'peo-tv',
-          name: 'PEO TV Plus',
-          description: 'Complete IPTV solution with 200+ channels, sports packages, and premium entertainment content.',
-          category: 'entertainment',
-          provider: 'SLT Net',
-          price: 'LKR 1,200/month',
-          features: [
-            '200+ live TV channels',
-            'Premium sports channels',
-            'Time-shift & catch-up TV',
-            'Video-on-demand library',
-            '4K Ultra HD content',
-            'Multi-room viewing'
-          ],
-          isSubscribed: subscriptionMap['peo-tv'] === true, // Explicitly check for true
-          popularity: 92,
-          benefits: ['Live sports', 'Premium channels', 'Family entertainment']
-        },
-        {
-          id: 'kaspersky-security',
-          name: 'Kaspersky Total Security',
-          description: 'Complete digital protection for your family with antivirus, VPN, password manager, and parental controls.',
-          category: 'security',
-          provider: 'Kaspersky Lab',
-          price: 'LKR 450/month',
-          features: [
-            'Real-time antivirus protection',
-            'Secure VPN (unlimited data)',
-            'Password manager',
-            'Parental controls & monitoring',
-            'Safe banking & shopping',
-            'Identity theft protection'
-          ],
-          isSubscribed: subscriptionMap['kaspersky-security'] === true, // Explicitly check for true
-          popularity: 88,
-          benefits: ['Complete security', 'Family protection', 'Privacy shield']
-        },
-        {
-          id: 'e-channelling-plus',
-          name: 'e-Channelling Health+',
-          description: 'Comprehensive healthcare service with doctor consultations, lab bookings, and health monitoring.',
-          category: 'healthcare',
-          provider: 'e-Channelling (SLT)',
-          price: 'LKR 650/month',
-          features: [
-            'Unlimited doctor consultations',
-            'Lab test bookings & home collection',
-            'Prescription delivery',
-            'Health record management',
-            '24/7 medical helpline',
-            'Specialist referrals'
-          ],
-          isSubscribed: subscriptionMap['e-channelling-plus'] === true, // Explicitly check for true
-          popularity: 86,
-          benefits: ['Healthcare access', 'Home services', 'Emergency support']
-        },
-        {
-          id: 'slt-cloud-pro',
-          name: 'SLT Cloud Pro',
-          description: 'Professional cloud storage and collaboration suite with advanced security and team features.',
-          category: 'cloud',
-          provider: 'SLT Digital Services',
-          price: 'LKR 850/month',
-          features: [
-            '1TB secure cloud storage',
-            'Real-time collaboration tools',
-            'Advanced file sharing',
-            'Automated backup',
-            'Version control & history',
-            'Enterprise-grade security'
-          ],
-          isSubscribed: subscriptionMap['slt-cloud-pro'] === true, // Explicitly check for true
-          popularity: 78,
-          benefits: ['Secure storage', 'Team collaboration', 'Business tools']
-        },
-        {
-          id: 'slt-international-roaming',
-          name: 'International Roaming Plus',
-          description: 'Affordable international roaming with data packages and competitive call rates worldwide.',
-          category: 'connectivity',
-          provider: 'SLT Mobitel',
-          price: 'LKR 950/month',
-          features: [
-            'Global roaming coverage',
-            'Discounted international calls',
-            'Data roaming packages',
-            'SMS bundles worldwide',
-            'Emergency support 24/7',
-            'Usage monitoring & alerts'
-          ],
-          isSubscribed: subscriptionMap['slt-international-roaming'] === true, // Explicitly check for true
-          popularity: 75,
-          benefits: ['Global connectivity', 'Cost savings', 'Travel convenience']
-        },
-        {
-          id: 'slt-wifi-plus',
-          name: 'SLT WiFi Plus',
-          description: 'Enhanced internet experience with priority bandwidth, parental controls, and premium support.',
-          category: 'connectivity',
-          provider: 'SLT Mobitel',
-          price: 'LKR 750/month',
-          features: [
-            'Priority bandwidth allocation',
-            'Advanced parental controls',
-            'Guest network management',
-            'Network security monitoring',
-            '24/7 premium technical support',
-            'Speed optimization tools'
-          ],
-          isSubscribed: subscriptionMap['slt-wifi-plus'] === true, // Explicitly check for true
-          popularity: 83,
-          benefits: ['Faster speeds', 'Family safety', 'Priority support']
-        }
-      ];
-
-      console.log(`VAS Services loaded for customer: ${customerEmail}`);
-      console.log(`Total subscriptions found: ${customerSubscriptions.length}`);
-      console.log(`Active subscriptions: ${Object.values(subscriptionMap).filter(status => status === true).length}`);
-      console.log(`Default behavior: All services start as UNSUBSCRIBED`);
-
-      logger.info('VAS services retrieved successfully', { 
-        customerId, 
-        customerEmail,
-        serviceCount: vasServices.length,
-        activeSubscriptions: Object.values(subscriptionMap).filter(status => status === true).length,
-        defaultBehavior: 'unsubscribed'
-      });
-
+      console.log(`✅ VAS: Returning ${servicesWithSubscriptionStatus.length} services to customer`);
+      console.log(`📊 VAS: Subscribed services: ${servicesWithSubscriptionStatus.filter(s => s.isSubscribed).length}`);
+      
       res.json({
         success: true,
-        data: vasServices,
-        meta: {
-          total: vasServices.length,
-          subscribed: vasServices.filter(s => s.isSubscribed).length,
-          categories: [...new Set(vasServices.map(s => s.category))]
-        }
+        data: servicesWithSubscriptionStatus,
+        message: 'VAS services retrieved successfully'
       });
 
     } catch (error) {
@@ -224,28 +90,59 @@ class VASController {
         });
       }
 
-      // Validate serviceId
-      const validServices = ['slt-filmhall', 'peo-tv', 'kaspersky-security', 'e-channelling-plus', 'slt-cloud-pro', 'slt-international-roaming', 'slt-wifi-plus'];
-      if (!validServices.includes(serviceId)) {
-        console.log(`Invalid service ID: ${serviceId}`);
+      // Validate serviceId by checking if it exists in the database
+      console.log(`🔍 VAS Debug: Validating service ID: ${serviceId}`);
+      console.log(`🔍 VAS Debug: Service ID type: ${typeof serviceId}`);
+      console.log(`🔍 VAS Debug: Service ID length: ${serviceId.length}`);
+      
+      let serviceExists;
+      try {
+        // First try to find by MongoDB _id (ObjectId)
+        const mongoose = require('mongoose');
+        if (mongoose.Types.ObjectId.isValid(serviceId)) {
+          console.log(`🔍 VAS Debug: Searching by ObjectId: ${serviceId}`);
+          try {
+            serviceExists = await VASService.findOne({ _id: serviceId, status: 'active' });
+            console.log(`🔍 VAS Debug: ObjectId search result:`, serviceExists ? `Found: ${serviceExists.name}` : 'Not found');
+          } catch (objectIdError) {
+            console.log(`🔍 VAS Debug: ObjectId search failed: ${objectIdError.message}`);
+            serviceExists = null;
+          }
+        }
+        
+        // If not found by ObjectId, try custom ID field
+        if (!serviceExists) {
+          console.log(`🔍 VAS Debug: Searching by custom ID field: ${serviceId}`);
+          serviceExists = await VASService.findOne({ id: serviceId, status: 'active' });
+          console.log(`🔍 VAS Debug: Custom ID search result:`, serviceExists ? `Found: ${serviceExists.name}` : 'Not found');
+        }
+        
+        console.log(`🔍 VAS Debug: Database query result:`, serviceExists ? 'FOUND' : 'NOT FOUND');
+        
+        if (serviceExists) {
+          console.log(`🔍 VAS Debug: Found service: ${serviceExists.name} (Status: ${serviceExists.status})`);
+          console.log(`🔍 VAS Debug: Service _id: ${serviceExists._id}`);
+          console.log(`🔍 VAS Debug: Service custom id: ${serviceExists.id}`);
+        } else {
+          console.log(`🔍 VAS Debug: Service ID "${serviceId}" not found in database`);
+          console.log(`🔍 VAS Debug: Tried both ObjectId and custom ID field searches`);
+        }
+      } catch (error) {
+        console.log(`🔍 VAS Debug: Error validating service ID: ${error.message}`);
+        serviceExists = null;
+      }
+      
+      if (!serviceExists) {
+        console.log(`❌ VAS Debug: Invalid or inactive service ID: ${serviceId}`);
+        console.log(`❌ VAS Debug [v2.0]: Service not found in database using flexible ID matching`);
         return res.status(400).json({
           success: false,
-          message: 'Invalid service ID'
+          message: `Invalid or inactive service ID: ${serviceId}. Service not found in database using flexible ID matching.`
         });
       }
 
-      // Get service name for record keeping
-      const serviceNames = {
-        'slt-filmhall': 'SLT Filmhall',
-        'peo-tv': 'PEO TV Plus',
-        'kaspersky-security': 'Kaspersky Total Security',
-        'e-channelling-plus': 'e-Channelling Health+',
-        'slt-cloud-pro': 'SLT Cloud Pro',
-        'slt-international-roaming': 'International Roaming Plus',
-        'slt-wifi-plus': 'SLT WiFi Plus'
-      };
-
-      const serviceName = serviceNames[serviceId];
+      // Get service name from the database
+      const serviceName = serviceExists.name;
 
       console.log(`Processing ${action} request for service ${serviceName}...`);
 
@@ -282,6 +179,34 @@ class VASController {
         timestamp: new Date().toISOString(),
         ip: req.ip || req.connection.remoteAddress
       });
+
+      // 🔌 Emit WebSocket event for real-time updates
+      const vasUpdateEvent = {
+        type: 'vas_subscription_update',
+        customerId,
+        customerEmail,
+        serviceId,
+        serviceName,
+        isSubscribed,
+        action,
+        timestamp: subscription.updatedAt || new Date().toISOString(),
+        subscriptionId: subscription._id
+      };
+
+      // Emit to the specific customer's room
+      if (global.io) {
+        global.io.to(`customer_${customerId}`).emit('vasSubscriptionUpdate', vasUpdateEvent);
+        console.log(`🔌 WebSocket: Emitted VAS update to customer_${customerId}:`, vasUpdateEvent);
+        
+        // Also emit to admin/CSR dashboard for monitoring
+        global.io.to('csr-dashboard').emit('customerVasUpdate', {
+          ...vasUpdateEvent,
+          customerIdentifier: customerEmail
+        });
+        console.log(`🔌 WebSocket: Emitted VAS update to CSR dashboard for customer ${customerEmail}`);
+      } else {
+        console.log('⚠️  WebSocket: Global io not available, skipping real-time update');
+      }
 
       console.log(`Request completed successfully at: ${new Date().toISOString()}`);
       console.log('================================================\n');
@@ -469,80 +394,22 @@ class VASController {
         console.log(`🔍 CSR VAS: Service ${sub.serviceId} -> ${isSubscribedValue}`);
       });
       
-      // VAS services data (same as customer view)
-      const vasServices = [
-        {
-          id: 'slt-filmhall',
-          name: 'SLT Filmhall',
-          description: 'Premium OTT streaming platform with movies, TV shows, music, and games. Enjoy unlimited entertainment on any device.',
-          category: 'entertainment',
-          provider: 'SLT Mobitel',
-          price: 'LKR 299/month',
-          isSubscribed: subscriptionMap['slt-filmhall'] === true,
-          popularity: 95
-        },
-        {
-          id: 'peo-tv',
-          name: 'PEO TV Plus',
-          description: 'Enhanced digital TV experience with premium channels, on-demand content, and interactive features.',
-          category: 'entertainment',
-          provider: 'SLT Mobitel',
-          price: 'LKR 450/month',
-          isSubscribed: subscriptionMap['peo-tv'] === true,
-          popularity: 88
-        },
-        {
-          id: 'kaspersky-security',
-          name: 'Kaspersky Total Security',
-          description: 'Complete cybersecurity solution protecting your devices from malware, viruses, and online threats.',
-          category: 'security',
-          provider: 'Kaspersky',
-          price: 'LKR 650/month',
-          isSubscribed: subscriptionMap['kaspersky-security'] === true,
-          popularity: 92
-        },
-        {
-          id: 'e-channelling-plus',
-          name: 'e-Channelling Health+',
-          description: 'Comprehensive healthcare services including doctor consultations, home services, and health monitoring.',
-          category: 'healthcare',
-          provider: 'e-Channelling',
-          price: 'LKR 1200/month',
-          isSubscribed: subscriptionMap['e-channelling-plus'] === true,
-          popularity: 86
-        },
-        {
-          id: 'slt-cloud-pro',
-          name: 'SLT Cloud Pro',
-          description: 'Professional cloud storage and collaboration suite with advanced security and team features.',
-          category: 'cloud',
-          provider: 'SLT Digital Services',
-          price: 'LKR 850/month',
-          isSubscribed: subscriptionMap['slt-cloud-pro'] === true,
-          popularity: 78
-        },
-        {
-          id: 'slt-international-roaming',
-          name: 'International Roaming Plus',
-          description: 'Affordable international roaming with data packages and competitive call rates worldwide.',
-          category: 'connectivity',
-          provider: 'SLT Mobitel',
-          price: 'LKR 950/month',
-          isSubscribed: subscriptionMap['slt-international-roaming'] === true,
-          popularity: 75
-        },
-        {
-          id: 'slt-wifi-plus',
-          name: 'SLT WiFi Plus',
-          description: 'Enhanced internet experience with priority bandwidth, parental controls, and premium support.',
-          category: 'connectivity',
-          provider: 'SLT Mobitel',
-          price: 'LKR 750/month',
-          isSubscribed: subscriptionMap['slt-wifi-plus'] === true,
-          popularity: 83
-        }
-      ];
-
+      // Fetch all active VAS services from database
+      const allVASServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
+      
+      // Map VAS services with customer subscription status
+      const vasServices = allVASServices.map(service => ({
+        id: service.id, // Use service.id (short form) instead of _id for consistency
+        name: service.name,
+        description: service.description,
+        category: service.category,
+        provider: service.provider,
+        price: service.price,
+        features: service.features || [],
+        benefits: service.benefits || [],
+        isSubscribed: subscriptionMap[service.id] === true, // Look up by service.id for consistency
+        popularity: service.popularity || 0
+      }));
       console.log(`CSR VAS services loaded for customer: ${customerEmail}`);
       console.log(`Active subscriptions: ${vasServices.filter(s => s.isSubscribed).length}`);
 
@@ -616,28 +483,42 @@ class VASController {
         });
       }
 
-      // Validate serviceId
-      const validServices = ['slt-filmhall', 'peo-tv', 'kaspersky-security', 'e-channelling-plus', 'slt-cloud-pro', 'slt-international-roaming', 'slt-wifi-plus'];
-      if (!validServices.includes(serviceId)) {
-        console.log(`Invalid service ID: ${serviceId}`);
+      // Validate serviceId by checking if it exists in the database
+      console.log(`🔍 CSR VAS Debug: Validating service ID: ${serviceId}`);
+      
+      let serviceExists;
+      try {
+        // First try to find by MongoDB _id (ObjectId)
+        const mongoose = require('mongoose');
+        if (mongoose.Types.ObjectId.isValid(serviceId)) {
+          console.log(`🔍 CSR VAS Debug: Searching by ObjectId: ${serviceId}`);
+          serviceExists = await VASService.findOne({ _id: serviceId, status: 'active' });
+        } else {
+          console.log(`🔍 CSR VAS Debug: Searching by custom ID field: ${serviceId}`);
+          // If not a valid ObjectId, search by custom 'id' field (for legacy services)
+          serviceExists = await VASService.findOne({ id: serviceId, status: 'active' });
+        }
+        
+        console.log(`🔍 CSR VAS Debug: Database query result:`, serviceExists ? 'FOUND' : 'NOT FOUND');
+        
+        if (serviceExists) {
+          console.log(`🔍 CSR VAS Debug: Found service: ${serviceExists.name} (Status: ${serviceExists.status})`);
+        }
+      } catch (error) {
+        console.log(`🔍 CSR VAS Debug: Error validating service ID: ${error.message}`);
+        serviceExists = null;
+      }
+      
+      if (!serviceExists) {
+        console.log(`❌ CSR VAS Debug: Invalid or inactive service ID: ${serviceId}`);
         return res.status(400).json({
           success: false,
-          message: 'Invalid service ID'
+          message: `Invalid or inactive service ID: ${serviceId}`
         });
       }
 
-      // Get service name for record keeping
-      const serviceNames = {
-        'slt-filmhall': 'SLT Filmhall',
-        'peo-tv': 'PEO TV Plus',
-        'kaspersky-security': 'Kaspersky Total Security',
-        'e-channelling-plus': 'e-Channelling Health+',
-        'slt-cloud-pro': 'SLT Cloud Pro',
-        'slt-international-roaming': 'International Roaming Plus',
-        'slt-wifi-plus': 'SLT WiFi Plus'
-      };
-
-      const serviceName = serviceNames[serviceId];
+      // Get service name from the database
+      const serviceName = serviceExists.name;
 
       console.log(`CSR processing ${action} request for service ${serviceName}...`);
 
@@ -685,6 +566,37 @@ class VASController {
 
       console.log(`CSR request completed successfully at: ${new Date().toISOString()}`);
       console.log('=====================================================\n');
+
+      // Emit real-time update to CSR dashboard
+      if (global.io) {
+        const csrVasUpdateEvent = {
+          customerId,
+          customerEmail,
+          serviceId,
+          serviceName,
+          isSubscribed,
+          action,
+          timestamp: subscription.updatedAt || new Date().toISOString(),
+          csrInfo: {
+            csrId: csrUser.id,
+            csrEmail: csrUser.email
+          }
+        };
+
+        console.log('🔄 CSR Dashboard: Broadcasting VAS update to all CSR dashboards:', csrVasUpdateEvent);
+        global.io.to('csr-dashboard').emit('csrVasUpdate', csrVasUpdateEvent);
+
+        // Also send to customer if they're online
+        console.log('🔄 Customer Update: Broadcasting VAS update to customer:', customerId);
+        global.io.to(`customer_${customerId}`).emit('vasSubscriptionUpdate', {
+          serviceId,
+          serviceName,
+          isSubscribed,
+          action,
+          timestamp: subscription.updatedAt || new Date().toISOString(),
+          source: 'CSR'
+        });
+      }
 
       res.json({
         success: true,
