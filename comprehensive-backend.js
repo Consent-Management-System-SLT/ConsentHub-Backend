@@ -449,24 +449,6 @@ async function initializeVASServices() {
                     popularity: 65,
                     totalSubscribers: 34000,
                     monthlyRevenue: 54366000
-                },
-                    contractDuration: '12_months',
-                    autoRenewal: true,
-                    eligibilityRules: ['postpaid_customer', 'fiber_customer'],
-                    promotionalOffers: [
-                        {
-                            name: 'Free Installation',
-                            discount: 100,
-                            validTill: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-                        }
-                    ],
-                    icon: '🛡️',
-                    color: '#28A745',
-                    provider: 'SLT Security Solutions',
-                    customerSupportContact: '+94115060606',
-                    termsAndConditions: 'Security service agreement. Installation and equipment terms apply.',
-                    createdAt: new Date(),
-                    updatedAt: new Date()
                 }
             ];
 
