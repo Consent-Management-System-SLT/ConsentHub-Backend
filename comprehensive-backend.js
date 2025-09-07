@@ -20,6 +20,8 @@ const ComplianceRule = require('./models/ComplianceRule');
 const NotificationLog = require('./models/NotificationLog');
 const { Webhook, EventLog } = require('./models/Webhook');
 const CommunicationPreference = require('./models/CommunicationPreference');
+const VASService = require('./models/VASService');
+const VASSubscription = require('./models/VASSubscription');
 const { notificationService } = require('./services/notificationService');
 const { seedGuardians } = require('./seedGuardians');
 const { 
@@ -259,6 +261,139 @@ function verifyToken(req, res, next) {
         });
     }
 }
+
+// VAS Initialization Function
+async function initializeVASServices() {
+    try {
+        const existingCount = await VASService.countDocuments();
+        
+        if (existingCount === 0) {
+            const defaultServices = [
+                {
+                    id: 'vas_001',
+                    name: 'SLT Filmhall',
+                    category: 'Entertainment',
+                    description: 'Premium movie and TV series streaming service with latest releases',
+                    monthlyPrice: 299.00,
+                    currency: 'LKR',
+                    features: [
+                        'HD Quality Streaming',
+                        'Latest Movies & TV Shows',
+                        'Multiple Device Support',
+                        'Offline Downloads',
+                        'Family Sharing (5 profiles)'
+                    ],
+                    status: 'active',
+                    popularity: 95,
+                    totalSubscribers: 125000,
+                    monthlyRevenue: 37375000,
+                    setupFee: 0,
+                    contractDuration: 'monthly',
+                    autoRenewal: true,
+                    eligibilityRules: ['postpaid_customer', 'active_account'],
+                    promotionalOffers: [
+                        {
+                            name: 'First Month Free',
+                            discount: 100,
+                            validTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                        }
+                    ],
+                    icon: '🎬',
+                    color: '#E50914',
+                    provider: 'SLT Digital Services',
+                    customerSupportContact: '+94115050505',
+                    termsAndConditions: 'Standard SLT VAS terms apply. Service subject to fair usage policy.',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                },
+                {
+                    id: 'vas_002',
+                    name: 'PEO TV Plus',
+                    category: 'Entertainment',
+                    description: 'Live TV channels and sports streaming with premium content access',
+                    monthlyPrice: 399.00,
+                    currency: 'LKR',
+                    features: [
+                        '150+ Live TV Channels',
+                        'Premium Sports Content',
+                        'International Channels',
+                        'Live Cricket Matches',
+                        'News & Documentary Channels'
+                    ],
+                    status: 'active',
+                    popularity: 88,
+                    totalSubscribers: 98000,
+                    monthlyRevenue: 39102000,
+                    setupFee: 0,
+                    contractDuration: 'monthly',
+                    autoRenewal: true,
+                    eligibilityRules: ['postpaid_customer'],
+                    promotionalOffers: [
+                        {
+                            name: 'Sports Package Free',
+                            discount: 25,
+                            validTill: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+                        }
+                    ],
+                    icon: '📺',
+                    color: '#FF6B35',
+                    provider: 'PEO TV',
+                    customerSupportContact: '+94112345678',
+                    termsAndConditions: 'PEO TV Plus subscription terms. Sports content subject to broadcasting rights.',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                },
+                {
+                    id: 'vas_003',
+                    name: 'SLT Smart Security',
+                    category: 'Security',
+                    description: 'Comprehensive home security monitoring and alert system',
+                    monthlyPrice: 1299.00,
+                    currency: 'LKR',
+                    features: [
+                        '24/7 Security Monitoring',
+                        'Mobile App Alerts',
+                        'Video Surveillance',
+                        'Emergency Response Team',
+                        'Smart Home Integration'
+                    ],
+                    status: 'active',
+                    popularity: 76,
+                    totalSubscribers: 45000,
+                    monthlyRevenue: 58455000,
+                    setupFee: 2500,
+                    contractDuration: '12_months',
+                    autoRenewal: true,
+                    eligibilityRules: ['postpaid_customer', 'fiber_customer'],
+                    promotionalOffers: [
+                        {
+                            name: 'Free Installation',
+                            discount: 100,
+                            validTill: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+                        }
+                    ],
+                    icon: '🛡️',
+                    color: '#28A745',
+                    provider: 'SLT Security Solutions',
+                    customerSupportContact: '+94115060606',
+                    termsAndConditions: 'Security service agreement. Installation and equipment terms apply.',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                }
+            ];
+
+            await VASService.insertMany(defaultServices);
+            console.log('✅ Default VAS services initialized successfully');
+        } else {
+            console.log(`📋 Found ${existingCount} existing VAS services`);
+        }
+    } catch (error) {
+        console.error('❌ VAS initialization error:', error);
+    }
+}
+
+// Initialize VAS services on startup
+setTimeout(initializeVASServices, 2000);
 
 // Helper Functions for Default Data Creation
 async function createDefaultConsents(userId, partyId) {
@@ -8223,6 +8358,709 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
 });
 
 // =============================================================================
+// VALUE ADDED SERVICES (VAS) MANAGEMENT API ENDPOINTS
+// =============================================================================
+
+// ===== CUSTOMER VAS ENDPOINTS =====
+
+// GET /api/customer/vas/services - Get all available VAS services for customer
+app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
+    try {
+        console.log('🎯 Customer VAS: Fetching available services for user:', req.user.id);
+        
+        // Get all active VAS services
+        const allVASServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
+        
+        // Get user's current subscriptions
+        const userSubscriptions = await VASSubscription.find({ userId: req.user.id, status: 'active' });
+        const subscribedServiceIds = userSubscriptions.map(sub => sub.serviceId);
+        
+        // Add subscription status to each service
+        const servicesWithSubscriptionStatus = allVASServices.map(service => ({
+            ...service.toObject(),
+            isSubscribed: subscribedServiceIds.includes(service.id),
+            monthlyTotal: service.monthlyPrice || 0
+        }));
+        
+        console.log(`✅ Customer VAS: Retrieved ${servicesWithSubscriptionStatus.length} services`);
+        
+        res.json({
+            success: true,
+            data: servicesWithSubscriptionStatus,
+            total: servicesWithSubscriptionStatus.length,
+            user: {
+                id: req.user.id,
+                name: req.user.name
+            }
+        });
+    } catch (error) {
+        console.error('❌ Customer VAS services error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch VAS services',
+            error: error.message
+        });
+    }
+});
+
+// POST /api/customer/vas/subscribe - Subscribe to a VAS service
+app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
+    try {
+        const { serviceId } = req.body;
+        console.log('🔄 Customer VAS: Processing subscription for service:', serviceId, 'user:', req.user.id);
+        
+        // Find the service
+        const service = await VASService.findOne({ id: serviceId, status: 'active' });
+        if (!service) {
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found'
+            });
+        }
+        
+        // Check if already subscribed
+        const existingSubscription = await VASSubscription.findOne({
+            userId: req.user.id,
+            serviceId: serviceId,
+            status: 'active'
+        });
+        
+        if (existingSubscription) {
+            return res.status(400).json({
+                success: false,
+                message: 'Already subscribed to this service'
+            });
+        }
+        
+        // Create new subscription
+        const subscription = new VASSubscription({
+            userId: req.user.id,
+            serviceId: serviceId,
+            serviceName: service.name,
+            monthlyPrice: service.monthlyPrice,
+            currency: service.currency,
+            status: 'active',
+            subscribedAt: new Date(),
+            nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+            autoRenewal: true
+        });
+        
+        await subscription.save();
+        
+        // Update service subscriber count
+        await VASService.findOneAndUpdate(
+            { id: serviceId },
+            { 
+                $inc: { totalSubscribers: 1 },
+                $set: { updatedAt: new Date() }
+            }
+        );
+        
+        // Emit real-time update
+        io.emit('vasSubscriptionUpdate', {
+            userId: req.user.id,
+            serviceId: serviceId,
+            action: 'subscribed',
+            timestamp: new Date()
+        });
+        
+        console.log('✅ Customer VAS: Subscription created successfully');
+        
+        res.json({
+            success: true,
+            message: `Successfully subscribed to ${service.name}`,
+            data: subscription
+        });
+    } catch (error) {
+        console.error('❌ Customer VAS subscription error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to subscribe to VAS service',
+            error: error.message
+        });
+    }
+});
+
+// POST /api/customer/vas/unsubscribe - Unsubscribe from a VAS service
+app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
+    try {
+        const { serviceId } = req.body;
+        console.log('🔄 Customer VAS: Processing unsubscription for service:', serviceId, 'user:', req.user.id);
+        
+        // Find and update the subscription
+        const subscription = await VASSubscription.findOneAndUpdate(
+            {
+                userId: req.user.id,
+                serviceId: serviceId,
+                status: 'active'
+            },
+            {
+                status: 'cancelled',
+                cancelledAt: new Date(),
+                updatedAt: new Date()
+            },
+            { new: true }
+        );
+        
+        if (!subscription) {
+            return res.status(404).json({
+                success: false,
+                message: 'Active subscription not found'
+            });
+        }
+        
+        // Update service subscriber count
+        await VASService.findOneAndUpdate(
+            { id: serviceId },
+            { 
+                $inc: { totalSubscribers: -1 },
+                $set: { updatedAt: new Date() }
+            }
+        );
+        
+        // Emit real-time update
+        io.emit('vasSubscriptionUpdate', {
+            userId: req.user.id,
+            serviceId: serviceId,
+            action: 'unsubscribed',
+            timestamp: new Date()
+        });
+        
+        console.log('✅ Customer VAS: Unsubscription processed successfully');
+        
+        res.json({
+            success: true,
+            message: `Successfully unsubscribed from ${subscription.serviceName}`,
+            data: subscription
+        });
+    } catch (error) {
+        console.error('❌ Customer VAS unsubscription error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to unsubscribe from VAS service',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/customer/vas/subscriptions - Get customer's VAS subscriptions
+app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
+    try {
+        console.log('📋 Customer VAS: Fetching subscriptions for user:', req.user.id);
+        
+        const subscriptions = await VASSubscription.find({ userId: req.user.id })
+            .sort({ subscribedAt: -1 });
+        
+        // Calculate monthly total
+        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'active');
+        const monthlyTotal = activeSubscriptions.reduce((total, sub) => total + (sub.monthlyPrice || 0), 0);
+        
+        console.log(`✅ Customer VAS: Retrieved ${subscriptions.length} subscriptions, monthly total: ${monthlyTotal}`);
+        
+        res.json({
+            success: true,
+            data: subscriptions,
+            summary: {
+                total: subscriptions.length,
+                active: activeSubscriptions.length,
+                monthlyTotal: monthlyTotal,
+                currency: 'LKR'
+            }
+        });
+    } catch (error) {
+        console.error('❌ Customer VAS subscriptions error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch VAS subscriptions',
+            error: error.message
+        });
+    }
+});
+
+// ===== CSR VAS ENDPOINTS =====
+
+// GET /api/csr/vas/services - Get all VAS services for CSR management
+app.get("/api/csr/vas/services", async (req, res) => {
+    try {
+        console.log('🎯 CSR VAS: Fetching all VAS services for management');
+        
+        const services = await VASService.find({}).sort({ popularity: -1 });
+        
+        console.log(`✅ CSR VAS: Retrieved ${services.length} services for management`);
+        
+        res.json({
+            success: true,
+            data: services,
+            total: services.length
+        });
+    } catch (error) {
+        console.error('❌ CSR VAS services error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch VAS services',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/csr/vas/customer/:customerId - Get customer's VAS subscriptions for CSR
+app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        console.log('🔍 CSR VAS: Fetching customer subscriptions for ID:', customerId);
+        
+        // Get customer subscriptions
+        const subscriptions = await VASSubscription.find({ userId: customerId })
+            .sort({ subscribedAt: -1 });
+        
+        // Get all services to show available options
+        const allServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
+        const subscribedServiceIds = subscriptions
+            .filter(sub => sub.status === 'active')
+            .map(sub => sub.serviceId);
+        
+        const servicesWithStatus = allServices.map(service => ({
+            ...service.toObject(),
+            isSubscribed: subscribedServiceIds.includes(service.id)
+        }));
+        
+        console.log(`✅ CSR VAS: Retrieved ${subscriptions.length} subscriptions for customer ${customerId}`);
+        
+        res.json({
+            success: true,
+            data: {
+                subscriptions: subscriptions,
+                availableServices: servicesWithStatus
+            },
+            customerId: customerId
+        });
+    } catch (error) {
+        console.error('❌ CSR VAS customer lookup error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch customer VAS data',
+            error: error.message
+        });
+    }
+});
+
+// POST /api/csr/vas/customer/:customerId/subscribe - CSR subscribe customer to VAS
+app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const { serviceId } = req.body;
+        console.log('🔄 CSR VAS: Processing CSR-initiated subscription for customer:', customerId, 'service:', serviceId);
+        
+        // Find the service
+        const service = await VASService.findOne({ id: serviceId, status: 'active' });
+        if (!service) {
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found'
+            });
+        }
+        
+        // Check if already subscribed
+        const existingSubscription = await VASSubscription.findOne({
+            userId: customerId,
+            serviceId: serviceId,
+            status: 'active'
+        });
+        
+        if (existingSubscription) {
+            return res.status(400).json({
+                success: false,
+                message: 'Customer already subscribed to this service'
+            });
+        }
+        
+        // Create new subscription
+        const subscription = new VASSubscription({
+            userId: customerId,
+            serviceId: serviceId,
+            serviceName: service.name,
+            monthlyPrice: service.monthlyPrice,
+            currency: service.currency,
+            status: 'active',
+            subscribedAt: new Date(),
+            nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            autoRenewal: true,
+            subscribedBy: 'csr' // Track that this was CSR-initiated
+        });
+        
+        await subscription.save();
+        
+        // Update service subscriber count
+        await VASService.findOneAndUpdate(
+            { id: serviceId },
+            { 
+                $inc: { totalSubscribers: 1 },
+                $set: { updatedAt: new Date() }
+            }
+        );
+        
+        // Emit real-time update
+        io.emit('vasSubscriptionUpdate', {
+            userId: customerId,
+            serviceId: serviceId,
+            action: 'subscribed',
+            initiatedBy: 'csr',
+            timestamp: new Date()
+        });
+        
+        console.log('✅ CSR VAS: Customer subscription created successfully');
+        
+        res.json({
+            success: true,
+            message: `Successfully subscribed customer to ${service.name}`,
+            data: subscription
+        });
+    } catch (error) {
+        console.error('❌ CSR VAS subscription error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to subscribe customer to VAS service',
+            error: error.message
+        });
+    }
+});
+
+// POST /api/csr/vas/customer/:customerId/unsubscribe - CSR unsubscribe customer from VAS
+app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const { serviceId } = req.body;
+        console.log('🔄 CSR VAS: Processing CSR-initiated unsubscription for customer:', customerId, 'service:', serviceId);
+        
+        // Find and update the subscription
+        const subscription = await VASSubscription.findOneAndUpdate(
+            {
+                userId: customerId,
+                serviceId: serviceId,
+                status: 'active'
+            },
+            {
+                status: 'cancelled',
+                cancelledAt: new Date(),
+                updatedAt: new Date(),
+                cancelledBy: 'csr'
+            },
+            { new: true }
+        );
+        
+        if (!subscription) {
+            return res.status(404).json({
+                success: false,
+                message: 'Active subscription not found for customer'
+            });
+        }
+        
+        // Update service subscriber count
+        await VASService.findOneAndUpdate(
+            { id: serviceId },
+            { 
+                $inc: { totalSubscribers: -1 },
+                $set: { updatedAt: new Date() }
+            }
+        );
+        
+        // Emit real-time update
+        io.emit('vasSubscriptionUpdate', {
+            userId: customerId,
+            serviceId: serviceId,
+            action: 'unsubscribed',
+            initiatedBy: 'csr',
+            timestamp: new Date()
+        });
+        
+        console.log('✅ CSR VAS: Customer unsubscription processed successfully');
+        
+        res.json({
+            success: true,
+            message: `Successfully unsubscribed customer from ${subscription.serviceName}`,
+            data: subscription
+        });
+    } catch (error) {
+        console.error('❌ CSR VAS unsubscription error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to unsubscribe customer from VAS service',
+            error: error.message
+        });
+    }
+});
+
+// ===== ADMIN VAS ENDPOINTS =====
+
+// GET /api/admin/vas/services - Get all VAS services for admin management
+app.get("/api/admin/vas/services", async (req, res) => {
+    try {
+        const { page = 1, limit = 10, search = '', category = '', status = '' } = req.query;
+        
+        console.log('🎯 Admin VAS: Fetching VAS services with filters:', { search, category, status });
+        
+        // Build filter
+        let filter = {};
+        if (search) {
+            filter.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+        if (category) filter.category = category;
+        if (status) filter.status = status;
+        
+        const vasServices = await VASService.find(filter)
+            .sort({ popularity: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+        
+        const totalServices = await VASService.countDocuments(filter);
+        
+        // Calculate summary statistics
+        const totalSubscribers = vasServices.reduce((sum, service) => sum + (service.totalSubscribers || 0), 0);
+        const totalMonthlyRevenue = vasServices.reduce((sum, service) => sum + (service.monthlyRevenue || 0), 0);
+        const categories = await VASService.distinct('category');
+        
+        console.log(`✅ Admin VAS: Retrieved ${vasServices.length} services from database`);
+        
+        res.json({
+            success: true,
+            data: vasServices,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: totalServices,
+                pages: Math.ceil(totalServices / limit)
+            },
+            summary: {
+                totalServices: totalServices,
+                totalSubscribers: totalSubscribers,
+                totalMonthlyRevenue: totalMonthlyRevenue,
+                categories: categories
+            }
+        });
+    } catch (error) {
+        console.error('❌ Admin VAS services error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch VAS services',
+            error: error.message
+        });
+    }
+});
+
+// POST /api/admin/vas/services - Create new VAS service
+app.post("/api/admin/vas/services", async (req, res) => {
+    try {
+        console.log('🆕 Admin VAS: Creating new VAS service');
+        
+        const serviceData = {
+            ...req.body,
+            id: `vas_${Date.now()}`,
+            totalSubscribers: 0,
+            monthlyRevenue: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+        
+        const newService = new VASService(serviceData);
+        await newService.save();
+        
+        console.log('✅ Admin VAS: New service created successfully:', newService.name);
+        
+        res.status(201).json({
+            success: true,
+            message: 'VAS service created successfully',
+            data: newService
+        });
+    } catch (error) {
+        console.error('❌ Admin VAS service creation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create VAS service',
+            error: error.message
+        });
+    }
+});
+
+// PUT /api/admin/vas/services/:id - Update VAS service
+app.put("/api/admin/vas/services/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log('✏️ Admin VAS: Updating VAS service:', id);
+        
+        const service = await VASService.findOneAndUpdate(
+            { id: id },
+            { 
+                ...req.body, 
+                updatedAt: new Date() 
+            },
+            { new: true, runValidators: true }
+        );
+        
+        if (!service) {
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found'
+            });
+        }
+        
+        console.log('✅ Admin VAS: Service updated successfully');
+        
+        res.json({
+            success: true,
+            message: 'VAS service updated successfully',
+            data: service
+        });
+    } catch (error) {
+        console.error('❌ Admin VAS service update error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update VAS service',
+            error: error.message
+        });
+    }
+});
+
+// DELETE /api/admin/vas/services/:id - Delete VAS service
+app.delete("/api/admin/vas/services/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log('🗑️ Admin VAS: Deleting VAS service:', id);
+        
+        const service = await VASService.findOneAndUpdate(
+            { id: id },
+            { 
+                status: 'deleted',
+                updatedAt: new Date() 
+            },
+            { new: true }
+        );
+        
+        if (!service) {
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found'
+            });
+        }
+        
+        // Cancel all active subscriptions
+        await VASSubscription.updateMany(
+            { serviceId: id, status: 'active' },
+            { 
+                status: 'cancelled',
+                cancelledAt: new Date(),
+                cancelledBy: 'admin_service_deletion'
+            }
+        );
+        
+        console.log('✅ Admin VAS: Service deleted successfully');
+        
+        res.json({
+            success: true,
+            message: 'VAS service deleted successfully',
+            data: service
+        });
+    } catch (error) {
+        console.error('❌ Admin VAS service deletion error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete VAS service',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/admin/vas/subscriptions - Get all VAS subscriptions for admin
+app.get("/api/admin/vas/subscriptions", async (req, res) => {
+    try {
+        const { page = 1, limit = 20, status = '', serviceId = '' } = req.query;
+        
+        console.log('📊 Admin VAS: Fetching subscription data');
+        
+        let filter = {};
+        if (status) filter.status = status;
+        if (serviceId) filter.serviceId = serviceId;
+        
+        const subscriptions = await VASSubscription.find(filter)
+            .sort({ subscribedAt: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+        
+        const totalSubscriptions = await VASSubscription.countDocuments(filter);
+        
+        console.log(`✅ Admin VAS: Retrieved ${subscriptions.length} subscriptions`);
+        
+        res.json({
+            success: true,
+            data: subscriptions,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: totalSubscriptions,
+                pages: Math.ceil(totalSubscriptions / limit)
+            }
+        });
+    } catch (error) {
+        console.error('❌ Admin VAS subscriptions error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch VAS subscriptions',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/admin/vas/analytics - Get VAS analytics for admin dashboard
+app.get("/api/admin/vas/analytics", async (req, res) => {
+    try {
+        console.log('📈 Admin VAS: Generating analytics dashboard');
+        
+        // Get service statistics
+        const totalServices = await VASService.countDocuments({ status: 'active' });
+        const totalSubscriptions = await VASSubscription.countDocuments({ status: 'active' });
+        
+        // Calculate revenue
+        const subscriptions = await VASSubscription.find({ status: 'active' });
+        const monthlyRevenue = subscriptions.reduce((total, sub) => total + (sub.monthlyPrice || 0), 0);
+        
+        // Get top services
+        const topServices = await VASService.find({ status: 'active' })
+            .sort({ totalSubscribers: -1 })
+            .limit(5);
+        
+        // Get recent subscriptions
+        const recentSubscriptions = await VASSubscription.find({})
+            .sort({ subscribedAt: -1 })
+            .limit(10);
+        
+        console.log('✅ Admin VAS: Analytics generated successfully');
+        
+        res.json({
+            success: true,
+            data: {
+                overview: {
+                    totalServices,
+                    totalSubscriptions,
+                    monthlyRevenue,
+                    currency: 'LKR'
+                },
+                topServices,
+                recentSubscriptions
+            }
+        });
+    } catch (error) {
+        console.error('❌ Admin VAS analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate VAS analytics',
+            error: error.message
+        });
+    }
+});
+
+// =============================================================================
 // COMPREHENSIVE DSAR REQUEST MANAGEMENT - MongoDB Integration
 // =============================================================================
 
@@ -9992,6 +10830,30 @@ io.on('connection', (socket) => {
         console.log('👨‍💼 CSR left dashboard room:', socket.id);
     });
     
+    // Join customer-specific room for VAS updates
+    socket.on('join-customer-room', (customerId) => {
+        socket.join(`customer-${customerId}`);
+        console.log(`🧑‍💼 Customer ${customerId} joined personal room:`, socket.id);
+    });
+    
+    // Leave customer room
+    socket.on('leave-customer-room', (customerId) => {
+        socket.leave(`customer-${customerId}`);
+        console.log(`🧑‍💼 Customer ${customerId} left personal room:`, socket.id);
+    });
+    
+    // Join VAS management room for admin/CSR
+    socket.on('join-vas-management', () => {
+        socket.join('vas-management');
+        console.log('🎯 Joined VAS management room:', socket.id);
+    });
+    
+    // Leave VAS management room
+    socket.on('leave-vas-management', () => {
+        socket.leave('vas-management');
+        console.log('🎯 Left VAS management room:', socket.id);
+    });
+    
     socket.on('disconnect', () => {
         console.log('🔌 Client disconnected:', socket.id);
     });
@@ -10026,6 +10888,14 @@ server.listen(PORT, async () => {
         console.error('⚠️ Privacy notice initialization failed:', error.message);
     }
     
+    // Initialize VAS services
+    try {
+        await initializeVASServices();
+        console.log('✅ VAS services initialized');
+    } catch (error) {
+        console.error('⚠️ VAS initialization failed:', error.message);
+    }
+    
     console.log('📋 Available endpoints:');
     console.log('   AUTH:');
     console.log('     POST /api/v1/auth/login');
@@ -10040,6 +10910,21 @@ server.listen(PORT, async () => {
     console.log('     DELETE /api/v1/users/:id');
     console.log('     GET  /api/v1/guardians');
     console.log('     POST /api/v1/guardians');
+    console.log('   VAS (VALUE ADDED SERVICES):');
+    console.log('     GET  /api/customer/vas/services');
+    console.log('     POST /api/customer/vas/subscribe');
+    console.log('     POST /api/customer/vas/unsubscribe');
+    console.log('     GET  /api/customer/vas/subscriptions');
+    console.log('     GET  /api/csr/vas/services');
+    console.log('     GET  /api/csr/vas/customer/:customerId');
+    console.log('     POST /api/csr/vas/customer/:customerId/subscribe');
+    console.log('     POST /api/csr/vas/customer/:customerId/unsubscribe');
+    console.log('     GET  /api/admin/vas/services');
+    console.log('     POST /api/admin/vas/services');
+    console.log('     PUT  /api/admin/vas/services/:id');
+    console.log('     DELETE /api/admin/vas/services/:id');
+    console.log('     GET  /api/admin/vas/subscriptions');
+    console.log('     GET  /api/admin/vas/analytics');
     console.log('     PUT  /api/v1/guardians/:id');
     console.log('   DASHBOARD:');
     console.log('     GET  /api/v1/admin/dashboard/overview');
