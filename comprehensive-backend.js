@@ -270,7 +270,7 @@ async function initializeVASServices() {
         if (existingCount === 0) {
             const defaultServices = [
                 {
-                    id: 'vas_001',
+                    id: 'slt-filmhall',
                     name: 'SLT Filmhall',
                     category: 'Entertainment',
                     description: 'Premium movie and TV series streaming service with latest releases',
@@ -307,7 +307,7 @@ async function initializeVASServices() {
                     updatedAt: new Date()
                 },
                 {
-                    id: 'vas_002',
+                    id: 'peo-tv-plus',
                     name: 'PEO TV Plus',
                     category: 'Entertainment',
                     description: 'Live TV channels and sports streaming with premium content access',
@@ -344,7 +344,7 @@ async function initializeVASServices() {
                     updatedAt: new Date()
                 },
                 {
-                    id: 'vas_003',
+                    id: 'slt-smart-security',
                     name: 'SLT Smart Security',
                     category: 'Security',
                     description: 'Comprehensive home security monitoring and alert system',
@@ -8543,6 +8543,127 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
     }
 });
 
+// POST /api/customer/vas/services/:serviceId/toggle - Toggle VAS subscription (subscribe/unsubscribe)
+app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req, res) => {
+    try {
+        const { serviceId } = req.params;
+        console.log('🔄 Customer VAS: Processing toggle for service:', serviceId, 'user:', req.user.id);
+        
+        // Check current subscription status
+        const existingSubscription = await VASSubscription.findOne({
+            userId: req.user.id,
+            serviceId: serviceId,
+            status: 'active'
+        });
+        
+        if (existingSubscription) {
+            // User is subscribed, so unsubscribe
+            const updatedSubscription = await VASSubscription.findOneAndUpdate(
+                {
+                    userId: req.user.id,
+                    serviceId: serviceId,
+                    status: 'active'
+                },
+                {
+                    status: 'cancelled',
+                    cancelledAt: new Date(),
+                    updatedAt: new Date()
+                },
+                { new: true }
+            );
+            
+            // Update service subscriber count
+            await VASService.findOneAndUpdate(
+                { id: serviceId },
+                { 
+                    $inc: { totalSubscribers: -1 },
+                    $set: { updatedAt: new Date() }
+                }
+            );
+            
+            // Emit real-time update
+            io.emit('vasSubscriptionUpdate', {
+                userId: req.user.id,
+                serviceId: serviceId,
+                action: 'unsubscribed',
+                timestamp: new Date()
+            });
+            
+            console.log('✅ Customer VAS: Successfully unsubscribed from service');
+            
+            res.json({
+                success: true,
+                action: 'unsubscribed',
+                message: `Successfully unsubscribed from ${updatedSubscription.serviceName}`,
+                data: {
+                    subscription: updatedSubscription,
+                    isSubscribed: false
+                }
+            });
+        } else {
+            // User is not subscribed, so subscribe
+            const service = await VASService.findOne({ id: serviceId, status: 'active' });
+            if (!service) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'VAS service not found'
+                });
+            }
+            
+            // Create new subscription
+            const subscription = new VASSubscription({
+                userId: req.user.id,
+                serviceId: serviceId,
+                serviceName: service.name,
+                monthlyPrice: service.monthlyPrice,
+                currency: service.currency,
+                status: 'active',
+                subscribedAt: new Date(),
+                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+                autoRenewal: true
+            });
+            
+            await subscription.save();
+            
+            // Update service subscriber count
+            await VASService.findOneAndUpdate(
+                { id: serviceId },
+                { 
+                    $inc: { totalSubscribers: 1 },
+                    $set: { updatedAt: new Date() }
+                }
+            );
+            
+            // Emit real-time update
+            io.emit('vasSubscriptionUpdate', {
+                userId: req.user.id,
+                serviceId: serviceId,
+                action: 'subscribed',
+                timestamp: new Date()
+            });
+            
+            console.log('✅ Customer VAS: Successfully subscribed to service');
+            
+            res.json({
+                success: true,
+                action: 'subscribed',
+                message: `Successfully subscribed to ${service.name}`,
+                data: {
+                    subscription: subscription,
+                    isSubscribed: true
+                }
+            });
+        }
+    } catch (error) {
+        console.error('❌ Customer VAS toggle error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to toggle VAS subscription',
+            error: error.message
+        });
+    }
+});
+
 // GET /api/customer/vas/subscriptions - Get customer's VAS subscriptions
 app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
     try {
@@ -10914,6 +11035,7 @@ server.listen(PORT, async () => {
     console.log('     GET  /api/customer/vas/services');
     console.log('     POST /api/customer/vas/subscribe');
     console.log('     POST /api/customer/vas/unsubscribe');
+    console.log('     POST /api/customer/vas/services/:serviceId/toggle');
     console.log('     GET  /api/customer/vas/subscriptions');
     console.log('     GET  /api/csr/vas/services');
     console.log('     GET  /api/csr/vas/customer/:customerId');
