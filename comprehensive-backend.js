@@ -6430,7 +6430,13 @@ app.put("/api/v1/consent/:id", (req, res) => {
 app.get('/api/csr/customer-vas', async (req, res) => {
     try {
         console.log('🔍 [CSR VAS] Fetching customer VAS services...');
-        const { customerId, customerEmail } = req.headers;
+        console.log('🔍 [CSR VAS] Headers received:', req.headers);
+        
+        // Express.js converts header names to lowercase automatically
+        const customerId = req.headers['customerid'] || req.headers['customer-id'];
+        const customerEmail = req.headers['customeremail'] || req.headers['customer-email'];
+        
+        console.log('🔍 [CSR VAS] Extracted headers:', { customerId, customerEmail });
         
         if (!customerId && !customerEmail) {
             return res.status(400).json({ 
@@ -6568,10 +6574,13 @@ app.get("/api/v1/csr/customers/search", async (req, res) => {
 app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
     try {
         const { serviceId } = req.params;
-        const { customerId, customerEmail } = req.headers;
+        // Express.js converts header names to lowercase automatically
+        const customerId = req.headers['customerid'] || req.headers['customer-id'];
+        const customerEmail = req.headers['customeremail'] || req.headers['customer-email'];
         const { action } = req.body; // 'subscribe' or 'unsubscribe'
         
         console.log(`🔄 [CSR VAS] ${action} request for service ${serviceId}`);
+        console.log('🔄 [CSR VAS] Headers:', { customerId, customerEmail });
 
         if (!customerId && !customerEmail) {
             return res.status(400).json({ 
