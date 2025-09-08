@@ -9359,7 +9359,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
         // Check current subscription status using the MongoDB ObjectId
         console.log(' Customer VAS: Checking existing subscription...');
         const existingSubscription = await VASSubscription.findOne({
-            userId: req.user.id,
+            userId: new mongoose.Types.ObjectId(req.user.id),
             serviceId: service._id,
             isSubscribed: true
         });
@@ -9370,7 +9370,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             // User is subscribed, so unsubscribe
             const updatedSubscription = await VASSubscription.findOneAndUpdate(
                 {
-                    userId: req.user.id,
+                    userId: new mongoose.Types.ObjectId(req.user.id),
                     serviceId: service._id,
                     isSubscribed: true
                 },
@@ -9445,7 +9445,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             
             // Check if subscription record exists but is disabled
             const existingRecord = await VASSubscription.findOne({
-                userId: req.user.id,
+                userId: new mongoose.Types.ObjectId(req.user.id),
                 serviceId: service._id
             });
             
@@ -9453,7 +9453,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 // Update existing record
                 const updatedSubscription = await VASSubscription.findOneAndUpdate(
                     {
-                        userId: req.user.id,
+                        userId: new mongoose.Types.ObjectId(req.user.id),
                         serviceId: service._id
                     },
                     {
@@ -9527,7 +9527,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             } else {
                 // Create new subscription
                 const subscription = new VASSubscription({
-                    userId: req.user.id,
+                    userId: new mongoose.Types.ObjectId(req.user.id),
                     serviceId: service._id,
                     subscriptionId: `sub_${Date.now()}_${req.user.id}`,
                     isSubscribed: true,
