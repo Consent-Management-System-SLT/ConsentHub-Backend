@@ -10219,11 +10219,64 @@ app.post("/api/admin/vas/services", verifyToken, async (req, res) => {
         }
         console.log(' Admin VAS: Creating new VAS service');
         
+        // Extract and validate required fields
+        const {
+            name,
+            description,
+            category,
+            provider,
+            price,
+            features = [],
+            benefits = [],
+            popularity = 0,
+            status = 'active'
+        } = req.body;
+        
+        // Validate required fields
+        if (!name || !description || !category || !provider || !price) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields: name, description, category, provider, price'
+            });
+        }
+        
+        // Extract numeric price - handle various formats
+        let priceNumeric = 0;
+        
+        if (typeof price === 'number') {
+            priceNumeric = price;
+        } else if (typeof price === 'string') {
+            // Remove currency symbols and spaces, extract numbers
+            const cleanPrice = price.replace(/[^\d.]/g, '');
+            priceNumeric = parseFloat(cleanPrice) || 0;
+        }
+        
+        console.log(`🔧 Price parsing: "${price}" → ${priceNumeric}`);
+        
         const serviceData = {
-            ...req.body,
+            name: name.trim(),
+            description: description.trim(),
+            category,
+            provider: provider.trim(),
+            price: price.trim(),
+            priceNumeric,
+            features: features.filter(f => f && f.trim()),
+            benefits: benefits.filter(b => b && b.trim()),
+            popularity: Math.max(0, Math.min(100, popularity)),
+            status,
             id: `vas_${Date.now()}`,
             totalSubscribers: 0,
             monthlyRevenue: 0,
+            createdBy: {
+                userId: req.user?.id || 'admin',
+                userEmail: req.user?.email || 'admin@sltmobitel.lk',
+                timestamp: new Date()
+            },
+            updatedBy: {
+                userId: req.user?.id || 'admin',
+                userEmail: req.user?.email || 'admin@sltmobitel.lk',
+                timestamp: new Date()
+            },
             createdAt: new Date(),
             updatedAt: new Date()
         };
@@ -10323,15 +10376,22 @@ app.delete("/api/admin/vas/services/:id", verifyToken, async (req, res) => {
             });
         }
         
-        // Cancel all active subscriptions
-        await VASSubscription.updateMany(
-            { serviceId: id, status: 'active' },
-            { 
-                status: 'cancelled',
-                cancelledAt: new Date(),
-                cancelledBy: 'admin_service_deletion'
-            }
-        );
+        // Cancel all active subscriptions - handle both ObjectId and string ID cases
+        try {
+            const serviceObjectId = service._id;
+            await VASSubscription.updateMany(
+                { serviceId: serviceObjectId, status: 'active' },
+                { 
+                    status: 'cancelled',
+                    cancelledAt: new Date(),
+                    cancelledBy: 'admin_service_deletion'
+                }
+            );
+            console.log(' Admin VAS: Associated subscriptions cancelled');
+        } catch (subscriptionError) {
+            console.log(' Admin VAS: No subscriptions to cancel or error cancelling:', subscriptionError.message);
+            // Continue with deletion even if subscription update fails
+        }
         
         console.log(' Admin VAS: Service deleted successfully');
         
