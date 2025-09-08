@@ -9256,13 +9256,53 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
     try {
         const { serviceId } = req.params;
         console.log('🔄 Customer VAS: Processing toggle for service:', serviceId, 'user:', req.user.id);
+        console.log('🔄 Customer VAS: Request body:', req.body);
+        
+        // Validate input
+        if (!serviceId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Service ID is required'
+            });
+        }
+
+        // Check if models are available
+        if (typeof VASService === 'undefined' || typeof VASSubscription === 'undefined') {
+            console.error('❌ Customer VAS: VAS models not loaded');
+            return res.status(500).json({
+                success: false,
+                message: 'VAS models not available',
+                debug: {
+                    VASService: typeof VASService,
+                    VASSubscription: typeof VASSubscription
+                }
+            });
+        }
+
+        console.log('🔄 Customer VAS: Models available, checking database connection...');
+        
+        // Test database connection
+        try {
+            await VASService.findOne().limit(1);
+            console.log('🔄 Customer VAS: Database connection OK');
+        } catch (dbError) {
+            console.error('❌ Customer VAS: Database connection failed:', dbError);
+            return res.status(500).json({
+                success: false,
+                message: 'Database connection failed',
+                error: dbError.message
+            });
+        }
         
         // Check current subscription status using the correct field structure
+        console.log('🔄 Customer VAS: Checking existing subscription...');
         const existingSubscription = await VASSubscription.findOne({
             customerId: req.user.id,
             serviceId: serviceId,
             isSubscribed: true
         });
+        
+        console.log('🔄 Customer VAS: Existing subscription found:', !!existingSubscription);
         
         if (existingSubscription) {
             // User is subscribed, so unsubscribe
@@ -9449,10 +9489,33 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
         }
     } catch (error) {
         console.error('❌ Customer VAS toggle error:', error);
-        res.status(500).json({
+        console.error('❌ Customer VAS toggle error stack:', error.stack);
+        console.error('❌ Customer VAS toggle error name:', error.name);
+        
+        // Determine error type and provide specific feedback
+        let errorMessage = 'Failed to toggle VAS subscription';
+        let errorCode = 500;
+        
+        if (error.name === 'ValidationError') {
+            errorMessage = 'Invalid data provided';
+            errorCode = 400;
+        } else if (error.name === 'MongooseError' || error.name === 'MongoError') {
+            errorMessage = 'Database operation failed';
+        } else if (error.name === 'CastError') {
+            errorMessage = 'Invalid service ID format';
+            errorCode = 400;
+        }
+        
+        res.status(errorCode).json({
             success: false,
-            message: 'Failed to toggle VAS subscription',
-            error: error.message
+            message: errorMessage,
+            error: error.message,
+            debug: {
+                errorName: error.name,
+                serviceId: req.params.serviceId,
+                userId: req.user?.id,
+                timestamp: new Date().toISOString()
+            }
         });
     }
 });
@@ -9494,6 +9557,132 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to fetch VAS subscriptions',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/customer/vas/debug - Debug endpoint to test VAS models and connections
+app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
+    try {
+        console.log('🔧 VAS Debug: Starting VAS debug checks...');
+        console.log('🔧 VAS Debug: User ID:', req.user.id);
+        
+        const debugInfo = {
+            timestamp: new Date().toISOString(),
+            user: {
+                id: req.user.id,
+                email: req.user.email
+            },
+            checks: {}
+        };
+
+        // Check 1: VAS Models availability
+        try {
+            console.log('🔧 VAS Debug: Checking VAS models...');
+            debugInfo.checks.modelsLoaded = {
+                VASService: typeof VASService !== 'undefined',
+                VASSubscription: typeof VASSubscription !== 'undefined'
+            };
+        } catch (error) {
+            debugInfo.checks.modelsLoaded = { error: error.message };
+        }
+
+        // Check 2: Database connection
+        try {
+            console.log('🔧 VAS Debug: Testing database connection...');
+            const serviceCount = await VASService.countDocuments();
+            const subscriptionCount = await VASSubscription.countDocuments();
+            debugInfo.checks.database = {
+                connected: true,
+                serviceCount,
+                subscriptionCount
+            };
+        } catch (error) {
+            debugInfo.checks.database = { 
+                connected: false, 
+                error: error.message 
+            };
+        }
+
+        // Check 3: VAS Services availability
+        try {
+            console.log('🔧 VAS Debug: Checking VAS services...');
+            const services = await VASService.find({ status: 'active' }).limit(3);
+            debugInfo.checks.services = {
+                count: services.length,
+                sampleServices: services.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    category: s.category
+                }))
+            };
+        } catch (error) {
+            debugInfo.checks.services = { error: error.message };
+        }
+
+        // Check 4: User subscriptions
+        try {
+            console.log('🔧 VAS Debug: Checking user subscriptions...');
+            const subscriptions = await VASSubscription.find({ 
+                customerId: req.user.id 
+            });
+            debugInfo.checks.userSubscriptions = {
+                count: subscriptions.length,
+                activeCount: subscriptions.filter(s => s.isSubscribed).length
+            };
+        } catch (error) {
+            debugInfo.checks.userSubscriptions = { error: error.message };
+        }
+
+        // Check 5: Environment
+        debugInfo.checks.environment = {
+            nodeVersion: process.version,
+            mongooseVersion: require('mongoose').version,
+            dbConnectionState: mongoose.connection.readyState,
+            dbName: mongoose.connection.name
+        };
+
+        console.log('🔧 VAS Debug: Debug info collected:', JSON.stringify(debugInfo, null, 2));
+
+        res.json({
+            success: true,
+            message: 'VAS debug information collected',
+            debug: debugInfo
+        });
+
+    } catch (error) {
+        console.error('❌ VAS Debug: Error during debug check:', error);
+        res.status(500).json({
+            success: false,
+            message: 'VAS debug check failed',
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
+// POST /api/customer/vas/test-toggle - Simple test toggle without complex logic
+app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
+    try {
+        console.log('🔧 VAS Test Toggle: Testing basic VAS functionality...');
+        console.log('🔧 VAS Test Toggle: User:', req.user.id);
+        console.log('🔧 VAS Test Toggle: Body:', req.body);
+
+        // Simple test - just return success without database operations
+        res.json({
+            success: true,
+            message: 'VAS test toggle endpoint working',
+            user: req.user.id,
+            body: req.body,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('❌ VAS Test Toggle: Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'VAS test toggle failed',
             error: error.message
         });
     }
