@@ -9140,15 +9140,11 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
             metadata: {
                 activatedBy: 'customer',
                 activationChannel: 'web'
-            }
             },
             subscriptionHistory: [{
                 action: 'subscribe',
                 timestamp: new Date(),
-                requestInfo: {
-                    ip: req.ip,
-                    userAgent: req.get('User-Agent')
-                }
+                details: 'Customer self-activation'
             }]
         });
         
