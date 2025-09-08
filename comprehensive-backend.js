@@ -9059,10 +9059,14 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         
         // Get user's current subscriptions using correct field structure
         const userSubscriptions = await VASSubscription.find({ 
-            customerId: req.user.id, 
+            userId: req.user.id, 
             isSubscribed: true 
-        });
-        const subscribedServiceIds = userSubscriptions.map(sub => sub.serviceId);
+        }).populate('serviceId');
+        
+        // Extract service IDs from subscriptions
+        const subscribedServiceIds = userSubscriptions
+            .filter(sub => sub.serviceId) // Ensure serviceId exists
+            .map(sub => sub.serviceId.id); // Get the string ID from the populated service
         
         // Add subscription status to each service
         const servicesWithSubscriptionStatus = allVASServices.map(service => ({
@@ -9110,8 +9114,8 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
         
         // Check if already subscribed using correct field structure
         const existingSubscription = await VASSubscription.findOne({
-            customerId: req.user.id,
-            serviceId: serviceId,
+            userId: req.user.id,
+            serviceId: service._id,
             isSubscribed: true
         });
         
@@ -9124,16 +9128,19 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
         
         // Create new subscription using correct schema
         const subscription = new VASSubscription({
-            customerId: req.user.id,
-            customerEmail: req.user.email,
-            serviceId: serviceId,
-            serviceName: service.name,
+            userId: req.user.id,
+            serviceId: service._id,
+            subscriptionId: `sub_${Date.now()}_${req.user.id}`,
             isSubscribed: true,
-            billingInfo: {
-                startDate: new Date(),
-                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                amount: service.price,
-                currency: service.currency
+            billing: {
+                amount: service.priceNumeric || 0,
+                frequency: 'monthly',
+                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            },
+            metadata: {
+                activatedBy: 'customer',
+                activationChannel: 'web'
+            }
             },
             subscriptionHistory: [{
                 action: 'subscribe',
@@ -9187,11 +9194,20 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
         const { serviceId } = req.body;
         console.log('🔄 Customer VAS: Processing unsubscription for service:', serviceId, 'user:', req.user.id);
         
+        // Find the service first to get its ObjectId
+        const service = await VASService.findOne({ id: serviceId, status: 'active' });
+        if (!service) {
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found'
+            });
+        }
+        
         // Find and update the subscription using correct field structure
         const subscription = await VASSubscription.findOneAndUpdate(
             {
-                customerId: req.user.id,
-                serviceId: serviceId,
+                userId: req.user.id,
+                serviceId: service._id,
                 isSubscribed: true
             },
             {
@@ -9200,10 +9216,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
                     subscriptionHistory: {
                         action: 'unsubscribe',
                         timestamp: new Date(),
-                        requestInfo: {
-                            ip: req.ip,
-                            userAgent: req.get('User-Agent')
-                        }
+                        details: 'Customer self-deactivation'
                     }
                 }
             },
@@ -9294,11 +9307,25 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             });
         }
         
-        // Check current subscription status using the correct field structure
+        // First find the VAS service by its string ID to get the MongoDB ObjectId
+        console.log('🔄 Customer VAS: Looking up service by string ID...');
+        const service = await VASService.findOne({ id: serviceId, status: 'active' });
+        
+        if (!service) {
+            console.log('❌ Customer VAS: Service not found:', serviceId);
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found or inactive'
+            });
+        }
+        
+        console.log('✅ Customer VAS: Service found, MongoDB _id:', service._id);
+        
+        // Check current subscription status using the MongoDB ObjectId
         console.log('🔄 Customer VAS: Checking existing subscription...');
         const existingSubscription = await VASSubscription.findOne({
-            customerId: req.user.id,
-            serviceId: serviceId,
+            userId: req.user.id,
+            serviceId: service._id,
             isSubscribed: true
         });
         
@@ -9308,8 +9335,8 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             // User is subscribed, so unsubscribe
             const updatedSubscription = await VASSubscription.findOneAndUpdate(
                 {
-                    customerId: req.user.id,
-                    serviceId: serviceId,
+                    userId: req.user.id,
+                    serviceId: service._id,
                     isSubscribed: true
                 },
                 {
@@ -9358,7 +9385,6 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             });
         } else {
             // User is not subscribed, so subscribe
-            const service = await VASService.findOne({ id: serviceId, status: 'active' });
             if (!service) {
                 return res.status(404).json({
                     success: false,
@@ -9368,16 +9394,16 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             
             // Check if subscription record exists but is disabled
             const existingRecord = await VASSubscription.findOne({
-                customerId: req.user.id,
-                serviceId: serviceId
+                userId: req.user.id,
+                serviceId: service._id
             });
             
             if (existingRecord) {
                 // Update existing record
                 const updatedSubscription = await VASSubscription.findOneAndUpdate(
                     {
-                        customerId: req.user.id,
-                        serviceId: serviceId
+                        userId: req.user.id,
+                        serviceId: service._id
                     },
                     {
                         isSubscribed: true,
@@ -9434,24 +9460,23 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             } else {
                 // Create new subscription
                 const subscription = new VASSubscription({
-                    customerId: req.user.id,
-                    customerEmail: req.user.email,
-                    serviceId: serviceId,
-                    serviceName: service.name,
+                    userId: req.user.id,
+                    serviceId: service._id,
+                    subscriptionId: `sub_${Date.now()}_${req.user.id}`,
                     isSubscribed: true,
-                    billingInfo: {
-                        startDate: new Date(),
-                        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-                        amount: service.price,
-                        currency: service.currency
+                    billing: {
+                        amount: service.priceNumeric || 0,
+                        frequency: 'monthly',
+                        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                    },
+                    metadata: {
+                        activatedBy: 'customer',
+                        activationChannel: 'web'
                     },
                     subscriptionHistory: [{
                         action: 'subscribe',
                         timestamp: new Date(),
-                        requestInfo: {
-                            ip: req.ip,
-                            userAgent: req.get('User-Agent')
-                        }
+                        details: 'Customer self-activation'
                     }]
                 });
                 
@@ -9525,18 +9550,18 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
     try {
         console.log('📋 Customer VAS: Fetching subscriptions for user:', req.user.id);
         
-        const subscriptions = await VASSubscription.find({ customerId: req.user.id })
+        const subscriptions = await VASSubscription.find({ userId: req.user.id })
+            .populate('serviceId')
             .sort({ createdAt: -1 });
         
         // Calculate monthly total for active subscriptions
         const activeSubscriptions = subscriptions.filter(sub => sub.isSubscribed === true);
         
-        // Get pricing from VAS services for monthly total calculation
+        // Calculate monthly total from populated service data
         let monthlyTotal = 0;
         for (const sub of activeSubscriptions) {
-            const service = await VASService.findOne({ id: sub.serviceId });
-            if (service) {
-                monthlyTotal += service.priceNumeric || 0;
+            if (sub.serviceId && sub.serviceId.priceNumeric) {
+                monthlyTotal += sub.serviceId.priceNumeric;
             }
         }
         
@@ -9722,17 +9747,18 @@ app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
         
         // Get customer subscriptions
         const subscriptions = await VASSubscription.find({ userId: customerId })
+            .populate('serviceId')
             .sort({ subscribedAt: -1 });
         
         // Get all services to show available options
         const allServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
         const subscribedServiceIds = subscriptions
-            .filter(sub => sub.status === 'active')
-            .map(sub => sub.serviceId);
+            .filter(sub => sub.status === 'active' && sub.serviceId)
+            .map(sub => sub.serviceId._id.toString());
         
         const servicesWithStatus = allServices.map(service => ({
             ...service.toObject(),
-            isSubscribed: subscribedServiceIds.includes(service.id)
+            isSubscribed: subscribedServiceIds.includes(service._id.toString())
         }));
         
         console.log(`✅ CSR VAS: Retrieved ${subscriptions.length} subscriptions for customer ${customerId}`);
@@ -9774,7 +9800,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
         // Check if already subscribed
         const existingSubscription = await VASSubscription.findOne({
             userId: customerId,
-            serviceId: serviceId,
+            serviceId: service._id,
             status: 'active'
         });
         
@@ -9788,15 +9814,18 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
         // Create new subscription
         const subscription = new VASSubscription({
             userId: customerId,
-            serviceId: serviceId,
-            serviceName: service.name,
-            monthlyPrice: service.priceNumeric,
-            currency: service.currency,
+            serviceId: service._id,
+            subscriptionId: `sub_${Date.now()}_${customerId}`,
             status: 'active',
-            subscribedAt: new Date(),
-            nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            autoRenewal: true,
-            subscribedBy: 'csr' // Track that this was CSR-initiated
+            billing: {
+                amount: service.priceNumeric || 0,
+                frequency: 'monthly',
+                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            },
+            metadata: {
+                activatedBy: 'csr',
+                activationChannel: 'csr-dashboard'
+            }
         });
         
         await subscription.save();
@@ -9843,18 +9872,29 @@ app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
         const { serviceId } = req.body;
         console.log('🔄 CSR VAS: Processing CSR-initiated unsubscription for customer:', customerId, 'service:', serviceId);
         
+        // Find the service first to get its ObjectId
+        const service = await VASService.findOne({ id: serviceId, status: 'active' });
+        if (!service) {
+            return res.status(404).json({
+                success: false,
+                message: 'VAS service not found'
+            });
+        }
+        
         // Find and update the subscription
         const subscription = await VASSubscription.findOneAndUpdate(
             {
                 userId: customerId,
-                serviceId: serviceId,
+                serviceId: service._id,
                 status: 'active'
             },
             {
                 status: 'cancelled',
-                cancelledAt: new Date(),
-                updatedAt: new Date(),
-                cancelledBy: 'csr'
+                endDate: new Date(),
+                metadata: {
+                    cancelledBy: 'csr',
+                    cancellationChannel: 'csr-dashboard'
+                }
             },
             { new: true }
         );
