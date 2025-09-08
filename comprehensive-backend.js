@@ -6840,8 +6840,8 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
             });
         }
 
-        // Verify service exists
-        const service = await VASService.findById(serviceId);
+        // Verify service exists by string ID (not MongoDB ObjectId)
+        const service = await VASService.findOne({ id: serviceId, status: 'active' });
         if (!service) {
             return res.status(404).json({ 
                 error: 'VAS service not found',
@@ -6859,7 +6859,8 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
                     { userId: customer._id.toString(), serviceId: service._id },
                     { partyId: customer._id, serviceId: service._id }
                 ],
-                status: 'active'
+                status: 'active',
+                isSubscribed: true
             });
 
             if (existingSubscription) {
@@ -6873,17 +6874,17 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
             const subscription = new VASSubscription({
                 userId: customer._id,
                 serviceId: service._id,
+                subscriptionId: `sub_${Date.now()}_${customer._id}`,
                 status: 'active',
-                subscribedAt: new Date(),
-                autoRenewal: true,
-                nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+                isSubscribed: true,
+                billing: {
+                    amount: service.priceNumeric || 0,
+                    frequency: 'monthly',
+                    nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                },
                 metadata: {
-                    subscribedBy: 'csr',
-                    csrUserId: req.user.id,
-                    csrUserEmail: req.user.email,
-                    csrAction: true,
-                    ipAddress: req.ip,
-                    userAgent: req.get('User-Agent')
+                    activatedBy: 'csr',
+                    activationChannel: 'csr-dashboard'
                 }
             });
 
@@ -6949,7 +6950,8 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
                     { userId: customer._id.toString(), serviceId: service._id },
                     { partyId: customer._id, serviceId: service._id }
                 ],
-                status: 'active'
+                status: 'active',
+                isSubscribed: true
             });
 
             if (!subscription) {
@@ -6962,17 +6964,12 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
             }
 
             subscription.status = 'cancelled';
-            subscription.cancelledAt = new Date();
-            subscription.autoRenewal = false;
+            subscription.isSubscribed = false;
+            subscription.endDate = new Date();
             subscription.metadata = {
                 ...subscription.metadata,
                 cancelledBy: 'csr',
-                csrUserId: req.user.id,
-                csrUserEmail: req.user.email,
-                csrAction: true,
-                cancellationReason: 'CSR request',
-                ipAddress: req.ip,
-                userAgent: req.get('User-Agent')
+                cancellationChannel: 'csr-dashboard'
             };
 
             await subscription.save();
