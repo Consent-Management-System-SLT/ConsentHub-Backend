@@ -9051,6 +9051,70 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
 
 // ===== CUSTOMER VAS ENDPOINTS =====
 
+// GET /api/customer/vas/debug - Debug customer VAS status
+app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
+    try {
+        console.log('🔧 Customer VAS DEBUG ENDPOINT - START');
+        
+        const debugInfo = {
+            user: {
+                id: req.user.id,
+                type: typeof req.user.id,
+                objectId: new mongoose.Types.ObjectId(req.user.id)
+            },
+            models: {
+                VASService: typeof VASService !== 'undefined',
+                VASSubscription: typeof VASSubscription !== 'undefined'
+            },
+            database: {},
+            subscriptions: []
+        };
+        
+        // Test database connection
+        try {
+            const testService = await VASService.findOne().limit(1);
+            debugInfo.database.connected = true;
+            debugInfo.database.servicesCount = await VASService.countDocuments();
+        } catch (dbError) {
+            debugInfo.database.connected = false;
+            debugInfo.database.error = dbError.message;
+        }
+        
+        // Get user's subscriptions
+        try {
+            const userSubs = await VASSubscription.find({ 
+                userId: new mongoose.Types.ObjectId(req.user.id)
+            }).populate('serviceId');
+            
+            debugInfo.subscriptions = userSubs.map(sub => ({
+                id: sub._id,
+                userId: sub.userId,
+                serviceId: sub.serviceId?._id,
+                serviceName: sub.serviceId?.name,
+                isSubscribed: sub.isSubscribed,
+                status: sub.status
+            }));
+        } catch (subError) {
+            debugInfo.subscriptions = { error: subError.message };
+        }
+        
+        console.log('🔧 Customer VAS DEBUG INFO:', JSON.stringify(debugInfo, null, 2));
+        
+        res.json({
+            success: true,
+            debug: debugInfo,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('🔧 Customer VAS DEBUG ERROR:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            debug: { endpoint: 'customer-vas-debug' }
+        });
+    }
+});
+
 // GET /api/customer/vas/services - Get all available VAS services for customer
 app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
     try {
