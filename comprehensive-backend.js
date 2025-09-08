@@ -9438,7 +9438,8 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
         const existingSubscription = await VASSubscription.findOne({
             userId: userObjectId,
             serviceId: service._id,
-            isSubscribed: true
+            isSubscribed: true,
+            status: 'active'
         });
         
         console.log('📊 Customer VAS: Subscription check result:');
@@ -9455,10 +9456,12 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 {
                     userId: userObjectId,
                     serviceId: service._id,
-                    isSubscribed: true
+                    isSubscribed: true,
+                    status: 'active'
                 },
                 {
                     isSubscribed: false,
+                    status: 'inactive',
                     $push: {
                         subscriptionHistory: {
                             action: 'unsubscribe',
