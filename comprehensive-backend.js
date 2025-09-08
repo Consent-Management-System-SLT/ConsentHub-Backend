@@ -6543,7 +6543,10 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
                 { partyId: customer._id },
                 { partyId: customer._id.toString() }
             ],
-            status: { $in: ['active', 'suspended'] }
+            $and: [
+                { isSubscribed: true },
+                { status: { $in: ['active', 'suspended'] } }
+            ]
         }).populate('serviceId');
 
         console.log(`📱 [CSR VAS] Found ${subscriptions.length} subscriptions for customer`);
@@ -6553,6 +6556,7 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
                 id: s._id,
                 userId: s.userId,
                 serviceId: s.serviceId ? s.serviceId._id : s.serviceId,
+                serviceName: s.serviceId ? s.serviceId.name : 'Unknown',
                 status: s.status,
                 isSubscribed: s.isSubscribed
             })));
@@ -6580,12 +6584,13 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
                 subscription: subscription ? {
                     id: subscription._id,
                     status: subscription.status,
+                    isSubscribed: subscription.isSubscribed,
                     subscribedAt: subscription.subscribedAt,
                     lastBillingDate: subscription.lastBillingDate,
                     nextBillingDate: subscription.nextBillingDate,
                     autoRenewal: subscription.autoRenewal
                 } : null,
-                isSubscribed: !!subscription && subscription.status === 'active'
+                isSubscribed: !!subscription && subscription.isSubscribed === true && subscription.status === 'active'
             };
         });
 
@@ -9060,7 +9065,8 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         // Get user's current subscriptions using correct field structure
         const userSubscriptions = await VASSubscription.find({ 
             userId: req.user.id, 
-            isSubscribed: true 
+            isSubscribed: true,
+            status: 'active'
         }).populate('serviceId');
         
         // Extract service IDs from subscriptions
@@ -9077,6 +9083,10 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         
         console.log(`✅ Customer VAS: Retrieved ${servicesWithSubscriptionStatus.length} services`);
         console.log(`✅ Customer VAS: User ${req.user.id} has ${subscribedServiceIds.length} active subscriptions: [${subscribedServiceIds.join(', ')}]`);
+        
+        // Debug: Show which services are marked as subscribed
+        const subscribedServices = servicesWithSubscriptionStatus.filter(s => s.isSubscribed);
+        console.log(`🔍 Customer VAS: Subscribed services:`, subscribedServices.map(s => `${s.name} (${s.id})`));
         
         res.json({
             success: true,
