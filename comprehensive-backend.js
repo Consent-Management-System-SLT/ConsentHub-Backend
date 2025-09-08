@@ -10165,7 +10165,14 @@ app.get("/api/admin/vas/services", verifyToken, async (req, res) => {
             ];
         }
         if (category) filter.category = category;
-        if (status) filter.status = status;
+        
+        // Handle status filtering - by default exclude deleted services unless explicitly requested
+        if (status) {
+            filter.status = status;
+        } else {
+            // Only show non-deleted services by default
+            filter.status = { $ne: 'deleted' };
+        }
         
         const vasServices = await VASService.find(filter)
             .sort({ popularity: -1 })
