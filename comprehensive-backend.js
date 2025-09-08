@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -240,8 +240,8 @@ if (!validateRequiredEnvVars(requiredEnvVars)) {
   process.exit(1);
 }
 
-console.log('🔐 Security: Using encrypted environment variables');
-console.log('📊 JWT Secret:', maskForLogging(JWT_SECRET));
+console.log(' Security: Using encrypted environment variables');
+console.log(' JWT Secret:', maskForLogging(JWT_SECRET));
 
 function generateToken(user) {
     const payload = { 
@@ -326,7 +326,7 @@ async function initializeVASServices() {
                             validTill: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                         }
                     ],
-                    icon: '🎬',
+                    icon: '',
                     color: '#E50914',
                     provider: 'SLT Digital Services',
                     customerSupportContact: '+94115050505',
@@ -364,7 +364,7 @@ async function initializeVASServices() {
                             validTill: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
                         }
                     ],
-                    icon: '📺',
+                    icon: '',
                     color: '#FF6B35',
                     provider: 'PEO TV',
                     customerSupportContact: '+94112345678',
@@ -480,12 +480,12 @@ async function initializeVASServices() {
             ];
 
             await VASService.insertMany(defaultServices);
-            console.log('✅ Initialized 7 VAS services successfully');
+            console.log(' Initialized 7 VAS services successfully');
         } else {
-            console.log(`📋 Found ${existingCount} existing VAS services`);
+            console.log(` Found ${existingCount} existing VAS services`);
         }
     } catch (error) {
-        console.error('❌ VAS initialization error:', error);
+        console.error(' VAS initialization error:', error);
     }
 }
 
@@ -939,17 +939,17 @@ async function ensureDefaultPrivacyNotices() {
             if (!existingNotice) {
                 const newNotice = new PrivacyNotice(notice);
                 await newNotice.save();
-                console.log(`✅ Created default privacy notice: ${notice.title}`);
+                console.log(` Created default privacy notice: ${notice.title}`);
             }
         } catch (error) {
-            console.log(`❌ Failed to create privacy notice ${notice.title}: ${error.message}`);
+            console.log(` Failed to create privacy notice ${notice.title}: ${error.message}`);
         }
     }
 }
 
 // Seed demo users for authentication
 async function seedDemoUsers() {
-    console.log('🌱 Seeding demo users...');
+    console.log(' Seeding demo users...');
     
     const demoUsers = [
         {
@@ -998,15 +998,15 @@ async function seedDemoUsers() {
                     createdAt: new Date()
                 });
                 await newUser.save();
-                console.log(`✅ Created demo user: ${demoUser.email} (${demoUser.role})`);
+                console.log(` Created demo user: ${demoUser.email} (${demoUser.role})`);
             } else {
-                console.log(`ℹ️ Demo user already exists: ${demoUser.email}`);
+                console.log(` Demo user already exists: ${demoUser.email}`);
             }
         } catch (error) {
-            console.log(`❌ Failed to create demo user ${demoUser.email}: ${error.message}`);
+            console.log(` Failed to create demo user ${demoUser.email}: ${error.message}`);
         }
     }
-    console.log('✅ Demo user seeding completed');
+    console.log(' Demo user seeding completed');
 }
 
 // Health check
@@ -1970,7 +1970,7 @@ let customerPreferences = [
 // GET /api/csr/stats - Get CSR Dashboard Statistics with Real MongoDB Data
 app.get("/api/csr/stats", async (req, res) => {
     try {
-        console.log('📊 CSR Dashboard: Fetching dashboard statistics from MongoDB');
+        console.log(' CSR Dashboard: Fetching dashboard statistics from MongoDB');
         
         // Fetch real data from MongoDB collections
         const [users, consents, dsarRequests, auditLogs] = await Promise.all([
@@ -1980,7 +1980,7 @@ app.get("/api/csr/stats", async (req, res) => {
             AuditLog.find({}).lean()
         ]);
         
-        console.log('📋 Real data counts from MongoDB:', {
+        console.log(' Real data counts from MongoDB:', {
             users: users.length,
             consents: consents.length,
             dsarRequests: dsarRequests.length,
@@ -2042,14 +2042,14 @@ app.get("/api/csr/stats", async (req, res) => {
             newCustomers
         };
         
-        console.log('✅ Real MongoDB stats calculated:', stats);
+        console.log(' Real MongoDB stats calculated:', stats);
         res.json(stats);
         
     } catch (error) {
-        console.error('❌ Error fetching real MongoDB stats:', error);
+        console.error(' Error fetching real MongoDB stats:', error);
         
         // Fallback to in-memory data if MongoDB fails
-        console.log('🔄 Falling back to in-memory data');
+        console.log(' Falling back to in-memory data');
         const totalCustomers = parties.length;
         const pendingRequests = dsarRequests.filter(r => r.status === 'pending').length;
         const consentUpdates = csrConsents.filter(c => {
@@ -2095,15 +2095,15 @@ app.get("/api/csr/stats", async (req, res) => {
 // GET /api/csr/notifications/analytics - Get notification analytics
 app.get("/api/csr/notifications/analytics", async (req, res) => {
     try {
-        console.log('📈 CSR Notifications: Fetching notification analytics from database');
+        console.log(' CSR Notifications: Fetching notification analytics from database');
         
         // Try to get real analytics from MongoDB
         let analytics;
         try {
             analytics = await NotificationLog.getAnalytics();
-            console.log('✅ Retrieved real notification analytics from MongoDB');
+            console.log(' Retrieved real notification analytics from MongoDB');
         } catch (error) {
-            console.log('⚠️ MongoDB analytics failed, using fallback data:', error.message);
+            console.log(' MongoDB analytics failed, using fallback data:', error.message);
             
             // Fallback analytics data
             analytics = {
@@ -2166,7 +2166,7 @@ app.get("/api/csr/notifications/analytics", async (req, res) => {
         
         res.json({ success: true, data: analytics });
     } catch (error) {
-        console.error('❌ Error fetching notification analytics:', error);
+        console.error(' Error fetching notification analytics:', error);
         res.status(500).json({ 
             error: 'Failed to fetch notification analytics',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -2179,7 +2179,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
     try {
         const { customerIds, channels, subject, message, messageType } = req.body;
         
-        console.log('📧 CSR Notifications: Sending notification', {
+        console.log(' CSR Notifications: Sending notification', {
             customers: customerIds?.length || 0,
             channels,
             messageType,
@@ -2206,9 +2206,9 @@ app.post("/api/csr/notifications/send", async (req, res) => {
                 role: 'customer',
                 status: 'active'
             }).lean();
-            console.log(`📋 Found ${customers.length} customers in MongoDB`);
+            console.log(` Found ${customers.length} customers in MongoDB`);
         } catch (error) {
-            console.log('⚠️ MongoDB fetch failed, using in-memory data:', error.message);
+            console.log(' MongoDB fetch failed, using in-memory data:', error.message);
             customers = users.filter(u => 
                 customerIds.includes(u.id) && 
                 u.role === 'customer'
@@ -2227,7 +2227,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
         // Process each customer
         for (const customer of customers) {
             try {
-                console.log(`📤 Sending to ${customer.name} (${customer.email})`);
+                console.log(` Sending to ${customer.name} (${customer.email})`);
                 
                 // Use the notification service to send via multiple channels
                 const channelResults = await notificationService.sendMultiChannelNotification({
@@ -2276,11 +2276,11 @@ app.post("/api/csr/notifications/send", async (req, res) => {
                     results.push(logEntry);
                     notificationLogs.push(logEntry);
                     
-                    console.log(`${result.success ? '✅' : '❌'} ${result.channel} to ${customer.name}: ${result.success ? 'success' : result.error}`);
+                    console.log(`${result.success ? '' : ''} ${result.channel} to ${customer.name}: ${result.success ? 'success' : result.error}`);
                 }
                 
             } catch (error) {
-                console.error(`❌ Error sending notifications to ${customer.name}:`, error);
+                console.error(` Error sending notifications to ${customer.name}:`, error);
                 
                 // Add failed entries for all channels
                 channels.forEach(channel => {
@@ -2300,9 +2300,9 @@ app.post("/api/csr/notifications/send", async (req, res) => {
         if (notificationLogs.length > 0) {
             try {
                 await NotificationLog.insertMany(notificationLogs);
-                console.log(`📝 Saved ${notificationLogs.length} notification logs to MongoDB`);
+                console.log(` Saved ${notificationLogs.length} notification logs to MongoDB`);
             } catch (error) {
-                console.error('⚠️ Failed to save notification logs to MongoDB:', error.message);
+                console.error(' Failed to save notification logs to MongoDB:', error.message);
             }
         }
         
@@ -2317,7 +2317,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
                 ((results.filter(r => r.status === 'delivered').length / results.length) * 100).toFixed(1) : 0
         };
         
-        console.log('✅ Notification sending completed:', summary);
+        console.log(' Notification sending completed:', summary);
         
         res.json({ 
             success: true, 
@@ -2327,7 +2327,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error sending notifications:', error);
+        console.error(' Error sending notifications:', error);
         res.status(500).json({ 
             error: 'Failed to send notifications',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -2338,7 +2338,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
 // GET /api/csr/notifications/templates - Get pre-built notification templates
 app.get("/api/csr/notifications/templates", async (req, res) => {
     try {
-        console.log('📋 CSR Notifications: Fetching pre-built templates');
+        console.log(' CSR Notifications: Fetching pre-built templates');
         
         const templates = notificationService.getPreBuiltTemplates();
         
@@ -2349,7 +2349,7 @@ app.get("/api/csr/notifications/templates", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching templates:', error);
+        console.error(' Error fetching templates:', error);
         res.status(500).json({ 
             error: 'Failed to fetch templates',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -2362,7 +2362,7 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
     try {
         const { channels, subject, message, messageType } = req.body;
         
-        console.log('📢 CSR Notifications: Sending bulk notification to all customers');
+        console.log(' CSR Notifications: Sending bulk notification to all customers');
         
         // Validate the request
         const validationErrors = notificationService.validateNotificationData({
@@ -2386,9 +2386,9 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
                 role: 'customer',
                 status: 'active'
             }).lean();
-            console.log(`📋 Found ${customers.length} active customers for bulk notification`);
+            console.log(` Found ${customers.length} active customers for bulk notification`);
         } catch (error) {
-            console.log('⚠️ MongoDB fetch failed, using in-memory data:', error.message);
+            console.log(' MongoDB fetch failed, using in-memory data:', error.message);
             customers = users.filter(u => u.role === 'customer');
         }
         
@@ -2466,10 +2466,10 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
         try {
             if (notificationLogs.length > 0) {
                 await NotificationLog.insertMany(notificationLogs);
-                console.log(`📊 Saved ${notificationLogs.length} notification logs to MongoDB`);
+                console.log(` Saved ${notificationLogs.length} notification logs to MongoDB`);
             }
         } catch (error) {
-            console.log('⚠️ Failed to save logs to MongoDB:', error.message);
+            console.log(' Failed to save logs to MongoDB:', error.message);
         }
         
         const summary = {
@@ -2481,7 +2481,7 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
             deliveryRate: Math.round((successCount / (successCount + failureCount)) * 100) || 0
         };
         
-        console.log(`📊 Bulk notification summary:`, summary);
+        console.log(` Bulk notification summary:`, summary);
         
         res.json({
             success: true,
@@ -2491,7 +2491,7 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error sending bulk notifications:', error);
+        console.error(' Error sending bulk notifications:', error);
         res.status(500).json({ 
             error: 'Failed to send bulk notifications',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -2502,7 +2502,7 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
 // GET /api/csr/customers - Get customer list for notification targeting
 app.get("/api/csr/customers", async (req, res) => {
     try {
-        console.log('👥 CSR Notifications: Fetching customer list');
+        console.log(' CSR Notifications: Fetching customer list');
         
         let customers = [];
         
@@ -2523,9 +2523,9 @@ app.get("/api/csr/customers", async (req, res) => {
                 profile: customer.profile
             }));
             
-            console.log(`📋 Fetched ${customers.length} customers from MongoDB`);
+            console.log(` Fetched ${customers.length} customers from MongoDB`);
         } catch (error) {
-            console.log('⚠️ MongoDB fetch failed, using in-memory data:', error.message);
+            console.log(' MongoDB fetch failed, using in-memory data:', error.message);
             
             // Fallback to in-memory data
             customers = users
@@ -2577,7 +2577,7 @@ app.get("/api/csr/customers", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching customers:', error);
+        console.error(' Error fetching customers:', error);
         res.status(500).json({ 
             error: 'Failed to fetch customers',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -2590,7 +2590,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
     try {
         const { email, customerName, createdBy = 'admin' } = req.body;
         
-        console.log(`📧 CSR Notifications: Sending welcome email to ${email} (created by: ${createdBy})`);
+        console.log(` CSR Notifications: Sending welcome email to ${email} (created by: ${createdBy})`);
         
         if (!email) {
             return res.status(400).json({
@@ -2603,7 +2603,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
         try {
             customer = await User.findOne({ email: email.toLowerCase() });
         } catch (dbError) {
-            console.warn('⚠️ Database lookup failed, using provided data:', dbError.message);
+            console.warn(' Database lookup failed, using provided data:', dbError.message);
         }
         
         // Prepare customer data for welcome email
@@ -2620,7 +2620,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
         const welcomeResult = await notificationService.sendWelcomeEmail(customerData, createdBy);
         
         if (welcomeResult.success) {
-            console.log(`✅ Welcome email sent successfully to ${email}`);
+            console.log(` Welcome email sent successfully to ${email}`);
             
             res.json({
                 success: true,
@@ -2629,7 +2629,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
                 templateUsed: welcomeResult.templateUsed
             });
         } else {
-            console.error(`❌ Failed to send welcome email to ${email}:`, welcomeResult.error);
+            console.error(` Failed to send welcome email to ${email}:`, welcomeResult.error);
             
             res.status(500).json({
                 error: 'Failed to send welcome email',
@@ -2638,7 +2638,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
         }
         
     } catch (error) {
-        console.error('❌ Error sending welcome email:', error);
+        console.error(' Error sending welcome email:', error);
         res.status(500).json({
             error: 'Failed to send welcome email',
             details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -2649,7 +2649,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
 // GET /api/v1/party - Get all customers/parties for CSR
 app.get("/api/v1/party", async (req, res) => {
     try {
-        console.log('🔍 CSR Dashboard: Fetching party/customer data from MongoDB');
+        console.log(' CSR Dashboard: Fetching party/customer data from MongoDB');
         
         // Fetch users from MongoDB (customers only for consent management)
         const mongoUsers = await User.find({ 
@@ -2695,7 +2695,7 @@ app.get("/api/v1/party", async (req, res) => {
         res.json(finalResult);
         
     } catch (error) {
-        console.error('❌ Error fetching parties from MongoDB:', error);
+        console.error(' Error fetching parties from MongoDB:', error);
         // Fallback to static data if MongoDB fails
         console.log('Falling back to static party data');
         res.json(parties);
@@ -2705,7 +2705,7 @@ app.get("/api/v1/party", async (req, res) => {
 // GET /api/v1/csr/consent - Get all consents for CSR (different path to avoid conflicts)  
 app.get("/api/v1/csr/consent", async (req, res) => {
     try {
-        console.log('✅ CSR Dashboard: Fetching consent data');
+        console.log(' CSR Dashboard: Fetching consent data');
         
         // Fetch from MongoDB
         const mongoConsents = await Consent.find().sort({ createdAt: -1 }).lean();
@@ -2724,7 +2724,7 @@ app.get("/api/v1/csr/consent", async (req, res) => {
         res.json(uniqueConsents);
         
     } catch (error) {
-        console.error('❌ Error fetching consents:', error);
+        console.error(' Error fetching consents:', error);
         // Fallback to in-memory data
         console.log('Falling back to in-memory consent data');
         res.json(csrConsents);
@@ -2734,7 +2734,7 @@ app.get("/api/v1/csr/consent", async (req, res) => {
 // GET /api/v1/consent (Non-auth version for CSR dashboard)
 app.get("/api/v1/consent", async (req, res) => {
     try {
-        console.log('✅ CSR Dashboard: Fetching all consents (non-auth)');
+        console.log(' CSR Dashboard: Fetching all consents (non-auth)');
         
         // Fetch from MongoDB
         const mongoConsents = await Consent.find().sort({ createdAt: -1 }).lean();
@@ -2753,7 +2753,7 @@ app.get("/api/v1/consent", async (req, res) => {
         res.json(uniqueConsents);
         
     } catch (error) {
-        console.error('❌ Error fetching consents:', error);
+        console.error(' Error fetching consents:', error);
         // Fallback to in-memory data
         console.log('Falling back to in-memory consent data');
         res.json(csrConsents);
@@ -2763,7 +2763,7 @@ app.get("/api/v1/consent", async (req, res) => {
 // GET /api/v1/dsar - Get all DSAR requests for CSR with MongoDB integration
 app.get("/api/v1/dsar", verifyToken, async (req, res) => {
     try {
-        console.log('📋 CSR Dashboard: Fetching DSAR data from MongoDB');
+        console.log(' CSR Dashboard: Fetching DSAR data from MongoDB');
         const { status, requestType, priority, page = 1, limit = 50 } = req.query;
         
         // Build query
@@ -2803,7 +2803,7 @@ app.get("/api/v1/dsar", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching DSAR requests:', error);
+        console.error(' Error fetching DSAR requests:', error);
         // Fallback to in-memory data
         console.log('Falling back to in-memory DSAR data');
         res.json(dsarRequests);
@@ -2812,7 +2812,7 @@ app.get("/api/v1/dsar", verifyToken, async (req, res) => {
 
 // GET /api/v1/event - Get all audit events for CSR
 app.get("/api/v1/event", (req, res) => {
-    console.log('📝 CSR Dashboard: Fetching event/audit data');
+    console.log(' CSR Dashboard: Fetching event/audit data');
     
     // Add some context to audit events
     const eventsWithContext = auditEvents.map(event => ({
@@ -2832,7 +2832,7 @@ app.get("/api/v1/event", (req, res) => {
 // GET /api/v1/dsar/requests (Non-auth version for CSR dashboard)
 app.get("/api/v1/dsar/requests", async (req, res) => {
     try {
-        console.log('📋 CSR Dashboard: Fetching DSAR requests from MongoDB (non-auth)');
+        console.log(' CSR Dashboard: Fetching DSAR requests from MongoDB (non-auth)');
         const { 
             status, 
             requestType, 
@@ -2856,7 +2856,7 @@ app.get("/api/v1/dsar/requests", async (req, res) => {
 
         const total = await DSARRequest.countDocuments(query);
         
-        console.log(`📊 Found ${mongoRequests.length} DSAR requests from MongoDB`);
+        console.log(` Found ${mongoRequests.length} DSAR requests from MongoDB`);
         
         // Process requests to ensure proper structure and add computed fields
         const processedRequests = mongoRequests.map(request => {
@@ -2904,7 +2904,7 @@ app.get("/api/v1/dsar/requests", async (req, res) => {
             };
         });
         
-        console.log(`✅ Processed ${processedRequests.length} requests with proper structure`);
+        console.log(` Processed ${processedRequests.length} requests with proper structure`);
 
         res.json({
             success: true,
@@ -2915,7 +2915,7 @@ app.get("/api/v1/dsar/requests", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching DSAR requests:', error);
+        console.error(' Error fetching DSAR requests:', error);
         // Fallback to in-memory data
         const requestsWithRisk = dsarRequests.map(request => ({
             ...request,
@@ -2952,7 +2952,7 @@ app.get("/api/v1/dsar/requests", async (req, res) => {
 // Test endpoint without authentication
 app.get("/api/v1/test-audit", async (req, res) => {
     try {
-        console.log('🔍 Testing audit logs endpoint');
+        console.log(' Testing audit logs endpoint');
         
         const count = await AuditLog.countDocuments();
         const logs = await AuditLog.find({})
@@ -2973,7 +2973,7 @@ app.get("/api/v1/test-audit", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error in test endpoint:', error);
+        console.error(' Error in test endpoint:', error);
         res.status(500).json({
             success: false,
             message: 'Test endpoint failed',
@@ -2985,7 +2985,7 @@ app.get("/api/v1/test-audit", async (req, res) => {
 // GET /api/v1/audit-logs - Get paginated audit logs with search and filtering
 app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
     try {
-        console.log('🔍 Admin: Fetching audit logs with filters:', req.query);
+        console.log(' Admin: Fetching audit logs with filters:', req.query);
         
         const {
             page = 1,
@@ -3035,7 +3035,7 @@ app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
             .limit(parseInt(limit))
             .lean();
 
-        console.log(`✅ Found ${logs.length} audit logs out of ${total} total`);
+        console.log(` Found ${logs.length} audit logs out of ${total} total`);
         
         res.json({
             success: true,
@@ -3050,7 +3050,7 @@ app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching audit logs:', error);
+        console.error(' Error fetching audit logs:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch audit logs',
@@ -3062,7 +3062,7 @@ app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
 // GET /api/v1/audit-logs/export/csv - Export filtered audit logs as CSV
 app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
     try {
-        console.log('📊 Admin: Exporting audit logs to CSV with filters:', req.query);
+        console.log(' Admin: Exporting audit logs to CSV with filters:', req.query);
         
         const {
             search = '',
@@ -3158,14 +3158,14 @@ app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
         const csvContent = csvRows.join('\n');
         const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
 
-        console.log(`✅ Exporting ${logs.length} audit logs to CSV: ${filename}`);
+        console.log(` Exporting ${logs.length} audit logs to CSV: ${filename}`);
 
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(csvContent);
         
     } catch (error) {
-        console.error('❌ Error exporting audit logs:', error);
+        console.error(' Error exporting audit logs:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to export audit logs',
@@ -3177,7 +3177,7 @@ app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
 // GET /api/v1/audit-logs/stats - Get audit log statistics
 app.get("/api/v1/audit-logs/stats", verifyToken, async (req, res) => {
     try {
-        console.log('📊 Admin: Fetching audit log statistics');
+        console.log(' Admin: Fetching audit log statistics');
         
         const totalLogs = await AuditLog.countDocuments();
         const recentLogs = await AuditLog.countDocuments({
@@ -3217,7 +3217,7 @@ app.get("/api/v1/audit-logs/stats", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching audit log statistics:', error);
+        console.error(' Error fetching audit log statistics:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch audit log statistics',
@@ -3262,7 +3262,7 @@ const upload = multer({
 // POST /api/v1/bulk-import/upload - Upload and process CSV file
 app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async (req, res) => {
     try {
-        console.log('📤 Admin: Bulk import file upload initiated');
+        console.log(' Admin: Bulk import file upload initiated');
         
         if (!req.file) {
             return res.status(400).json({
@@ -3277,7 +3277,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async
         try {
             parsedColumnMapping = JSON.parse(columnMapping || '{}');
         } catch (err) {
-            console.warn('⚠️ Invalid column mapping, using default');
+            console.warn(' Invalid column mapping, using default');
         }
 
         // Create bulk import record
@@ -3303,7 +3303,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async
         });
 
     } catch (error) {
-        console.error('❌ Error uploading bulk import file:', error);
+        console.error(' Error uploading bulk import file:', error);
         
         // Clean up uploaded file if error occurred
         if (req.file && req.file.path) {
@@ -3321,7 +3321,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async
 // GET /api/v1/bulk-import/history - Get import history with pagination
 app.get("/api/v1/bulk-import/history", verifyToken, async (req, res) => {
     try {
-        console.log('📋 Admin: Fetching bulk import history');
+        console.log(' Admin: Fetching bulk import history');
         
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -3374,7 +3374,7 @@ app.get("/api/v1/bulk-import/history", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching bulk import history:', error);
+        console.error(' Error fetching bulk import history:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch import history',
@@ -3402,7 +3402,7 @@ app.get("/api/v1/bulk-import/status/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching import status:', error);
+        console.error(' Error fetching import status:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch import status',
@@ -3436,7 +3436,7 @@ app.delete("/api/v1/bulk-import/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error deleting import:', error);
+        console.error(' Error deleting import:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to delete import',
@@ -3448,11 +3448,11 @@ app.delete("/api/v1/bulk-import/:id", verifyToken, async (req, res) => {
 // Async function to process CSV file
 async function processCSVFile(importId, filePath, importType, columnMapping, userId) {
     try {
-        console.log(`📊 Starting CSV processing for import ${importId}`);
+        console.log(` Starting CSV processing for import ${importId}`);
         
         const bulkImport = await BulkImport.findById(importId);
         if (!bulkImport) {
-            console.error('❌ Import record not found');
+            console.error(' Import record not found');
             return;
         }
 
@@ -3486,7 +3486,7 @@ async function processCSVFile(importId, filePath, importType, columnMapping, use
                         }
                         
                     } catch (error) {
-                        console.error(`❌ Error processing row ${totalRows}:`, error);
+                        console.error(` Error processing row ${totalRows}:`, error);
                         bulkImport.addError(totalRows, 'general', error.message);
                         errors.push({
                             row: totalRows,
@@ -3518,18 +3518,18 @@ async function processCSVFile(importId, filePath, importType, columnMapping, use
                         
                         await bulkImport.save();
                         
-                        console.log(`✅ CSV processing completed for import ${importId}: ${processedRows}/${totalRows} rows processed`);
+                        console.log(` CSV processing completed for import ${importId}: ${processedRows}/${totalRows} rows processed`);
                         resolve();
                         
                     } catch (error) {
-                        console.error(`❌ Error finalizing import ${importId}:`, error);
+                        console.error(` Error finalizing import ${importId}:`, error);
                         bulkImport.status = 'failed';
                         await bulkImport.save();
                         reject(error);
                     }
                 })
                 .on('error', async (error) => {
-                    console.error(`❌ CSV parsing error for import ${importId}:`, error);
+                    console.error(` CSV parsing error for import ${importId}:`, error);
                     bulkImport.status = 'failed';
                     bulkImport.endTime = new Date();
                     await bulkImport.save();
@@ -3538,7 +3538,7 @@ async function processCSVFile(importId, filePath, importType, columnMapping, use
         });
 
     } catch (error) {
-        console.error(`❌ Error processing CSV file for import ${importId}:`, error);
+        console.error(` Error processing CSV file for import ${importId}:`, error);
         
         try {
             const bulkImport = await BulkImport.findById(importId);
@@ -3548,7 +3548,7 @@ async function processCSVFile(importId, filePath, importType, columnMapping, use
                 await bulkImport.save();
             }
         } catch (updateError) {
-            console.error('❌ Error updating failed import status:', updateError);
+            console.error(' Error updating failed import status:', updateError);
         }
     }
 }
@@ -3606,7 +3606,7 @@ async function processCustomerRow(row, columnMapping, bulkImport, rowNumber) {
         // Update statistics
         bulkImport.statistics.customers = (bulkImport.statistics.customers || 0) + 1;
         
-        console.log(`✅ Created customer: ${userData.email}`);
+        console.log(` Created customer: ${userData.email}`);
 
     } catch (error) {
         bulkImport.addError(rowNumber, 'customer', error.message);
@@ -3650,7 +3650,7 @@ async function processConsentRow(row, columnMapping, bulkImport, rowNumber) {
         // Update statistics
         bulkImport.statistics.consents = (bulkImport.statistics.consents || 0) + 1;
         
-        console.log(`✅ Created consent for user: ${consentData.userId}`);
+        console.log(` Created consent for user: ${consentData.userId}`);
 
     } catch (error) {
         bulkImport.addError(rowNumber, 'consent', error.message);
@@ -3699,7 +3699,7 @@ async function processPreferenceRow(row, columnMapping, bulkImport, rowNumber) {
         // Update statistics
         bulkImport.statistics.preferences = (bulkImport.statistics.preferences || 0) + 1;
         
-        console.log(`✅ Updated preference for user: ${preferenceData.userId}`);
+        console.log(` Updated preference for user: ${preferenceData.userId}`);
 
     } catch (error) {
         bulkImport.addError(rowNumber, 'preference', error.message);
@@ -3746,7 +3746,7 @@ async function processUserRow(row, columnMapping, bulkImport, rowNumber) {
         // Update statistics
         bulkImport.statistics.users = (bulkImport.statistics.users || 0) + 1;
         
-        console.log(`✅ Created user: ${userData.email} with role: ${userData.role}`);
+        console.log(` Created user: ${userData.email} with role: ${userData.role}`);
 
     } catch (error) {
         bulkImport.addError(rowNumber, 'user', error.message);
@@ -3761,7 +3761,7 @@ async function processUserRow(row, columnMapping, bulkImport, rowNumber) {
 // GET /api/v1/webhooks - Get all webhooks with pagination and filtering
 app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
     try {
-        console.log('📡 Admin: Fetching webhooks');
+        console.log(' Admin: Fetching webhooks');
         
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -3808,7 +3808,7 @@ app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching webhooks:', error);
+        console.error(' Error fetching webhooks:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch webhooks',
@@ -3820,7 +3820,7 @@ app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
 // POST /api/v1/webhooks - Create new webhook
 app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
     try {
-        console.log('📡 Admin: Creating new webhook');
+        console.log(' Admin: Creating new webhook');
         
         const { name, url, events, isActive, retryAttempts, timeout, headers } = req.body;
         
@@ -3856,7 +3856,7 @@ app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error creating webhook:', error);
+        console.error(' Error creating webhook:', error);
         
         if (error.name === 'ValidationError') {
             const errors = Object.values(error.errors).map(err => err.message);
@@ -3878,7 +3878,7 @@ app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
 // PUT /api/v1/webhooks/:id - Update webhook
 app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
     try {
-        console.log(`📡 Admin: Updating webhook ${req.params.id}`);
+        console.log(` Admin: Updating webhook ${req.params.id}`);
         
         const { name, url, events, isActive, retryAttempts, timeout, headers } = req.body;
         
@@ -3914,7 +3914,7 @@ app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error updating webhook:', error);
+        console.error(' Error updating webhook:', error);
         
         if (error.name === 'ValidationError') {
             const errors = Object.values(error.errors).map(err => err.message);
@@ -3936,7 +3936,7 @@ app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
 // DELETE /api/v1/webhooks/:id - Delete webhook
 app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
     try {
-        console.log(`📡 Admin: Deleting webhook ${req.params.id}`);
+        console.log(` Admin: Deleting webhook ${req.params.id}`);
         
         const webhook = await Webhook.findById(req.params.id);
         if (!webhook) {
@@ -3957,7 +3957,7 @@ app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error deleting webhook:', error);
+        console.error(' Error deleting webhook:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to delete webhook',
@@ -3969,7 +3969,7 @@ app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
 // POST /api/v1/webhooks/:id/test - Test webhook connection
 app.post("/api/v1/webhooks/:id/test", verifyToken, async (req, res) => {
     try {
-        console.log(`📡 Admin: Testing webhook ${req.params.id}`);
+        console.log(` Admin: Testing webhook ${req.params.id}`);
         
         const webhook = await Webhook.findById(req.params.id);
         if (!webhook) {
@@ -3988,7 +3988,7 @@ app.post("/api/v1/webhooks/:id/test", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error testing webhook:', error);
+        console.error(' Error testing webhook:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to test webhook',
@@ -4027,7 +4027,7 @@ app.get("/api/v1/webhooks/events", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching webhook events:', error);
+        console.error(' Error fetching webhook events:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch webhook events',
@@ -4039,7 +4039,7 @@ app.get("/api/v1/webhooks/events", verifyToken, async (req, res) => {
 // GET /api/v1/webhooks/:id/logs - Get webhook delivery logs
 app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
     try {
-        console.log(`📡 Admin: Fetching logs for webhook ${req.params.id}`);
+        console.log(` Admin: Fetching logs for webhook ${req.params.id}`);
         
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -4073,7 +4073,7 @@ app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching webhook logs:', error);
+        console.error(' Error fetching webhook logs:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch webhook logs',
@@ -4085,7 +4085,7 @@ app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
 // GET /api/v1/webhooks/stats - Get webhook statistics
 app.get("/api/v1/webhooks/stats", verifyToken, async (req, res) => {
     try {
-        console.log('📡 Admin: Fetching webhook statistics');
+        console.log(' Admin: Fetching webhook statistics');
         
         const stats = await Webhook.getStatistics();
         
@@ -4110,7 +4110,7 @@ app.get("/api/v1/webhooks/stats", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching webhook statistics:', error);
+        console.error(' Error fetching webhook statistics:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch webhook statistics',
@@ -4125,17 +4125,17 @@ async function triggerWebhooks(eventType, data) {
         const webhooks = await Webhook.findByEvent(eventType);
         
         if (webhooks.length === 0) {
-            console.log(`📡 No webhooks found for event: ${eventType}`);
+            console.log(` No webhooks found for event: ${eventType}`);
             return;
         }
         
-        console.log(`📡 Triggering ${webhooks.length} webhooks for event: ${eventType}`);
+        console.log(` Triggering ${webhooks.length} webhooks for event: ${eventType}`);
         
         const promises = webhooks.map(webhook => triggerSingleWebhook(webhook, eventType, data));
         await Promise.allSettled(promises);
         
     } catch (error) {
-        console.error(`❌ Error triggering webhooks for ${eventType}:`, error);
+        console.error(` Error triggering webhooks for ${eventType}:`, error);
     }
 }
 
@@ -4184,7 +4184,7 @@ async function triggerSingleWebhook(webhook, eventType, data) {
         eventLog.deliveredAt = new Date();
         await eventLog.save();
         
-        console.log(`✅ Webhook delivered successfully: ${webhook.name} (${response.status})`);
+        console.log(` Webhook delivered successfully: ${webhook.name} (${response.status})`);
         
     } catch (error) {
         const statusCode = error.response?.status;
@@ -4205,7 +4205,7 @@ async function triggerSingleWebhook(webhook, eventType, data) {
         
         await eventLog.save();
         
-        console.error(`❌ Webhook delivery failed: ${webhook.name} - ${errorMessage}`);
+        console.error(` Webhook delivery failed: ${webhook.name} - ${errorMessage}`);
     }
 }
 
@@ -4234,7 +4234,7 @@ app.use('/api/v1/customer/preference-config', customerConfigRouter);
 // GET /api/v1/compliance-rules - Get all compliance rules with pagination and filtering
 app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
     try {
-        console.log('📋 Admin: Fetching compliance rules');
+        console.log(' Admin: Fetching compliance rules');
         
         const { 
             page = 1, 
@@ -4292,7 +4292,7 @@ app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching compliance rules:', error);
+        console.error(' Error fetching compliance rules:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch compliance rules',
@@ -4304,7 +4304,7 @@ app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
 // POST /api/v1/compliance-rules - Create new compliance rule
 app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
     try {
-        console.log('📋 Admin: Creating new compliance rule');
+        console.log(' Admin: Creating new compliance rule');
         
         const ruleData = {
             ...req.body,
@@ -4348,7 +4348,7 @@ app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error creating compliance rule:', error);
+        console.error(' Error creating compliance rule:', error);
         
         if (error.name === 'ValidationError') {
             return res.status(400).json({
@@ -4369,7 +4369,7 @@ app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
 // PUT /api/v1/compliance-rules/:id - Update compliance rule
 app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
     try {
-        console.log(`📋 Admin: Updating compliance rule ${req.params.id}`);
+        console.log(` Admin: Updating compliance rule ${req.params.id}`);
         
         const rule = await ComplianceRule.findById(req.params.id);
         if (!rule) {
@@ -4423,7 +4423,7 @@ app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error updating compliance rule:', error);
+        console.error(' Error updating compliance rule:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to update compliance rule',
@@ -4435,7 +4435,7 @@ app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
 // DELETE /api/v1/compliance-rules/:id - Delete compliance rule
 app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
     try {
-        console.log(`📋 Admin: Deleting compliance rule ${req.params.id}`);
+        console.log(` Admin: Deleting compliance rule ${req.params.id}`);
         
         const rule = await ComplianceRule.findById(req.params.id);
         if (!rule) {
@@ -4479,7 +4479,7 @@ app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error deleting compliance rule:', error);
+        console.error(' Error deleting compliance rule:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to delete compliance rule',
@@ -4491,7 +4491,7 @@ app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
 // POST /api/v1/compliance-rules/:id/execute - Execute compliance rule
 app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) => {
     try {
-        console.log(`📋 Admin: Executing compliance rule ${req.params.id}`);
+        console.log(` Admin: Executing compliance rule ${req.params.id}`);
         
         const rule = await ComplianceRule.findById(req.params.id);
         if (!rule) {
@@ -4536,7 +4536,7 @@ app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) =
         });
 
     } catch (error) {
-        console.error('❌ Error executing compliance rule:', error);
+        console.error(' Error executing compliance rule:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to execute compliance rule',
@@ -4548,7 +4548,7 @@ app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) =
 // GET /api/v1/compliance-rules/stats - Get compliance statistics
 app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
     try {
-        console.log('📊 Admin: Fetching compliance rule statistics');
+        console.log(' Admin: Fetching compliance rule statistics');
         
         const totalRules = await ComplianceRule.countDocuments();
         const activeRules = await ComplianceRule.countDocuments({ status: 'active' });
@@ -4618,7 +4618,7 @@ app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching compliance statistics:', error);
+        console.error(' Error fetching compliance statistics:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch compliance statistics',
@@ -4630,7 +4630,7 @@ app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
 // GET /api/v1/compliance-rules/overdue-reviews - Get rules that need review
 app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res) => {
     try {
-        console.log('📋 Admin: Fetching overdue compliance reviews');
+        console.log(' Admin: Fetching overdue compliance reviews');
         
         const overdueRules = await ComplianceRule.getOverdueReviews();
         
@@ -4643,7 +4643,7 @@ app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res
         });
 
     } catch (error) {
-        console.error('❌ Error fetching overdue reviews:', error);
+        console.error(' Error fetching overdue reviews:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch overdue reviews',
@@ -4655,7 +4655,7 @@ app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res
 // GET /api/v1/compliance-rules/categories - Get available categories and rule types
 app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => {
     try {
-        console.log('📋 Admin: Fetching compliance categories and types');
+        console.log(' Admin: Fetching compliance categories and types');
         
         res.json({
             success: true,
@@ -4672,7 +4672,7 @@ app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => 
         });
 
     } catch (error) {
-        console.error('❌ Error fetching compliance categories:', error);
+        console.error(' Error fetching compliance categories:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch compliance categories',
@@ -4684,8 +4684,8 @@ app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => 
 // GET /api/v1/preferences/stats - Get preference statistics (MUST come before generic /preferences route)
 app.get("/api/v1/preferences/stats", async (req, res) => {
     try {
-        console.log('� STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
-        console.log('�📊 Admin: Fetching preference statistics');
+        console.log(' STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
+        console.log(' Admin: Fetching preference statistics');
         
         const totalPreferences = await PreferenceItem.countDocuments();
         const activePreferences = await PreferenceItem.countDocuments({ enabled: true });
@@ -4728,14 +4728,14 @@ app.get("/api/v1/preferences/stats", async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Error fetching stats:', error);
+        console.error(' Error fetching stats:', error);
         res.status(500).json({ error: 'Failed to fetch statistics', details: error.message });
     }
 });
 
 // GET /api/v1/preferences - Get customer preferences for CSR
 app.get("/api/v1/preferences", (req, res) => {
-    console.log('⚙️ CSR Dashboard: Fetching preferences data');
+    console.log(' CSR Dashboard: Fetching preferences data');
     const partyId = req.query.partyId;
     if (partyId) {
         const prefs = customerPreferences.filter(p => p.partyId === partyId);
@@ -4747,7 +4747,7 @@ app.get("/api/v1/preferences", (req, res) => {
 
 // POST /api/v1/dsar - Create new DSAR request
 app.post("/api/v1/dsar", (req, res) => {
-    console.log('📋 CSR Dashboard: Creating new DSAR request');
+    console.log(' CSR Dashboard: Creating new DSAR request');
     const newRequest = {
         id: String(dsarRequests.length + 1),
         ...req.body,
@@ -4760,7 +4760,7 @@ app.post("/api/v1/dsar", (req, res) => {
 
 // PUT /api/v1/dsar/:id - Update DSAR request status
 app.put("/api/v1/dsar/:id", (req, res) => {
-    console.log('📋 CSR Dashboard: Updating DSAR request:', req.params.id);
+    console.log(' CSR Dashboard: Updating DSAR request:', req.params.id);
     const requestId = req.params.id;
     const requestIndex = dsarRequests.findIndex(r => r.id === requestId);
     
@@ -4784,7 +4784,7 @@ app.put("/api/v1/dsar/:id", (req, res) => {
 // POST /api/v1/consent - Create new consent record
 app.post("/api/v1/consent", async (req, res) => {
     try {
-        console.log('✅ CSR Dashboard: Creating new consent');
+        console.log(' CSR Dashboard: Creating new consent');
         console.log('Request body:', req.body);
         
         // Generate unique ID
@@ -4835,11 +4835,11 @@ app.post("/api/v1/consent", async (req, res) => {
         };
         csrConsents.push(memoryConsent);
         
-        console.log('✅ Consent saved to MongoDB:', savedConsent.id);
+        console.log(' Consent saved to MongoDB:', savedConsent.id);
         res.json(savedConsent);
         
     } catch (error) {
-        console.error('❌ Error creating consent:', error);
+        console.error(' Error creating consent:', error);
         res.status(500).json({ 
             error: true, 
             message: 'Failed to create consent',
@@ -4851,8 +4851,8 @@ app.post("/api/v1/consent", async (req, res) => {
 // PUT /api/v1/consent/:id - Update consent status
 app.put("/api/v1/consent/:id", async (req, res) => {
     try {
-        console.log('✅ CSR Dashboard: Updating consent:', req.params.id);
-        console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
+        console.log(' CSR Dashboard: Updating consent:', req.params.id);
+        console.log(' Request body:', JSON.stringify(req.body, null, 2));
         const consentId = req.params.id;
         
         // Update in MongoDB first
@@ -4867,7 +4867,7 @@ app.put("/api/v1/consent/:id", async (req, res) => {
                 updatedConsent.source = 'csr-dashboard';
                 updatedConsent.recordSource = 'csr-dashboard';
                 updatedConsent.updatedBy = 'CSR Staff';
-                console.log('🏷️ Marking consent update as CSR-initiated');
+                console.log(' Marking consent update as CSR-initiated');
             }
             
             if (req.body.status === 'granted') {
@@ -4879,7 +4879,7 @@ app.put("/api/v1/consent/:id", async (req, res) => {
             }
             
             await updatedConsent.save();
-            console.log('✅ Consent updated in MongoDB:', consentId);
+            console.log(' Consent updated in MongoDB:', consentId);
             
             // Emit real-time update to CSR dashboard
             if (global.io && req.body.status) {
@@ -4895,7 +4895,7 @@ app.put("/api/v1/consent/:id", async (req, res) => {
                     source: updatedConsent.source === 'csr-dashboard' ? 'csr' : 'system',
                     updatedBy: updatedConsent.updatedBy || 'System'
                 });
-                console.log(`📡 Real-time update sent to CSR dashboard - consent ${eventType} via system`);
+                console.log(` Real-time update sent to CSR dashboard - consent ${eventType} via system`);
             }
             
             // Also update in-memory array for compatibility
@@ -4936,7 +4936,7 @@ app.put("/api/v1/consent/:id", async (req, res) => {
         }
         
     } catch (error) {
-        console.error('❌ Error updating consent:', error);
+        console.error(' Error updating consent:', error);
         res.status(500).json({ 
             error: true, 
             message: 'Failed to update consent',
@@ -4947,7 +4947,7 @@ app.put("/api/v1/consent/:id", async (req, res) => {
 
 // POST /api/v1/preferences - Create/Update preferences for CSR
 app.post("/api/v1/preferences", (req, res) => {
-    console.log('⚙️ CSR Dashboard: Creating/updating preferences');
+    console.log(' CSR Dashboard: Creating/updating preferences');
     const newPrefs = {
         id: Date.now().toString(),
         ...req.body,
@@ -4962,14 +4962,14 @@ app.post("/api/v1/preferences", (req, res) => {
 // GET /api/v1/preferences/categories - Get all preference categories
 app.get("/api/v1/preferences/categories", async (req, res) => {
     try {
-        console.log('📂 Admin: Fetching preference categories');
+        console.log(' Admin: Fetching preference categories');
         const categories = await PreferenceCategory.find({}).sort({ priority: -1, name: 1 });
         res.json({
             categories,
             totalCount: categories.length
         });
     } catch (error) {
-        console.error('❌ Error fetching categories:', error);
+        console.error(' Error fetching categories:', error);
         res.status(500).json({ error: 'Failed to fetch categories', details: error.message });
     }
 });
@@ -4977,7 +4977,7 @@ app.get("/api/v1/preferences/categories", async (req, res) => {
 // POST /api/v1/preferences/categories - Create preference category
 app.post("/api/v1/preferences/categories", async (req, res) => {
     try {
-        console.log('📂 Admin: Creating preference category');
+        console.log(' Admin: Creating preference category');
         const categoryData = {
             id: Date.now().toString(),
             ...req.body,
@@ -4988,7 +4988,7 @@ app.post("/api/v1/preferences/categories", async (req, res) => {
         await category.save();
         res.status(201).json(category);
     } catch (error) {
-        console.error('❌ Error creating category:', error);
+        console.error(' Error creating category:', error);
         res.status(500).json({ error: 'Failed to create category', details: error.message });
     }
 });
@@ -4996,7 +4996,7 @@ app.post("/api/v1/preferences/categories", async (req, res) => {
 // PUT /api/v1/preferences/categories/:id - Update preference category
 app.put("/api/v1/preferences/categories/:id", async (req, res) => {
     try {
-        console.log('📂 Admin: Updating preference category:', req.params.id);
+        console.log(' Admin: Updating preference category:', req.params.id);
         const category = await PreferenceCategory.findOneAndUpdate(
             { id: req.params.id },
             { ...req.body, updatedAt: new Date() },
@@ -5009,7 +5009,7 @@ app.put("/api/v1/preferences/categories/:id", async (req, res) => {
         
         res.json(category);
     } catch (error) {
-        console.error('❌ Error updating category:', error);
+        console.error(' Error updating category:', error);
         res.status(500).json({ error: 'Failed to update category', details: error.message });
     }
 });
@@ -5017,7 +5017,7 @@ app.put("/api/v1/preferences/categories/:id", async (req, res) => {
 // DELETE /api/v1/preferences/categories/:id - Delete preference category
 app.delete("/api/v1/preferences/categories/:id", async (req, res) => {
     try {
-        console.log('📂 Admin: Deleting preference category:', req.params.id);
+        console.log(' Admin: Deleting preference category:', req.params.id);
         
         // Check if category has preferences
         const hasPreferences = await PreferenceItem.countDocuments({ categoryId: req.params.id });
@@ -5035,7 +5035,7 @@ app.delete("/api/v1/preferences/categories/:id", async (req, res) => {
         
         res.json({ message: 'Category deleted successfully' });
     } catch (error) {
-        console.error('❌ Error deleting category:', error);
+        console.error(' Error deleting category:', error);
         res.status(500).json({ error: 'Failed to delete category', details: error.message });
     }
 });
@@ -5045,7 +5045,7 @@ app.delete("/api/v1/preferences/categories/:id", async (req, res) => {
 // GET /api/v1/admin/dashboard/overview - Get comprehensive admin dashboard overview
 app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
     try {
-        console.log('📊 Admin Dashboard: Fetching comprehensive overview data');
+        console.log(' Admin Dashboard: Fetching comprehensive overview data');
         
         // Fetch data from MongoDB using available Mongoose models
         const [consentsFromDB, dsarFromDB, preferencesFromDB, usersFromDB] = await Promise.all([
@@ -5110,8 +5110,8 @@ app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
             dataFreshness: new Date().toISOString()
         };
 
-        console.log('✅ Admin Dashboard: Overview data compiled successfully');
-        console.log(`📊 Stats: ${totalConsents} consents, ${totalUsers} users, ${totalDSAR} DSAR requests`);
+        console.log(' Admin Dashboard: Overview data compiled successfully');
+        console.log(` Stats: ${totalConsents} consents, ${totalUsers} users, ${totalDSAR} DSAR requests`);
 
         res.json({
             success: true,
@@ -5119,7 +5119,7 @@ app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Admin Dashboard Error:', error);
+        console.error(' Admin Dashboard Error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch dashboard overview',
@@ -5133,7 +5133,7 @@ app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
 // GET /api/v1/preferences/admin - Get preference items with filtering for admin
 app.get("/api/v1/preferences/admin", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Fetching preference items');
+        console.log(' Admin: Fetching preference items');
         const { 
             categoryId, 
             enabled, 
@@ -5213,7 +5213,7 @@ app.get("/api/v1/preferences/admin", async (req, res) => {
             hasMore: totalCount > parseInt(offset) + parseInt(limit)
         });
     } catch (error) {
-        console.error('❌ Error fetching preferences:', error);
+        console.error(' Error fetching preferences:', error);
         res.status(500).json({ error: 'Failed to fetch preferences', details: error.message });
     }
 });
@@ -5221,8 +5221,8 @@ app.get("/api/v1/preferences/admin", async (req, res) => {
 // GET /api/v1/preferences/admin/:id - Get specific preference item
 app.get("/api/v1/preferences/admin/:id", async (req, res) => {
     try {
-        console.log('🔴 ADMIN ROUTE HIT: /api/v1/preferences/admin/:id - ID param:', req.params.id);
-        console.log('⚙️ Admin: Fetching preference item:', req.params.id);
+        console.log(' ADMIN ROUTE HIT: /api/v1/preferences/admin/:id - ID param:', req.params.id);
+        console.log(' Admin: Fetching preference item:', req.params.id);
         const preference = await PreferenceItem.findOne({ id: req.params.id });
         
         if (!preference) {
@@ -5231,7 +5231,7 @@ app.get("/api/v1/preferences/admin/:id", async (req, res) => {
         
         res.json(preference);
     } catch (error) {
-        console.error('❌ Error fetching preference:', error);
+        console.error(' Error fetching preference:', error);
         res.status(500).json({ error: 'Failed to fetch preference', details: error.message });
     }
 });
@@ -5239,7 +5239,7 @@ app.get("/api/v1/preferences/admin/:id", async (req, res) => {
 // POST /api/v1/preferences/admin - Create preference item
 app.post("/api/v1/preferences/admin", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Creating preference item');
+        console.log(' Admin: Creating preference item');
         
         // Verify category exists
         const category = await PreferenceCategory.findOne({ id: req.body.categoryId });
@@ -5261,7 +5261,7 @@ app.post("/api/v1/preferences/admin", async (req, res) => {
         await preference.save();
         res.status(201).json(preference);
     } catch (error) {
-        console.error('❌ Error creating preference:', error);
+        console.error(' Error creating preference:', error);
         res.status(500).json({ error: 'Failed to create preference', details: error.message });
     }
 });
@@ -5269,7 +5269,7 @@ app.post("/api/v1/preferences/admin", async (req, res) => {
 // PUT /api/v1/preferences/admin/:id - Update preference item
 app.put("/api/v1/preferences/admin/:id", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Updating preference item:', req.params.id);
+        console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
             { id: req.params.id },
             { ...req.body, updatedAt: new Date() },
@@ -5282,7 +5282,7 @@ app.put("/api/v1/preferences/admin/:id", async (req, res) => {
         
         res.json(preference);
     } catch (error) {
-        console.error('❌ Error updating preference:', error);
+        console.error(' Error updating preference:', error);
         res.status(500).json({ error: 'Failed to update preference', details: error.message });
     }
 });
@@ -5290,7 +5290,7 @@ app.put("/api/v1/preferences/admin/:id", async (req, res) => {
 // DELETE /api/v1/preferences/admin/:id - Delete preference item
 app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Deleting preference item:', req.params.id);
+        console.log(' Admin: Deleting preference item:', req.params.id);
         
         // Delete associated user preferences
         await UserPreference.deleteMany({ preferenceId: req.params.id });
@@ -5302,7 +5302,7 @@ app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
         
         res.json({ message: 'Preference deleted successfully' });
     } catch (error) {
-        console.error('❌ Error deleting preference:', error);
+        console.error(' Error deleting preference:', error);
         res.status(500).json({ error: 'Failed to delete preference', details: error.message });
     }
 });
@@ -5310,7 +5310,7 @@ app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
 // PATCH /api/v1/preferences/admin/:id/toggle - Toggle preference enabled status
 app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Toggling preference:', req.params.id);
+        console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
             { id: req.params.id },
             { enabled: req.body.enabled, updatedAt: new Date() },
@@ -5323,7 +5323,7 @@ app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
         
         res.json(preference);
     } catch (error) {
-        console.error('❌ Error toggling preference:', error);
+        console.error(' Error toggling preference:', error);
         res.status(500).json({ error: 'Failed to toggle preference', details: error.message });
     }
 });
@@ -5331,7 +5331,7 @@ app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
 // GET /api/v1/users - Get all users for admin management
 app.get("/api/v1/users", async (req, res) => {
     try {
-        console.log('👥 Admin: Fetching all users from MongoDB');
+        console.log(' Admin: Fetching all users from MongoDB');
         
         const { 
             role, 
@@ -5376,7 +5376,7 @@ app.get("/api/v1/users", async (req, res) => {
             
             // Log for debugging users who have never logged in
             if (!user.lastLoginAt && user.email === 'customer@sltmobitel.lk') {
-                console.log(`🔍 Debug user ${user.email}:`, {
+                console.log(` Debug user ${user.email}:`, {
                     lastLoginAt: user.lastLoginAt,
                     createdAt: user.createdAt,
                     finalLastLogin: lastLoginValue || 'Never logged in'
@@ -5407,7 +5407,7 @@ app.get("/api/v1/users", async (req, res) => {
             hasMore: totalCount > parseInt(offset) + parseInt(limit)
         });
     } catch (error) {
-        console.error('❌ Error fetching users:', error);
+        console.error(' Error fetching users:', error);
         res.status(500).json({ error: 'Failed to fetch users', details: error.message });
     }
 });
@@ -5415,7 +5415,7 @@ app.get("/api/v1/users", async (req, res) => {
 // POST /api/v1/users - Create new user (Admin only)
 app.post("/api/v1/users", async (req, res) => {
     try {
-        console.log('👥 Admin: Creating new user');
+        console.log(' Admin: Creating new user');
         
         const { 
             name,
@@ -5491,12 +5491,12 @@ app.post("/api/v1/users", async (req, res) => {
             }, 'admin');
             
             if (welcomeResult.success) {
-                console.log(`✅ Admin welcome email sent to new user: ${savedUser.email}`);
+                console.log(` Admin welcome email sent to new user: ${savedUser.email}`);
             } else {
-                console.error(`❌ Failed to send admin welcome email to ${savedUser.email}:`, welcomeResult.error);
+                console.error(` Failed to send admin welcome email to ${savedUser.email}:`, welcomeResult.error);
             }
         } catch (emailError) {
-            console.error(`❌ Welcome email service error for admin-created user ${savedUser.email}:`, emailError);
+            console.error(` Welcome email service error for admin-created user ${savedUser.email}:`, emailError);
         }
         
         // Transform to match frontend expectations
@@ -5523,7 +5523,7 @@ app.post("/api/v1/users", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error creating user:', error);
+        console.error(' Error creating user:', error);
         
         // Handle mongoose validation errors
         if (error.name === 'ValidationError') {
@@ -5546,7 +5546,7 @@ app.post("/api/v1/users", async (req, res) => {
 // PUT /api/v1/users/:id/status - Update user status (Admin only)
 app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
     try {
-        console.log("📝 Admin: Updating user status for ID:", req.params.id);
+        console.log(" Admin: Updating user status for ID:", req.params.id);
         
         const { status, reason } = req.body;
         
@@ -5585,7 +5585,7 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
             });
         }
         
-        console.log("✅ User status updated:", updatedUser.email, "Status:", status);
+        console.log(" User status updated:", updatedUser.email, "Status:", status);
         
         // Transform response
         const responseUser = {
@@ -5612,7 +5612,7 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error updating user status:', error);
+        console.error(' Error updating user status:', error);
         
         if (error.name === 'CastError') {
             return res.status(400).json({
@@ -5632,7 +5632,7 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
 // DELETE /api/v1/users/:id - Delete user (Admin only)
 app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
     try {
-        console.log("🗑️  Admin: Deleting user with ID:", req.params.id);
+        console.log("  Admin: Deleting user with ID:", req.params.id);
         
         const { confirmDelete, reason } = req.body;
         
@@ -5662,12 +5662,12 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
         }
         
         // Log deletion for audit
-        console.log("🗑️  Deleting user:", userToDelete.email, "Role:", userToDelete.role, "Reason:", reason || 'Not specified');
+        console.log("  Deleting user:", userToDelete.email, "Role:", userToDelete.role, "Reason:", reason || 'Not specified');
         
         // Delete the user
         await User.findByIdAndDelete(req.params.id);
         
-        console.log("✅ User deleted successfully:", userToDelete.email);
+        console.log(" User deleted successfully:", userToDelete.email);
         
         res.json({
             error: false,
@@ -5681,7 +5681,7 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error deleting user:', error);
+        console.error(' Error deleting user:', error);
         
         if (error.name === 'CastError') {
             return res.status(400).json({
@@ -5701,7 +5701,7 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
 // GET /api/v1/guardians - Get all guardians (Admin only)
 app.get("/api/v1/guardians", verifyToken, async (req, res) => {
     try {
-        console.log('👥 Admin: Fetching all guardians');
+        console.log(' Admin: Fetching all guardians');
         
         const guardians = await User.find({ hasMinorDependents: true })
             .select('firstName lastName email phone role status hasMinorDependents minorDependents createdAt updatedAt lastLoginAt')
@@ -5732,7 +5732,7 @@ app.get("/api/v1/guardians", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching guardians:', error);
+        console.error(' Error fetching guardians:', error);
         res.status(500).json({ 
             error: true, 
             message: 'Failed to fetch guardians', 
@@ -5744,7 +5744,7 @@ app.get("/api/v1/guardians", verifyToken, async (req, res) => {
 // POST /api/v1/guardians - Create new guardian with dependents (Admin only)
 app.post("/api/v1/guardians", verifyToken, async (req, res) => {
     try {
-        console.log('👥 Admin: Creating new guardian');
+        console.log(' Admin: Creating new guardian');
         
         const { 
             firstName,
@@ -5848,7 +5848,7 @@ app.post("/api/v1/guardians", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error creating guardian:', error);
+        console.error(' Error creating guardian:', error);
         
         // Handle mongoose validation errors
         if (error.name === 'ValidationError') {
@@ -5871,8 +5871,8 @@ app.post("/api/v1/guardians", verifyToken, async (req, res) => {
 // Update guardian - PUT endpoint
 app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
     try {
-        console.log("📝 Updating guardian with ID:", req.params.id);
-        console.log("📝 Update data received:", JSON.stringify(req.body, null, 2));
+        console.log(" Updating guardian with ID:", req.params.id);
+        console.log(" Update data received:", JSON.stringify(req.body, null, 2));
 
         const { firstName, lastName, email, phone, address, relationship, minorDependents } = req.body;
 
@@ -5957,7 +5957,7 @@ app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
             });
         }
 
-        console.log("✅ Guardian updated successfully:", updatedGuardian.email, "ID:", updatedGuardian._id);
+        console.log(" Guardian updated successfully:", updatedGuardian.email, "ID:", updatedGuardian._id);
         console.log("Updated dependents:", updatedGuardian.minorDependents.length);
 
         // Transform to match frontend expectations
@@ -5984,7 +5984,7 @@ app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error updating guardian:', error);
+        console.error(' Error updating guardian:', error);
         
         // Handle mongoose validation errors
         if (error.name === 'ValidationError') {
@@ -6017,7 +6017,7 @@ app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
 // GET /api/v1/preferences - Get preference items with filtering (ORIGINAL)
 app.get("/api/v1/preferences", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Fetching preference items');
+        console.log(' Admin: Fetching preference items');
         const { 
             categoryId, 
             enabled, 
@@ -6058,7 +6058,7 @@ app.get("/api/v1/preferences", async (req, res) => {
             hasMore: totalCount > parseInt(offset) + parseInt(limit)
         });
     } catch (error) {
-        console.error('❌ Error fetching preferences:', error);
+        console.error(' Error fetching preferences:', error);
         res.status(500).json({ error: 'Failed to fetch preferences', details: error.message });
     }
 });
@@ -6066,8 +6066,8 @@ app.get("/api/v1/preferences", async (req, res) => {
 // GET /api/v1/preferences/stats - Get preference statistics (MUST come before ANY parameterized routes)
 app.get("/api/v1/preferences/stats", async (req, res) => {
     try {
-        console.log('🟢 STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
-        console.log('📊 Admin: Fetching preference statistics');
+        console.log(' STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
+        console.log(' Admin: Fetching preference statistics');
         
         const totalPreferences = await PreferenceItem.countDocuments();
         const activePreferences = await PreferenceItem.countDocuments({ enabled: true });
@@ -6110,7 +6110,7 @@ app.get("/api/v1/preferences/stats", async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Error fetching stats:', error);
+        console.error(' Error fetching stats:', error);
         res.status(500).json({ error: 'Failed to fetch statistics', details: error.message });
     }
 });
@@ -6197,7 +6197,7 @@ app.post('/api/v1/preferences/topics', verifyToken, async (req, res) => {
 // GET /api/v1/preferences/:id - Get specific preference item
 app.get("/api/v1/preferences/:id", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Fetching preference item:', req.params.id);
+        console.log(' Admin: Fetching preference item:', req.params.id);
         const preference = await PreferenceItem.findOne({ id: req.params.id });
         
         if (!preference) {
@@ -6206,7 +6206,7 @@ app.get("/api/v1/preferences/:id", async (req, res) => {
         
         res.json(preference);
     } catch (error) {
-        console.error('❌ Error fetching preference:', error);
+        console.error(' Error fetching preference:', error);
         res.status(500).json({ error: 'Failed to fetch preference', details: error.message });
     }
 });
@@ -6214,7 +6214,7 @@ app.get("/api/v1/preferences/:id", async (req, res) => {
 // POST /api/v1/preferences - Create preference item
 app.post("/api/v1/preferences", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Creating preference item');
+        console.log(' Admin: Creating preference item');
         
         // Verify category exists
         const category = await PreferenceCategory.findOne({ id: req.body.categoryId });
@@ -6233,7 +6233,7 @@ app.post("/api/v1/preferences", async (req, res) => {
         await preference.save();
         res.status(201).json(preference);
     } catch (error) {
-        console.error('❌ Error creating preference:', error);
+        console.error(' Error creating preference:', error);
         res.status(500).json({ error: 'Failed to create preference', details: error.message });
     }
 });
@@ -6241,7 +6241,7 @@ app.post("/api/v1/preferences", async (req, res) => {
 // PUT /api/v1/preferences/:id - Update preference item
 app.put("/api/v1/preferences/:id", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Updating preference item:', req.params.id);
+        console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
             { id: req.params.id },
             { ...req.body, updatedAt: new Date() },
@@ -6254,7 +6254,7 @@ app.put("/api/v1/preferences/:id", async (req, res) => {
         
         res.json(preference);
     } catch (error) {
-        console.error('❌ Error updating preference:', error);
+        console.error(' Error updating preference:', error);
         res.status(500).json({ error: 'Failed to update preference', details: error.message });
     }
 });
@@ -6262,7 +6262,7 @@ app.put("/api/v1/preferences/:id", async (req, res) => {
 // DELETE /api/v1/preferences/:id - Delete preference item
 app.delete("/api/v1/preferences/:id", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Deleting preference item:', req.params.id);
+        console.log(' Admin: Deleting preference item:', req.params.id);
         
         // Delete associated user preferences
         await UserPreference.deleteMany({ preferenceId: req.params.id });
@@ -6274,7 +6274,7 @@ app.delete("/api/v1/preferences/:id", async (req, res) => {
         
         res.json({ message: 'Preference deleted successfully' });
     } catch (error) {
-        console.error('❌ Error deleting preference:', error);
+        console.error(' Error deleting preference:', error);
         res.status(500).json({ error: 'Failed to delete preference', details: error.message });
     }
 });
@@ -6282,7 +6282,7 @@ app.delete("/api/v1/preferences/:id", async (req, res) => {
 // PATCH /api/v1/preferences/:id/toggle - Toggle preference enabled status
 app.patch("/api/v1/preferences/:id/toggle", async (req, res) => {
     try {
-        console.log('⚙️ Admin: Toggling preference:', req.params.id);
+        console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
             { id: req.params.id },
             { enabled: req.body.enabled, updatedAt: new Date() },
@@ -6295,14 +6295,14 @@ app.patch("/api/v1/preferences/:id/toggle", async (req, res) => {
         
         res.json(preference);
     } catch (error) {
-        console.error('❌ Error toggling preference:', error);
+        console.error(' Error toggling preference:', error);
         res.status(500).json({ error: 'Failed to toggle preference', details: error.message });
     }
 });
 
 // POST /api/v1/dsar - Create new DSAR request for CSR
 app.post("/api/v1/dsar", (req, res) => {
-    console.log('📋 CSR Dashboard: Creating DSAR request');
+    console.log(' CSR Dashboard: Creating DSAR request');
     const newRequest = {
         id: Date.now().toString(),
         ...req.body,
@@ -6315,8 +6315,8 @@ app.post("/api/v1/dsar", (req, res) => {
 
 // PUT /api/v1/dsar/:id - Update DSAR request for CSR
 app.put("/api/v1/dsar/:id", async (req, res) => {
-    console.log(`📋 CSR Dashboard: Updating DSAR request ${req.params.id}`);
-    console.log('📋 Update payload:', req.body);
+    console.log(` CSR Dashboard: Updating DSAR request ${req.params.id}`);
+    console.log(' Update payload:', req.body);
     
     const { id } = req.params;
     
@@ -6343,7 +6343,7 @@ app.put("/api/v1/dsar/:id", async (req, res) => {
         );
 
         if (updatedRequest) {
-            console.log(`✅ Successfully updated DSAR request ${id} in MongoDB`);
+            console.log(` Successfully updated DSAR request ${id} in MongoDB`);
             
             // Transform MongoDB result to match expected format
             const responseData = {
@@ -6369,14 +6369,14 @@ app.put("/api/v1/dsar/:id", async (req, res) => {
             res.json(responseData);
         } else if (requestIndex !== -1) {
             // Fallback to in-memory data if MongoDB update failed
-            console.log(`⚠️ MongoDB update failed, using in-memory data for DSAR ${id}`);
+            console.log(` MongoDB update failed, using in-memory data for DSAR ${id}`);
             res.json(dsarRequests[requestIndex]);
         } else {
-            console.log(`❌ DSAR request ${id} not found in either MongoDB or memory`);
+            console.log(` DSAR request ${id} not found in either MongoDB or memory`);
             res.status(404).json({ error: "DSAR request not found" });
         }
     } catch (error) {
-        console.error('❌ Error updating DSAR request:', error);
+        console.error(' Error updating DSAR request:', error);
         
         // Try to update in-memory as fallback
         const requestIndex = dsarRequests.findIndex(r => r.id === id);
@@ -6387,7 +6387,7 @@ app.put("/api/v1/dsar/:id", async (req, res) => {
                 updatedAt: new Date().toISOString()
             };
             
-            console.log(`⚠️ Using in-memory fallback for DSAR ${id}`);
+            console.log(` Using in-memory fallback for DSAR ${id}`);
             res.json(dsarRequests[requestIndex]);
         } else {
             res.status(404).json({ error: "DSAR request not found" });
@@ -6397,7 +6397,7 @@ app.put("/api/v1/dsar/:id", async (req, res) => {
 
 // POST /api/v1/consent - Create new consent for CSR
 app.post("/api/v1/consent", (req, res) => {
-    console.log('✅ CSR Dashboard: Creating consent record');
+    console.log(' CSR Dashboard: Creating consent record');
     const newConsent = {
         id: Date.now().toString(),
         ...req.body,
@@ -6410,7 +6410,7 @@ app.post("/api/v1/consent", (req, res) => {
 
 // PUT /api/v1/consent/:id - Update consent for CSR
 app.put("/api/v1/consent/:id", (req, res) => {
-    console.log(`✅ CSR Dashboard: Updating consent ${req.params.id}`);
+    console.log(` CSR Dashboard: Updating consent ${req.params.id}`);
     const { id } = req.params;
     const consentIndex = csrConsents.findIndex(c => c.id === id);
     
@@ -6441,7 +6441,7 @@ app.put("/api/v1/consent/:id", (req, res) => {
             },
             source: 'csr'
         });
-        console.log(`📡 Real-time update sent to CSR dashboard - consent ${eventType} by CSR`);
+        console.log(` Real-time update sent to CSR dashboard - consent ${eventType} by CSR`);
     }
     
     res.json(updatedConsent);
@@ -6462,14 +6462,14 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
             });
         }
 
-        console.log('🔍 [CSR VAS] Fetching customer VAS services...');
-        console.log('🔍 [CSR VAS] Query params received:', req.query);
+        console.log(' [CSR VAS] Fetching customer VAS services...');
+        console.log(' [CSR VAS] Query params received:', req.query);
         
         // Get customer information from query parameters
         const customerId = req.query.customerId || req.query.customerid;
         const customerEmail = req.query.customerEmail || req.query.customeremail;
         
-        console.log('🔍 [CSR VAS] Extracted query params:', { customerId, customerEmail });
+        console.log(' [CSR VAS] Extracted query params:', { customerId, customerEmail });
         
         if (!customerId && !customerEmail) {
             return res.status(400).json({ 
@@ -6480,7 +6480,7 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
 
         // Get all VAS services
         const allServices = await VASService.find({ status: 'active' }).sort({ name: 1 });
-        console.log(`📋 [CSR VAS] Found ${allServices.length} active VAS services`);
+        console.log(` [CSR VAS] Found ${allServices.length} active VAS services`);
 
         // Find customer by ID or email with enhanced search
         let customer = null;
@@ -6531,10 +6531,10 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
             });
         }
 
-        console.log(`👤 [CSR VAS] Found customer: ${customer.name} (${customer.email})`);
+        console.log(` [CSR VAS] Found customer: ${customer.name} (${customer.email})`);
 
         // Get customer's VAS subscriptions
-        console.log(`🔍 [CSR VAS] Querying subscriptions with userId: ${customer._id} (type: ${typeof customer._id})`);
+        console.log(` [CSR VAS] Querying subscriptions with userId: ${customer._id} (type: ${typeof customer._id})`);
         
         const subscriptions = await VASSubscription.find({
             $or: [
@@ -6549,10 +6549,10 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
             ]
         }).populate('serviceId');
 
-        console.log(`📱 [CSR VAS] Found ${subscriptions.length} subscriptions for customer`);
+        console.log(` [CSR VAS] Found ${subscriptions.length} subscriptions for customer`);
         
         if (subscriptions.length > 0) {
-            console.log(`📱 [CSR VAS] Subscription details:`, subscriptions.map(s => ({
+            console.log(` [CSR VAS] Subscription details:`, subscriptions.map(s => ({
                 id: s._id,
                 userId: s.userId,
                 serviceId: s.serviceId ? s.serviceId._id : s.serviceId,
@@ -6561,10 +6561,10 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
                 isSubscribed: s.isSubscribed
             })));
         } else {
-            console.log(`📱 [CSR VAS] No subscriptions found - checking database directly...`);
+            console.log(` [CSR VAS] No subscriptions found - checking database directly...`);
             // Debug query to check what's in the database
             const allSubs = await VASSubscription.find({}).limit(5);
-            console.log(`📱 [CSR VAS] Sample subscriptions in database:`, allSubs.map(s => ({
+            console.log(` [CSR VAS] Sample subscriptions in database:`, allSubs.map(s => ({
                 id: s._id,
                 userId: s.userId,
                 serviceId: s.serviceId,
@@ -6607,7 +6607,7 @@ app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ [CSR VAS] Error fetching customer VAS services:', error);
+        console.error(' [CSR VAS] Error fetching customer VAS services:', error);
         res.status(500).json({ 
             error: 'Failed to fetch customer VAS services',
             details: error.message 
@@ -6628,7 +6628,7 @@ app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
 
         const { query, type } = req.query;
         
-        console.log(`🔍 [CSR VAS] Searching customers with query: "${query}", type: "${type}"`);
+        console.log(` [CSR VAS] Searching customers with query: "${query}", type: "${type}"`);
 
         if (!query) {
             return res.json({
@@ -6677,7 +6677,7 @@ app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
             .limit(20)
             .lean();
 
-        console.log(`👥 [CSR VAS] Found ${customers.length} customers in database`);
+        console.log(` [CSR VAS] Found ${customers.length} customers in database`);
 
         // Transform customers to consistent format
         const transformedCustomers = customers.map(customer => ({
@@ -6702,7 +6702,7 @@ app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
         let allResults = [...transformedCustomers];
         
         if (transformedCustomers.length === 0) {
-            console.log(`🔍 [CSR VAS] No database results, searching fallback data...`);
+            console.log(` [CSR VAS] No database results, searching fallback data...`);
             const partyResults = parties.filter(party => {
                 const name = party.name?.toLowerCase() || '';
                 const email = party.email?.toLowerCase() || '';
@@ -6737,7 +6737,7 @@ app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
             index === self.findIndex((c) => (c.email === customer.email))
         );
 
-        console.log(`🔍 [CSR VAS] Customer Search: "${query}" found ${uniqueResults.length} customers`);
+        console.log(` [CSR VAS] Customer Search: "${query}" found ${uniqueResults.length} customers`);
 
         res.json({
             success: true,
@@ -6748,7 +6748,7 @@ app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ [CSR VAS] Error searching customers:', error);
+        console.error(' [CSR VAS] Error searching customers:', error);
         res.status(500).json({ 
             error: 'Failed to search customers',
             details: error.message,
@@ -6774,8 +6774,8 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
         const customerEmail = req.query.customerEmail || req.body.customerEmail || req.query.customeremail || req.body.customeremail;
         const { action } = req.body; // 'subscribe' or 'unsubscribe'
         
-        console.log(`🔄 [CSR VAS] ${action} request for service ${serviceId} by CSR ${req.user.email}`);
-        console.log('🔄 [CSR VAS] Customer info:', { customerId, customerEmail });
+        console.log(` [CSR VAS] ${action} request for service ${serviceId} by CSR ${req.user.email}`);
+        console.log(' [CSR VAS] Customer info:', { customerId, customerEmail });
 
         if (!customerId && !customerEmail) {
             return res.status(400).json({ 
@@ -6849,7 +6849,7 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
             });
         }
 
-        console.log(`👤 [CSR VAS] Processing ${action} for ${customer.name} - ${service.name} by CSR ${req.user.email}`);
+        console.log(` [CSR VAS] Processing ${action} for ${customer.name} - ${service.name} by CSR ${req.user.email}`);
 
         if (action === 'subscribe') {
             // Check if already subscribed
@@ -6889,7 +6889,7 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
             });
 
             await subscription.save();
-            console.log(`✅ [CSR VAS] Customer subscribed to ${service.name} by CSR ${req.user.email}`);
+            console.log(` [CSR VAS] Customer subscribed to ${service.name} by CSR ${req.user.email}`);
 
             // Create audit log entry
             const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -6973,7 +6973,7 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
             };
 
             await subscription.save();
-            console.log(`❌ [CSR VAS] Customer unsubscribed from ${service.name} by CSR ${req.user.email}`);
+            console.log(` [CSR VAS] Customer unsubscribed from ${service.name} by CSR ${req.user.email}`);
 
             // Create audit log entry
             const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -7028,7 +7028,7 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res
         }
 
     } catch (error) {
-        console.error('🚨 [CSR VAS] Error in VAS toggle:', error);
+        console.error(' [CSR VAS] Error in VAS toggle:', error);
         res.status(500).json({ 
             error: 'Internal server error',
             details: error.message,
@@ -7066,14 +7066,14 @@ app.post("/api/v1/auth/login", async (req, res) => {
         const currentTime = new Date();
         user.lastLoginAt = currentTime;
         
-        console.log(`🔐 Login Update for ${user.email}:`, {
+        console.log(` Login Update for ${user.email}:`, {
             previousLastLogin: oldLastLogin,
             newLastLogin: currentTime,
             userCreated: user.createdAt
         });
         
         const saveResult = await user.save();
-        console.log(`✅ User ${user.email} lastLoginAt saved:`, saveResult.lastLoginAt);
+        console.log(` User ${user.email} lastLoginAt saved:`, saveResult.lastLoginAt);
         
         const token = generateToken({ id: user._id, email: user.email, role: user.role });
         console.log("Login successful:", user.email, "Role:", user.role);
@@ -7242,7 +7242,7 @@ app.post("/api/v1/auth/register", async (req, res) => {
         // Generate token
         const token = generateToken({ id: savedUser._id, email: savedUser.email, role: savedUser.role });
         
-        console.log(`🔧 Creating default data for new user: ${savedUser.email} (ID: ${savedUser._id})`);
+        console.log(` Creating default data for new user: ${savedUser.email} (ID: ${savedUser._id})`);
         
         // Use enhanced customer data provisioning
         const { provisionDefaultDataForNewCustomer } = require('./customer-data-provisioning');
@@ -7255,12 +7255,12 @@ app.post("/api/v1/auth/register", async (req, res) => {
             );
             
             if (provisioningResult.success) {
-                console.log(`✅ Successfully provisioned data for ${savedUser.email}:`, provisioningResult.data);
+                console.log(` Successfully provisioned data for ${savedUser.email}:`, provisioningResult.data);
             } else {
-                console.error(`❌ Provisioning failed for ${savedUser.email}:`, provisioningResult.error);
+                console.error(` Provisioning failed for ${savedUser.email}:`, provisioningResult.error);
             }
         } catch (error) {
-            console.error(`❌ Critical error in data provisioning:`, error.message);
+            console.error(` Critical error in data provisioning:`, error.message);
         }
         
         // Create audit log entry
@@ -7300,12 +7300,12 @@ app.post("/api/v1/auth/register", async (req, res) => {
             }, 'self');
             
             if (welcomeResult.success) {
-                console.log(`✅ Welcome email sent to new user: ${savedUser.email}`);
+                console.log(` Welcome email sent to new user: ${savedUser.email}`);
             } else {
-                console.error(`❌ Failed to send welcome email to ${savedUser.email}:`, welcomeResult.error);
+                console.error(` Failed to send welcome email to ${savedUser.email}:`, welcomeResult.error);
             }
         } catch (emailError) {
-            console.error(`❌ Welcome email service error for ${savedUser.email}:`, emailError);
+            console.error(` Welcome email service error for ${savedUser.email}:`, emailError);
         }
         
         res.status(201).json({
@@ -7347,7 +7347,7 @@ app.get("/api/v1/customer/dashboard/overview", verifyToken, async (req, res) => 
             });
         }
         
-        console.log('📊 Fetching real dashboard overview for customer:', req.user.id);
+        console.log(' Fetching real dashboard overview for customer:', req.user.id);
         
         // Get user from MongoDB
         const user = await User.findById(req.user.id);
@@ -7505,7 +7505,7 @@ app.get("/api/v1/customer/dashboard/overview", verifyToken, async (req, res) => 
         recentActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         const topRecentActivity = recentActivity.slice(0, 5);
 
-        console.log(`📊 Real Dashboard Data for ${user.firstName} ${user.lastName} (${user.email}):`);
+        console.log(` Real Dashboard Data for ${user.firstName} ${user.lastName} (${user.email}):`);
         console.log(`   Consents: Total ${consents.length} (${activeConsents} active, ${revokedConsents} revoked, ${pendingConsents} pending)`);
         console.log(`   Preferences: ${totalPreferenceSettings} configured settings`);
         console.log(`   Privacy Notices: ${privacyNotices.length} total (${acknowledgedNotices} acknowledged, ${pendingNotices} pending)`);
@@ -7589,7 +7589,7 @@ app.get("/api/v1/customer/dashboard/overview", verifyToken, async (req, res) => 
         });
 
     } catch (error) {
-        console.error('❌ Dashboard overview error:', error);
+        console.error(' Dashboard overview error:', error);
         res.status(500).json({
             error: true,
             message: 'Internal server error',
@@ -7616,7 +7616,7 @@ app.get("/api/v1/customer/consents", verifyToken, async (req, res) => {
             });
         }
         
-        console.log('✅ Fetching consents for customer:', req.user.id);
+        console.log(' Fetching consents for customer:', req.user.id);
         
         const consents = await Consent.find({ 
             $or: [
@@ -7655,7 +7655,7 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
         const consentId = req.params.id;
         const { notes } = req.body;
         
-        console.log('✅ Granting consent:', consentId, 'for customer:', req.user.id);
+        console.log(' Granting consent:', consentId, 'for customer:', req.user.id);
 
         // Find and update the consent in MongoDB
         const consent = await Consent.findOneAndUpdate(
@@ -7685,7 +7685,7 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
             });
         }
 
-        console.log('✅ Consent granted successfully:', consentId);
+        console.log(' Consent granted successfully:', consentId);
 
         // Emit real-time update to CSR dashboard
         if (global.io) {
@@ -7698,7 +7698,7 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
                     email: req.user.email
                 }
             });
-            console.log('📡 Real-time update sent to CSR dashboard - consent granted');
+            console.log(' Real-time update sent to CSR dashboard - consent granted');
         }
 
         res.json({
@@ -7729,7 +7729,7 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
         const consentId = req.params.id;
         const { reason } = req.body;
         
-        console.log('✅ Revoking consent:', consentId, 'for customer:', req.user.id);
+        console.log(' Revoking consent:', consentId, 'for customer:', req.user.id);
 
         // Find and update the consent in MongoDB
         const consent = await Consent.findOneAndUpdate(
@@ -7758,7 +7758,7 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
             });
         }
 
-        console.log('✅ Consent revoked successfully:', consentId);
+        console.log(' Consent revoked successfully:', consentId);
 
         // Emit real-time update to CSR dashboard
         if (global.io) {
@@ -7771,7 +7771,7 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
                     email: req.user.email
                 }
             });
-            console.log('📡 Real-time update sent to CSR dashboard - consent revoked');
+            console.log(' Real-time update sent to CSR dashboard - consent revoked');
         }
 
         res.json({
@@ -7798,7 +7798,7 @@ app.get("/api/v1/customer/preferences", verifyToken, async (req, res) => {
             });
         }
         
-        console.log('✅ Fetching comprehensive preferences for customer:', req.user.id);
+        console.log(' Fetching comprehensive preferences for customer:', req.user.id);
         
         let allPreferences = [];
         
@@ -7978,7 +7978,7 @@ app.post("/api/v1/customer/preferences", verifyToken, async (req, res) => {
         }
         
         const { preferences, type, updates } = req.body;
-        console.log('✅ Updating preferences for customer:', req.user.id, 'type:', type);
+        console.log(' Updating preferences for customer:', req.user.id, 'type:', type);
         
         if (!preferences && !updates) {
             return res.status(400).json({
@@ -8154,7 +8154,7 @@ app.post("/api/v1/customer/preferences", verifyToken, async (req, res) => {
                 timestamp: new Date().toISOString(),
                 source: 'customer'
             });
-            console.log(`🔄 Real-time notification sent for customer ${req.user.id} preference update`);
+            console.log(` Real-time notification sent for customer ${req.user.id} preference update`);
         }
         
         res.json({
@@ -8184,7 +8184,7 @@ app.get("/api/v1/customer/privacy-notices", verifyToken, async (req, res) => {
             });
         }
         
-        console.log('✅ Fetching privacy notices for customer:', req.user.id);
+        console.log(' Fetching privacy notices for customer:', req.user.id);
         
         // Get only active privacy notices for customers by default
         // This matches the admin dashboard behavior - customers should only see active notices
@@ -8249,7 +8249,7 @@ app.get("/api/v1/customer/dsar", verifyToken, async (req, res) => {
             });
         }
         
-        console.log('✅ Fetching DSAR requests for customer:', req.user.id);
+        console.log(' Fetching DSAR requests for customer:', req.user.id);
         
         // Get customer-specific DSAR requests
         const { getCustomerIsolatedData } = require('./customer-data-provisioning');
@@ -8280,12 +8280,12 @@ app.get("/api/v1/consent", verifyToken, async (req, res) => {
             const { getCustomerIsolatedData } = require('./customer-data-provisioning');
             const userConsents = await getCustomerIsolatedData(req.user.id, 'consents');
             
-            console.log(`👤 Customer ${req.user.email} requested consents: ${userConsents.length} found`);
+            console.log(` Customer ${req.user.email} requested consents: ${userConsents.length} found`);
             res.json(userConsents); // Direct array for easier access
         } else {
             // CSR/Admin gets all consents
             const allConsents = await Consent.find({}).sort({ createdAt: -1 });
-            console.log(`👨‍💼 CSR/Admin requested consents: ${allConsents.length} found`);
+            console.log(` CSR/Admin requested consents: ${allConsents.length} found`);
             res.json(allConsents);
         }
     } catch (error) {
@@ -8383,7 +8383,7 @@ app.put("/api/v1/consent/:id", verifyToken, async (req, res) => {
         
         await consent.save();
         
-        console.log(`🔄 User ${req.user.id} updated consent ${consentId} to ${status}`);
+        console.log(` User ${req.user.id} updated consent ${consentId} to ${status}`);
         
         res.json({
             success: true,
@@ -8407,12 +8407,12 @@ app.get("/api/v1/preference", verifyToken, async (req, res) => {
             const { getCustomerIsolatedData } = require('./customer-data-provisioning');
             const userPreferences = await getCustomerIsolatedData(req.user.id, 'preferences');
             
-            console.log(`👤 Customer ${req.user.email} requested preferences: ${userPreferences.length} found`);
+            console.log(` Customer ${req.user.email} requested preferences: ${userPreferences.length} found`);
             res.json(userPreferences); // Direct array for easier access
         } else {
             // CSR/Admin gets all preferences
             const allPreferences = await UserPreference.find({}).sort({ createdAt: -1 });
-            console.log(`👨‍💼 CSR/Admin requested preferences: ${allPreferences.length} found`);
+            console.log(` CSR/Admin requested preferences: ${allPreferences.length} found`);
             res.json(allPreferences);
         }
     } catch (error) {
@@ -8502,7 +8502,7 @@ app.put("/api/v1/preference/:id", verifyToken, async (req, res) => {
 // Debug endpoint to check privacy notice counts
 app.get("/api/v1/debug/privacy-notice-counts", async (req, res) => {
     try {
-        console.log('🔍 Debug: Checking privacy notice counts...');
+        console.log(' Debug: Checking privacy notice counts...');
         
         // Get total count
         const totalCount = await PrivacyNotice.countDocuments({});
@@ -8542,7 +8542,7 @@ app.get("/api/v1/debug/privacy-notice-counts", async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error in debug endpoint:', error);
+        console.error(' Error in debug endpoint:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to get debug info',
@@ -8606,7 +8606,7 @@ app.get("/api/v1/privacy-notices", verifyToken, async (req, res) => {
             hasMore: totalCount > parseInt(offset) + parseInt(limit)
         });
     } catch (error) {
-        console.error('❌ Error fetching privacy notices:', error);
+        console.error(' Error fetching privacy notices:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to fetch privacy notices',
@@ -8632,7 +8632,7 @@ app.get("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
             notice: notice
         });
     } catch (error) {
-        console.error('❌ Error fetching privacy notice:', error);
+        console.error(' Error fetching privacy notice:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to fetch privacy notice',
@@ -8736,7 +8736,7 @@ app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
             notice: savedNotice
         });
     } catch (error) {
-        console.error('❌ Error creating privacy notice:', error);
+        console.error(' Error creating privacy notice:', error);
         if (error.code === 11000) {
             res.status(400).json({ 
                 success: false, 
@@ -8810,7 +8810,7 @@ app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
             notice: updatedNotice
         });
     } catch (error) {
-        console.error('❌ Error updating privacy notice:', error);
+        console.error(' Error updating privacy notice:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to update privacy notice',
@@ -8861,7 +8861,7 @@ app.delete("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
             message: 'Privacy notice archived successfully'
         });
     } catch (error) {
-        console.error('❌ Error deleting privacy notice:', error);
+        console.error(' Error deleting privacy notice:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to delete privacy notice',
@@ -8876,7 +8876,7 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
         const noticeId = req.params.id;
         const { decision } = req.body; // 'accept' or 'decline'
         
-        console.log('� DEBUGGING ACKNOWLEDGMENT ENDPOINT:');
+        console.log(' DEBUGGING ACKNOWLEDGMENT ENDPOINT:');
         console.log(`   - Notice ID: ${noticeId}`);
         console.log(`   - Decision: ${decision}`);
         console.log(`   - User ID: ${req.user?.id}`);
@@ -8885,7 +8885,7 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
         console.log(`   - User Object:`, JSON.stringify(req.user, null, 2));
         
         if (!decision || !['accept', 'decline'].includes(decision)) {
-            console.log('❌ Invalid decision provided');
+            console.log(' Invalid decision provided');
             return res.status(400).json({
                 success: false,
                 error: "Invalid decision. Must be 'accept' or 'decline'"
@@ -8893,7 +8893,7 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
         }
         
         // Find the privacy notice using multiple possible ID formats
-        console.log('🔍 Searching for privacy notice...');
+        console.log(' Searching for privacy notice...');
         let notice = await PrivacyNotice.findOne({ 
             $or: [
                 { _id: noticeId },
@@ -8903,10 +8903,10 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
         });
         
         if (!notice) {
-            console.log(`❌ Notice not found with ID: ${noticeId}`);
+            console.log(` Notice not found with ID: ${noticeId}`);
             // Let's also check what notices exist
             const allNotices = await PrivacyNotice.find({}).limit(5);
-            console.log('📋 Available notices:', allNotices.map(n => ({
+            console.log(' Available notices:', allNotices.map(n => ({
                 _id: n._id,
                 noticeId: n.noticeId,
                 title: n.title
@@ -8918,25 +8918,25 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
             });
         }
 
-        console.log(`✅ Found notice: ${notice.title} (MongoDB ID: ${notice._id})`);
+        console.log(` Found notice: ${notice.title} (MongoDB ID: ${notice._id})`);
 
         // Check if customer has already acknowledged this notice
         const existingAcknowledgment = notice.acknowledgments?.find(
             ack => ack.userId === req.user.id || ack.userEmail === req.user.email
         );
 
-        console.log('📋 Existing acknowledgment:', existingAcknowledgment ? 'Found' : 'Not found');
+        console.log(' Existing acknowledgment:', existingAcknowledgment ? 'Found' : 'Not found');
 
         if (existingAcknowledgment) {
             // Update existing acknowledgment
-            console.log('🔄 Updating existing acknowledgment...');
+            console.log(' Updating existing acknowledgment...');
             existingAcknowledgment.decision = decision;
             existingAcknowledgment.acknowledgedAt = new Date();
             existingAcknowledgment.ipAddress = req.ip;
             existingAcknowledgment.userAgent = req.get('User-Agent');
         } else {
             // Create new acknowledgment
-            console.log('➕ Creating new acknowledgment...');
+            console.log(' Creating new acknowledgment...');
             if (!notice.acknowledgments) {
                 notice.acknowledgments = [];
             }
@@ -8952,11 +8952,11 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
         }
 
         // Save the updated notice
-        console.log('💾 Saving updated notice...');
+        console.log(' Saving updated notice...');
         const savedNotice = await notice.save();
-        console.log(`✅ Notice saved successfully. Acknowledgments count: ${savedNotice.acknowledgments?.length || 0}`);
+        console.log(` Notice saved successfully. Acknowledgments count: ${savedNotice.acknowledgments?.length || 0}`);
 
-        console.log(`📋 Privacy notice ${noticeId} ${decision}ed by customer ${req.user.id}`);
+        console.log(` Privacy notice ${noticeId} ${decision}ed by customer ${req.user.id}`);
 
         res.json({
             success: true,
@@ -8968,9 +8968,9 @@ app.post("/api/v1/privacy-notices/:id/acknowledge", verifyToken, async (req, res
             }
         });
     } catch (error) {
-        console.error('❌ Error acknowledging privacy notice:', error);
-        console.error('❌ Error stack:', error.stack);
-        console.error('❌ Error details:', {
+        console.error(' Error acknowledging privacy notice:', error);
+        console.error(' Error stack:', error.stack);
+        console.error(' Error details:', {
             name: error.name,
             message: error.message,
             code: error.code
@@ -9036,7 +9036,7 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
             });
         }
     } catch (error) {
-        console.error('❌ Error exporting privacy notices:', error);
+        console.error(' Error exporting privacy notices:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to export privacy notices',
@@ -9054,7 +9054,7 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
 // GET /api/customer/vas/services - Get all available VAS services for customer
 app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
     try {
-        console.log('🎯 Customer VAS: Fetching available services for user:', req.user.id);
+        console.log(' Customer VAS: Fetching available services for user:', req.user.id);
         
         // Get all active VAS services
         const allVASServices = await VASService.find({ status: 'active' }).sort({ popularity: -1 });
@@ -9078,12 +9078,12 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
             monthlyTotal: service.priceNumeric || 0
         }));
         
-        console.log(`✅ Customer VAS: Retrieved ${servicesWithSubscriptionStatus.length} services`);
-        console.log(`✅ Customer VAS: User ${req.user.id} has ${subscribedServiceIds.length} active subscriptions: [${subscribedServiceIds.join(', ')}]`);
+        console.log(` Customer VAS: Retrieved ${servicesWithSubscriptionStatus.length} services`);
+        console.log(` Customer VAS: User ${req.user.id} has ${subscribedServiceIds.length} active subscriptions: [${subscribedServiceIds.join(', ')}]`);
         
         // Debug: Show which services are marked as subscribed
         const subscribedServices = servicesWithSubscriptionStatus.filter(s => s.isSubscribed);
-        console.log(`🔍 Customer VAS: Subscribed services:`, subscribedServices.map(s => `${s.name} (${s.id})`));
+        console.log(` Customer VAS: Subscribed services:`, subscribedServices.map(s => `${s.name} (${s.id})`));
         
         res.json({
             success: true,
@@ -9095,7 +9095,7 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Customer VAS services error:', error);
+        console.error(' Customer VAS services error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch VAS services',
@@ -9108,7 +9108,7 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
 app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
     try {
         const { serviceId } = req.body;
-        console.log('🔄 Customer VAS: Processing subscription for service:', serviceId, 'user:', req.user.id);
+        console.log(' Customer VAS: Processing subscription for service:', serviceId, 'user:', req.user.id);
         
         // Find the service
         const service = await VASService.findOne({ id: serviceId, status: 'active' });
@@ -9190,7 +9190,7 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
         // Notify customer's personal room
         io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
         
-        console.log('✅ Customer VAS: Subscription created successfully');
+        console.log(' Customer VAS: Subscription created successfully');
         
         res.json({
             success: true,
@@ -9198,7 +9198,7 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
             data: subscription
         });
     } catch (error) {
-        console.error('❌ Customer VAS subscription error:', error);
+        console.error(' Customer VAS subscription error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to subscribe to VAS service',
@@ -9211,7 +9211,7 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
 app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
     try {
         const { serviceId } = req.body;
-        console.log('🔄 Customer VAS: Processing unsubscription for service:', serviceId, 'user:', req.user.id);
+        console.log(' Customer VAS: Processing unsubscription for service:', serviceId, 'user:', req.user.id);
         
         // Find the service first to get its ObjectId
         const service = await VASService.findOne({ id: serviceId, status: 'active' });
@@ -9282,7 +9282,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
         // Notify customer's personal room
         io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
         
-        console.log('✅ Customer VAS: Unsubscription processed successfully');
+        console.log(' Customer VAS: Unsubscription processed successfully');
         
         res.json({
             success: true,
@@ -9290,7 +9290,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
             data: subscription
         });
     } catch (error) {
-        console.error('❌ Customer VAS unsubscription error:', error);
+        console.error(' Customer VAS unsubscription error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to unsubscribe from VAS service',
@@ -9303,8 +9303,8 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
 app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req, res) => {
     try {
         const { serviceId } = req.params;
-        console.log('🔄 Customer VAS: Processing toggle for service:', serviceId, 'user:', req.user.id);
-        console.log('🔄 Customer VAS: Request body:', req.body);
+        console.log(' Customer VAS: Processing toggle for service:', serviceId, 'user:', req.user.id);
+        console.log(' Customer VAS: Request body:', req.body);
         
         // Validate input
         if (!serviceId) {
@@ -9316,7 +9316,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
 
         // Check if models are available
         if (typeof VASService === 'undefined' || typeof VASSubscription === 'undefined') {
-            console.error('❌ Customer VAS: VAS models not loaded');
+            console.error(' Customer VAS: VAS models not loaded');
             return res.status(500).json({
                 success: false,
                 message: 'VAS models not available',
@@ -9327,14 +9327,14 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             });
         }
 
-        console.log('🔄 Customer VAS: Models available, checking database connection...');
+        console.log(' Customer VAS: Models available, checking database connection...');
         
         // Test database connection
         try {
             await VASService.findOne().limit(1);
-            console.log('🔄 Customer VAS: Database connection OK');
+            console.log(' Customer VAS: Database connection OK');
         } catch (dbError) {
-            console.error('❌ Customer VAS: Database connection failed:', dbError);
+            console.error(' Customer VAS: Database connection failed:', dbError);
             return res.status(500).json({
                 success: false,
                 message: 'Database connection failed',
@@ -9343,28 +9343,28 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
         }
         
         // First find the VAS service by its string ID to get the MongoDB ObjectId
-        console.log('🔄 Customer VAS: Looking up service by string ID...');
+        console.log(' Customer VAS: Looking up service by string ID...');
         const service = await VASService.findOne({ id: serviceId, status: 'active' });
         
         if (!service) {
-            console.log('❌ Customer VAS: Service not found:', serviceId);
+            console.log(' Customer VAS: Service not found:', serviceId);
             return res.status(404).json({
                 success: false,
                 message: 'VAS service not found or inactive'
             });
         }
         
-        console.log('✅ Customer VAS: Service found, MongoDB _id:', service._id);
+        console.log(' Customer VAS: Service found, MongoDB _id:', service._id);
         
         // Check current subscription status using the MongoDB ObjectId
-        console.log('🔄 Customer VAS: Checking existing subscription...');
+        console.log(' Customer VAS: Checking existing subscription...');
         const existingSubscription = await VASSubscription.findOne({
             userId: req.user.id,
             serviceId: service._id,
             isSubscribed: true
         });
         
-        console.log('🔄 Customer VAS: Existing subscription found:', !!existingSubscription);
+        console.log(' Customer VAS: Existing subscription found:', !!existingSubscription);
         
         if (existingSubscription) {
             // User is subscribed, so unsubscribe
@@ -9423,7 +9423,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             // Notify customer's personal room
             io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
             
-            console.log('✅ Customer VAS: Successfully unsubscribed from service');
+            console.log(' Customer VAS: Successfully unsubscribed from service');
             
             res.json({
                 success: true,
@@ -9513,7 +9513,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 // Notify customer's personal room
                 io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
                 
-                console.log('✅ Customer VAS: Successfully subscribed to service (updated existing)');
+                console.log(' Customer VAS: Successfully subscribed to service (updated existing)');
                 
                 res.json({
                     success: true,
@@ -9582,7 +9582,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 // Notify customer's personal room
                 io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
                 
-                console.log('✅ Customer VAS: Successfully subscribed to service (new subscription)');
+                console.log(' Customer VAS: Successfully subscribed to service (new subscription)');
                 
                 res.json({
                     success: true,
@@ -9596,9 +9596,9 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             }
         }
     } catch (error) {
-        console.error('❌ Customer VAS toggle error:', error);
-        console.error('❌ Customer VAS toggle error stack:', error.stack);
-        console.error('❌ Customer VAS toggle error name:', error.name);
+        console.error(' Customer VAS toggle error:', error);
+        console.error(' Customer VAS toggle error stack:', error.stack);
+        console.error(' Customer VAS toggle error name:', error.name);
         
         // Determine error type and provide specific feedback
         let errorMessage = 'Failed to toggle VAS subscription';
@@ -9631,7 +9631,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
 // GET /api/customer/vas/subscriptions - Get customer's VAS subscriptions
 app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
     try {
-        console.log('📋 Customer VAS: Fetching subscriptions for user:', req.user.id);
+        console.log(' Customer VAS: Fetching subscriptions for user:', req.user.id);
         
         const subscriptions = await VASSubscription.find({ userId: new mongoose.Types.ObjectId(req.user.id) })
             .populate('serviceId')
@@ -9648,7 +9648,7 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
             }
         }
         
-        console.log(`✅ Customer VAS: Retrieved ${subscriptions.length} subscriptions, ${activeSubscriptions.length} active, monthly total: ${monthlyTotal}`);
+        console.log(` Customer VAS: Retrieved ${subscriptions.length} subscriptions, ${activeSubscriptions.length} active, monthly total: ${monthlyTotal}`);
         
         res.json({
             success: true,
@@ -9661,7 +9661,7 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Customer VAS subscriptions error:', error);
+        console.error(' Customer VAS subscriptions error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch VAS subscriptions',
@@ -9673,8 +9673,8 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
 // GET /api/customer/vas/debug - Debug endpoint to test VAS models and connections
 app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
     try {
-        console.log('🔧 VAS Debug: Starting VAS debug checks...');
-        console.log('🔧 VAS Debug: User ID:', req.user.id);
+        console.log(' VAS Debug: Starting VAS debug checks...');
+        console.log(' VAS Debug: User ID:', req.user.id);
         
         const debugInfo = {
             timestamp: new Date().toISOString(),
@@ -9687,7 +9687,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
 
         // Check 1: VAS Models availability
         try {
-            console.log('🔧 VAS Debug: Checking VAS models...');
+            console.log(' VAS Debug: Checking VAS models...');
             debugInfo.checks.modelsLoaded = {
                 VASService: typeof VASService !== 'undefined',
                 VASSubscription: typeof VASSubscription !== 'undefined'
@@ -9698,7 +9698,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
 
         // Check 2: Database connection
         try {
-            console.log('🔧 VAS Debug: Testing database connection...');
+            console.log(' VAS Debug: Testing database connection...');
             const serviceCount = await VASService.countDocuments();
             const subscriptionCount = await VASSubscription.countDocuments();
             debugInfo.checks.database = {
@@ -9715,7 +9715,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
 
         // Check 3: VAS Services availability
         try {
-            console.log('🔧 VAS Debug: Checking VAS services...');
+            console.log(' VAS Debug: Checking VAS services...');
             const services = await VASService.find({ status: 'active' }).limit(3);
             debugInfo.checks.services = {
                 count: services.length,
@@ -9731,7 +9731,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
 
         // Check 4: User subscriptions
         try {
-            console.log('🔧 VAS Debug: Checking user subscriptions...');
+            console.log(' VAS Debug: Checking user subscriptions...');
             const subscriptions = await VASSubscription.find({ 
                 customerId: req.user.id 
             });
@@ -9751,7 +9751,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
             dbName: mongoose.connection.name
         };
 
-        console.log('🔧 VAS Debug: Debug info collected:', JSON.stringify(debugInfo, null, 2));
+        console.log(' VAS Debug: Debug info collected:', JSON.stringify(debugInfo, null, 2));
 
         res.json({
             success: true,
@@ -9760,7 +9760,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ VAS Debug: Error during debug check:', error);
+        console.error(' VAS Debug: Error during debug check:', error);
         res.status(500).json({
             success: false,
             message: 'VAS debug check failed',
@@ -9773,9 +9773,9 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
 // POST /api/customer/vas/test-toggle - Simple test toggle without complex logic
 app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
     try {
-        console.log('🔧 VAS Test Toggle: Testing basic VAS functionality...');
-        console.log('🔧 VAS Test Toggle: User:', req.user.id);
-        console.log('🔧 VAS Test Toggle: Body:', req.body);
+        console.log(' VAS Test Toggle: Testing basic VAS functionality...');
+        console.log(' VAS Test Toggle: User:', req.user.id);
+        console.log(' VAS Test Toggle: Body:', req.body);
 
         // Simple test - just return success without database operations
         res.json({
@@ -9787,7 +9787,7 @@ app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ VAS Test Toggle: Error:', error);
+        console.error(' VAS Test Toggle: Error:', error);
         res.status(500).json({
             success: false,
             message: 'VAS test toggle failed',
@@ -9801,11 +9801,11 @@ app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
 // GET /api/csr/vas/services - Get all VAS services for CSR management
 app.get("/api/csr/vas/services", async (req, res) => {
     try {
-        console.log('🎯 CSR VAS: Fetching all VAS services for management');
+        console.log(' CSR VAS: Fetching all VAS services for management');
         
         const services = await VASService.find({}).sort({ popularity: -1 });
         
-        console.log(`✅ CSR VAS: Retrieved ${services.length} services for management`);
+        console.log(` CSR VAS: Retrieved ${services.length} services for management`);
         
         res.json({
             success: true,
@@ -9813,7 +9813,7 @@ app.get("/api/csr/vas/services", async (req, res) => {
             total: services.length
         });
     } catch (error) {
-        console.error('❌ CSR VAS services error:', error);
+        console.error(' CSR VAS services error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch VAS services',
@@ -9826,7 +9826,7 @@ app.get("/api/csr/vas/services", async (req, res) => {
 app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
     try {
         const { customerId } = req.params;
-        console.log('🔍 CSR VAS: Fetching customer subscriptions for ID:', customerId);
+        console.log(' CSR VAS: Fetching customer subscriptions for ID:', customerId);
         
         // Get customer subscriptions
         const subscriptions = await VASSubscription.find({ userId: new mongoose.Types.ObjectId(customerId) })
@@ -9844,7 +9844,7 @@ app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
             isSubscribed: subscribedServiceIds.includes(service._id.toString())
         }));
         
-        console.log(`✅ CSR VAS: Retrieved ${subscriptions.length} subscriptions for customer ${customerId}`);
+        console.log(` CSR VAS: Retrieved ${subscriptions.length} subscriptions for customer ${customerId}`);
         
         res.json({
             success: true,
@@ -9855,7 +9855,7 @@ app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
             customerId: customerId
         });
     } catch (error) {
-        console.error('❌ CSR VAS customer lookup error:', error);
+        console.error(' CSR VAS customer lookup error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch customer VAS data',
@@ -9869,7 +9869,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
     try {
         const { customerId } = req.params;
         const { serviceId } = req.body;
-        console.log('🔄 CSR VAS: Processing CSR-initiated subscription for customer:', customerId, 'service:', serviceId);
+        console.log(' CSR VAS: Processing CSR-initiated subscription for customer:', customerId, 'service:', serviceId);
         
         // Find the service
         const service = await VASService.findOne({ id: serviceId, status: 'active' });
@@ -9931,7 +9931,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
             timestamp: new Date()
         });
         
-        console.log('✅ CSR VAS: Customer subscription created successfully');
+        console.log(' CSR VAS: Customer subscription created successfully');
         
         res.json({
             success: true,
@@ -9939,7 +9939,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
             data: subscription
         });
     } catch (error) {
-        console.error('❌ CSR VAS subscription error:', error);
+        console.error(' CSR VAS subscription error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to subscribe customer to VAS service',
@@ -9953,7 +9953,7 @@ app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
     try {
         const { customerId } = req.params;
         const { serviceId } = req.body;
-        console.log('🔄 CSR VAS: Processing CSR-initiated unsubscription for customer:', customerId, 'service:', serviceId);
+        console.log(' CSR VAS: Processing CSR-initiated unsubscription for customer:', customerId, 'service:', serviceId);
         
         // Find the service first to get its ObjectId
         const service = await VASService.findOne({ id: serviceId, status: 'active' });
@@ -10007,7 +10007,7 @@ app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
             timestamp: new Date()
         });
         
-        console.log('✅ CSR VAS: Customer unsubscription processed successfully');
+        console.log(' CSR VAS: Customer unsubscription processed successfully');
         
         res.json({
             success: true,
@@ -10015,7 +10015,7 @@ app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
             data: subscription
         });
     } catch (error) {
-        console.error('❌ CSR VAS unsubscription error:', error);
+        console.error(' CSR VAS unsubscription error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to unsubscribe customer from VAS service',
@@ -10031,7 +10031,7 @@ app.get("/api/admin/vas/services", async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', category = '', status = '' } = req.query;
         
-        console.log('🎯 Admin VAS: Fetching VAS services with filters:', { search, category, status });
+        console.log(' Admin VAS: Fetching VAS services with filters:', { search, category, status });
         
         // Build filter
         let filter = {};
@@ -10056,7 +10056,7 @@ app.get("/api/admin/vas/services", async (req, res) => {
         const totalMonthlyRevenue = vasServices.reduce((sum, service) => sum + (service.monthlyRevenue || 0), 0);
         const categories = await VASService.distinct('category');
         
-        console.log(`✅ Admin VAS: Retrieved ${vasServices.length} services from database`);
+        console.log(` Admin VAS: Retrieved ${vasServices.length} services from database`);
         
         res.json({
             success: true,
@@ -10075,7 +10075,7 @@ app.get("/api/admin/vas/services", async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Admin VAS services error:', error);
+        console.error(' Admin VAS services error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch VAS services',
@@ -10087,7 +10087,7 @@ app.get("/api/admin/vas/services", async (req, res) => {
 // POST /api/admin/vas/services - Create new VAS service
 app.post("/api/admin/vas/services", async (req, res) => {
     try {
-        console.log('🆕 Admin VAS: Creating new VAS service');
+        console.log(' Admin VAS: Creating new VAS service');
         
         const serviceData = {
             ...req.body,
@@ -10101,7 +10101,7 @@ app.post("/api/admin/vas/services", async (req, res) => {
         const newService = new VASService(serviceData);
         await newService.save();
         
-        console.log('✅ Admin VAS: New service created successfully:', newService.name);
+        console.log(' Admin VAS: New service created successfully:', newService.name);
         
         res.status(201).json({
             success: true,
@@ -10109,7 +10109,7 @@ app.post("/api/admin/vas/services", async (req, res) => {
             data: newService
         });
     } catch (error) {
-        console.error('❌ Admin VAS service creation error:', error);
+        console.error(' Admin VAS service creation error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to create VAS service',
@@ -10122,7 +10122,7 @@ app.post("/api/admin/vas/services", async (req, res) => {
 app.put("/api/admin/vas/services/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        console.log('✏️ Admin VAS: Updating VAS service:', id);
+        console.log(' Admin VAS: Updating VAS service:', id);
         
         const service = await VASService.findOneAndUpdate(
             { id: id },
@@ -10140,7 +10140,7 @@ app.put("/api/admin/vas/services/:id", async (req, res) => {
             });
         }
         
-        console.log('✅ Admin VAS: Service updated successfully');
+        console.log(' Admin VAS: Service updated successfully');
         
         res.json({
             success: true,
@@ -10148,7 +10148,7 @@ app.put("/api/admin/vas/services/:id", async (req, res) => {
             data: service
         });
     } catch (error) {
-        console.error('❌ Admin VAS service update error:', error);
+        console.error(' Admin VAS service update error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to update VAS service',
@@ -10161,7 +10161,7 @@ app.put("/api/admin/vas/services/:id", async (req, res) => {
 app.delete("/api/admin/vas/services/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        console.log('🗑️ Admin VAS: Deleting VAS service:', id);
+        console.log(' Admin VAS: Deleting VAS service:', id);
         
         const service = await VASService.findOneAndUpdate(
             { id: id },
@@ -10189,7 +10189,7 @@ app.delete("/api/admin/vas/services/:id", async (req, res) => {
             }
         );
         
-        console.log('✅ Admin VAS: Service deleted successfully');
+        console.log(' Admin VAS: Service deleted successfully');
         
         res.json({
             success: true,
@@ -10197,7 +10197,7 @@ app.delete("/api/admin/vas/services/:id", async (req, res) => {
             data: service
         });
     } catch (error) {
-        console.error('❌ Admin VAS service deletion error:', error);
+        console.error(' Admin VAS service deletion error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to delete VAS service',
@@ -10211,7 +10211,7 @@ app.get("/api/admin/vas/subscriptions", async (req, res) => {
     try {
         const { page = 1, limit = 20, status = '', serviceId = '' } = req.query;
         
-        console.log('📊 Admin VAS: Fetching subscription data');
+        console.log(' Admin VAS: Fetching subscription data');
         
         let filter = {};
         if (status) filter.status = status;
@@ -10224,7 +10224,7 @@ app.get("/api/admin/vas/subscriptions", async (req, res) => {
         
         const totalSubscriptions = await VASSubscription.countDocuments(filter);
         
-        console.log(`✅ Admin VAS: Retrieved ${subscriptions.length} subscriptions`);
+        console.log(` Admin VAS: Retrieved ${subscriptions.length} subscriptions`);
         
         res.json({
             success: true,
@@ -10237,7 +10237,7 @@ app.get("/api/admin/vas/subscriptions", async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Admin VAS subscriptions error:', error);
+        console.error(' Admin VAS subscriptions error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch VAS subscriptions',
@@ -10249,7 +10249,7 @@ app.get("/api/admin/vas/subscriptions", async (req, res) => {
 // GET /api/admin/vas/analytics - Get VAS analytics for admin dashboard
 app.get("/api/admin/vas/analytics", async (req, res) => {
     try {
-        console.log('📈 Admin VAS: Generating analytics dashboard');
+        console.log(' Admin VAS: Generating analytics dashboard');
         
         // Get service statistics
         const totalServices = await VASService.countDocuments({ status: 'active' });
@@ -10269,7 +10269,7 @@ app.get("/api/admin/vas/analytics", async (req, res) => {
             .sort({ subscribedAt: -1 })
             .limit(10);
         
-        console.log('✅ Admin VAS: Analytics generated successfully');
+        console.log(' Admin VAS: Analytics generated successfully');
         
         res.json({
             success: true,
@@ -10285,7 +10285,7 @@ app.get("/api/admin/vas/analytics", async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Admin VAS analytics error:', error);
+        console.error(' Admin VAS analytics error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to generate VAS analytics',
@@ -10301,7 +10301,7 @@ app.get("/api/admin/vas/analytics", async (req, res) => {
 // GET /api/v1/dsar/requests - Get all DSAR requests with advanced filtering
 app.get("/api/v1/dsar/requests", verifyToken, async (req, res) => {
     try {
-        console.log('🔍 DSAR requests endpoint called with query:', req.query);
+        console.log(' DSAR requests endpoint called with query:', req.query);
         
         const { 
             status, 
@@ -10336,7 +10336,7 @@ app.get("/api/v1/dsar/requests", verifyToken, async (req, res) => {
             query.dueDate = { $lt: new Date() };
         }
 
-        console.log('📊 MongoDB query:', query);
+        console.log(' MongoDB query:', query);
 
         // Execute query with pagination
         const requests = await DSARRequest.find(query)
@@ -10347,8 +10347,8 @@ app.get("/api/v1/dsar/requests", verifyToken, async (req, res) => {
 
         const total = await DSARRequest.countDocuments(query);
         
-        console.log(`📋 Found ${requests.length} requests from MongoDB`);
-        console.log('🔧 Sample raw request:', JSON.stringify(requests[0], null, 2));
+        console.log(` Found ${requests.length} requests from MongoDB`);
+        console.log(' Sample raw request:', JSON.stringify(requests[0], null, 2));
         
         // Process requests to add computed fields and ensure proper structure
         const processedRequests = requests.map(request => {
@@ -10390,7 +10390,7 @@ app.get("/api/v1/dsar/requests", verifyToken, async (req, res) => {
             };
         });
         
-        console.log('✅ Processed request sample:', JSON.stringify(processedRequests[0], null, 2));
+        console.log(' Processed request sample:', JSON.stringify(processedRequests[0], null, 2));
         
         // Get statistics
         const stats = {
@@ -10415,7 +10415,7 @@ app.get("/api/v1/dsar/requests", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching DSAR requests:', error);
+        console.error(' Error fetching DSAR requests:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to fetch DSAR requests',
@@ -10472,7 +10472,7 @@ app.post("/api/v1/dsar/requests", verifyToken, async (req, res) => {
         await dsarRequest.save();
 
         // Log creation
-        console.log(`✅ DSAR request created: ${dsarRequest.requestId} for ${requesterEmail}`);
+        console.log(` DSAR request created: ${dsarRequest.requestId} for ${requesterEmail}`);
 
         res.status(201).json({
             success: true,
@@ -10481,7 +10481,7 @@ app.post("/api/v1/dsar/requests", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error creating DSAR request:', error);
+        console.error(' Error creating DSAR request:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to create DSAR request',
@@ -10515,7 +10515,7 @@ app.get("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching DSAR request:', error);
+        console.error(' Error fetching DSAR request:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to fetch DSAR request',
@@ -10533,10 +10533,10 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
         // Get token from query params (EventSource doesn't support custom headers)
         const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
         
-        console.log('📡 SSE connection attempt - Token received:', token ? 'Yes' : 'No');
+        console.log(' SSE connection attempt - Token received:', token ? 'Yes' : 'No');
         
         if (!token) {
-            console.log('❌ SSE authentication failed: No token provided');
+            console.log(' SSE authentication failed: No token provided');
             return res.status(401).json({ error: 'Authentication token required' });
         }
 
@@ -10557,11 +10557,11 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
                 if (secret) {
                     try {
                         decoded = jwt.verify(token, secret);
-                        console.log('✅ SSE JWT verified with secret:', secret);
+                        console.log(' SSE JWT verified with secret:', secret);
                         verificationSuccess = true;
                         break;
                     } catch (err) {
-                        console.log(`❌ JWT verification failed with secret "${secret}":`, err.message);
+                        console.log(` JWT verification failed with secret "${secret}":`, err.message);
                     }
                 }
             }
@@ -10570,8 +10570,8 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
                 throw new Error('Token verification failed with all secrets');
             }
         } catch (error) {
-            console.log('❌ SSE JWT verification error:', error.message);
-            console.log('🔍 Token details:', {
+            console.log(' SSE JWT verification error:', error.message);
+            console.log(' Token details:', {
                 tokenLength: token.length,
                 tokenStart: token.substring(0, 20) + '...',
                 decodedPayload: jwt.decode(token)
@@ -10590,7 +10590,7 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
 
         // Handle both userId and id field names in JWT
         const userId = decoded.userId || decoded.id;
-        console.log(`📡 SSE connection established for user: ${userId}`);
+        console.log(` SSE connection established for user: ${userId}`);
 
         // Store the connection
         sseConnections.set(userId, res);
@@ -10604,17 +10604,17 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
 
         // Handle client disconnect
         req.on('close', () => {
-            console.log(`📡 SSE connection closed for user: ${userId}`);
+            console.log(` SSE connection closed for user: ${userId}`);
             sseConnections.delete(userId);
         });
 
         req.on('aborted', () => {
-            console.log(`📡 SSE connection aborted for user: ${userId}`);
+            console.log(` SSE connection aborted for user: ${userId}`);
             sseConnections.delete(userId);
         });
 
     } catch (error) {
-        console.error('❌ SSE endpoint error:', error);
+        console.error(' SSE endpoint error:', error);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Server-sent events setup failed' });
         }
@@ -10626,10 +10626,10 @@ const sendRealTimeUpdate = (customerId, updateData) => {
     const connection = sseConnections.get(customerId);
     if (connection) {
         try {
-            console.log(`📡 Sending real-time update to user ${customerId}:`, updateData.type);
+            console.log(` Sending real-time update to user ${customerId}:`, updateData.type);
             connection.write(`data: ${JSON.stringify(updateData)}\n\n`);
         } catch (error) {
-            console.error(`❌ Failed to send SSE update to ${customerId}:`, error);
+            console.error(` Failed to send SSE update to ${customerId}:`, error);
             sseConnections.delete(customerId);
         }
     }
@@ -10685,7 +10685,7 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
         
         await request.save();
 
-        console.log(`✅ DSAR request updated: ${request.requestId}`);
+        console.log(` DSAR request updated: ${request.requestId}`);
 
         // Send real-time update to customer if status changed
         if (originalStatus !== request.status) {
@@ -10702,7 +10702,7 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
 
             // Send to the customer who owns this request
             sendRealTimeUpdate(request.requesterId, updateData);
-            console.log(`📡 Real-time update sent for request ${request.requestId}: ${originalStatus} → ${request.status}`);
+            console.log(` Real-time update sent for request ${request.requestId}: ${originalStatus}  ${request.status}`);
         }
 
         res.json({
@@ -10712,7 +10712,7 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error updating DSAR request:', error);
+        console.error(' Error updating DSAR request:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to update DSAR request',
@@ -10740,7 +10740,7 @@ app.delete("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
             });
         }
 
-        console.log(`✅ DSAR request deleted: ${request.requestId}`);
+        console.log(` DSAR request deleted: ${request.requestId}`);
 
         res.json({
             success: true,
@@ -10748,7 +10748,7 @@ app.delete("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error deleting DSAR request:', error);
+        console.error(' Error deleting DSAR request:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to delete DSAR request',
@@ -10820,7 +10820,7 @@ app.get("/api/v1/dsar/export/:format", verifyToken, async (req, res) => {
             });
         }
     } catch (error) {
-        console.error('❌ Error exporting DSAR requests:', error);
+        console.error(' Error exporting DSAR requests:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to export DSAR requests',
@@ -10907,7 +10907,7 @@ app.get("/api/v1/dsar/stats", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error fetching DSAR stats:', error);
+        console.error(' Error fetching DSAR stats:', error);
         res.status(500).json({ 
             success: false, 
             error: 'Failed to fetch DSAR statistics',
@@ -11284,7 +11284,7 @@ app.post("/api/v1/dsar/request", verifyToken, async (req, res) => {
             });
         }
         
-        console.log(`🔧 DSAR Request Data:`, {
+        console.log(` DSAR Request Data:`, {
             originalType: type,
             mappedType: mappedRequestType,
             description: requestDescription,
@@ -11332,7 +11332,7 @@ app.post("/api/v1/dsar/request", verifyToken, async (req, res) => {
         
         const savedRequest = await newRequest.save();
         
-        console.log(`🔍 DSAR request created for customer ${user.email}: ${mappedRequestType} (original: ${type})`);
+        console.log(` DSAR request created for customer ${user.email}: ${mappedRequestType} (original: ${type})`);
         
         res.json({
             success: true,
@@ -11379,7 +11379,7 @@ app.delete("/api/v1/dsar/request/:id", verifyToken, async (req, res) => {
         
         await DSARRequest.findByIdAndDelete(requestId);
         
-        console.log(`🗑️ DSAR request ${requestId} deleted by customer ${req.user.id}`);
+        console.log(` DSAR request ${requestId} deleted by customer ${req.user.id}`);
         
         res.json({
             success: true,
@@ -11406,7 +11406,7 @@ app.get("/api/v1/csr/customers", verifyToken, async (req, res) => {
     }
     
     try {
-        console.log('🔍 CSR Dashboard: Fetching real customers from MongoDB');
+        console.log(' CSR Dashboard: Fetching real customers from MongoDB');
         
         // Get search query if provided
         const searchQuery = req.query.search;
@@ -11449,7 +11449,7 @@ app.get("/api/v1/csr/customers", verifyToken, async (req, res) => {
             }
         }));
         
-        console.log(`✅ Found ${customers.length} real customers from MongoDB`);
+        console.log(` Found ${customers.length} real customers from MongoDB`);
         if (searchQuery) {
             console.log(`   Search term: "${searchQuery}"`);
         }
@@ -11461,10 +11461,10 @@ app.get("/api/v1/csr/customers", verifyToken, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching customers from MongoDB:', error);
+        console.error(' Error fetching customers from MongoDB:', error);
         
         // Fallback to mock data if MongoDB fails
-        console.log('⚠️ Falling back to mock data');
+        console.log(' Falling back to mock data');
         const customersWithDetails = parties.map(party => {
             const user = users.find(u => u.id === party.userId || u.email === party.email);
             return {
@@ -11780,7 +11780,7 @@ app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
             index === self.findIndex((c) => (c.email === customer.email))
         );
         
-        console.log(`🔍 CSR Customer Search: "${query}" found ${uniqueResults.length} customers`);
+        console.log(` CSR Customer Search: "${query}" found ${uniqueResults.length} customers`);
         
         res.json({
             success: true,
@@ -11835,7 +11835,7 @@ app.get("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
     const { customerId } = req.params;
 
     try {
-        console.log(`🔍 CSR fetching preferences for customer: ${customerId}`);
+        console.log(` CSR fetching preferences for customer: ${customerId}`);
 
         // Import models here to avoid issues
         const mongoose = require('mongoose');
@@ -11849,7 +11849,7 @@ app.get("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
 
         // If no communication preferences found, try UserPreference collection
         if (!communicationPrefs) {
-            console.log(`🔍 No CommunicationPreference found, checking UserPreference for: ${customerId}`);
+            console.log(` No CommunicationPreference found, checking UserPreference for: ${customerId}`);
             const userPrefs = await UserPreference.find({ 
                 $or: [
                     { userId: customerId },
@@ -11893,7 +11893,7 @@ app.get("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
 
         // If still no preferences found, create default ones
         if (!communicationPrefs) {
-            console.log(`🔧 Creating default preferences for customer: ${customerId}`);
+            console.log(` Creating default preferences for customer: ${customerId}`);
             communicationPrefs = {
                 id: `comm_${customerId}`,
                 partyId: customerId,
@@ -11934,7 +11934,7 @@ app.get("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
             updatedBy: communicationPrefs.updatedBy || 'system'
         };
 
-        console.log(`✅ Successfully retrieved preferences for customer: ${customerId}`);
+        console.log(` Successfully retrieved preferences for customer: ${customerId}`);
 
         res.json({
             success: true,
@@ -11942,7 +11942,7 @@ app.get("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
         });
 
     } catch (error) {
-        console.error(`❌ Error fetching customer preferences for ${customerId}:`, error);
+        console.error(` Error fetching customer preferences for ${customerId}:`, error);
         res.status(500).json({
             error: true,
             message: 'Failed to fetch customer communication preferences',
@@ -11964,7 +11964,7 @@ app.put("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
     const { preferences } = req.body;
 
     try {
-        console.log(`🔄 CSR updating preferences for customer: ${customerId}`);
+        console.log(` CSR updating preferences for customer: ${customerId}`);
 
         // Import models here to avoid issues
         const mongoose = require('mongoose');
@@ -12018,7 +12018,7 @@ app.put("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
             }
         ).lean();
 
-        console.log(`✅ CSR successfully updated preferences for customer: ${customerId}`);
+        console.log(` CSR successfully updated preferences for customer: ${customerId}`);
 
         // Emit real-time update to customer dashboard for CSR preference changes
         if (global.io) {
@@ -12029,7 +12029,7 @@ app.put("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
                 timestamp: new Date().toISOString(),
                 source: 'csr'
             });
-            console.log(`🔄 Real-time notification sent for CSR update to customer ${customerId}`);
+            console.log(` Real-time notification sent for CSR update to customer ${customerId}`);
         }
 
         res.json({
@@ -12039,7 +12039,7 @@ app.put("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
         });
 
     } catch (error) {
-        console.error(`❌ Error updating customer preferences for ${customerId}:`, error);
+        console.error(` Error updating customer preferences for ${customerId}:`, error);
         res.status(500).json({
             error: true,
             message: 'Failed to update customer communication preferences',
@@ -12050,46 +12050,46 @@ app.put("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req
 
 // WebSocket connection handling
 io.on('connection', (socket) => {
-    console.log('🔌 Client connected to WebSocket:', socket.id);
+    console.log(' Client connected to WebSocket:', socket.id);
     
     // Join CSR dashboard room for real-time updates
     socket.on('join-csr-dashboard', () => {
         socket.join('csr-dashboard');
-        console.log('👨‍💼 CSR joined dashboard room:', socket.id);
+        console.log(' CSR joined dashboard room:', socket.id);
     });
     
     // Leave CSR dashboard room
     socket.on('leave-csr-dashboard', () => {
         socket.leave('csr-dashboard');
-        console.log('👨‍💼 CSR left dashboard room:', socket.id);
+        console.log(' CSR left dashboard room:', socket.id);
     });
     
     // Join customer-specific room for VAS updates
     socket.on('join-customer-room', (customerId) => {
         socket.join(`customer-${customerId}`);
-        console.log(`🧑‍💼 Customer ${customerId} joined personal room:`, socket.id);
+        console.log(` Customer ${customerId} joined personal room:`, socket.id);
     });
     
     // Leave customer room
     socket.on('leave-customer-room', (customerId) => {
         socket.leave(`customer-${customerId}`);
-        console.log(`🧑‍💼 Customer ${customerId} left personal room:`, socket.id);
+        console.log(` Customer ${customerId} left personal room:`, socket.id);
     });
     
     // Join VAS management room for admin/CSR
     socket.on('join-vas-management', () => {
         socket.join('vas-management');
-        console.log('🎯 Joined VAS management room:', socket.id);
+        console.log(' Joined VAS management room:', socket.id);
     });
     
     // Leave VAS management room
     socket.on('leave-vas-management', () => {
         socket.leave('vas-management');
-        console.log('🎯 Left VAS management room:', socket.id);
+        console.log(' Left VAS management room:', socket.id);
     });
     
     socket.on('disconnect', () => {
-        console.log('🔌 Client disconnected:', socket.id);
+        console.log(' Client disconnected:', socket.id);
     });
 });
 
@@ -12098,39 +12098,39 @@ global.io = io;
 
 // Start server
 server.listen(PORT, async () => {
-    console.log(`🎯 ConsentHub Comprehensive Backend running on http://localhost:${PORT}`);
+    console.log(` ConsentHub Comprehensive Backend running on http://localhost:${PORT}`);
     
     // Seed demo users on startup
     try {
         await seedDemoUsers();
     } catch (error) {
-        console.error('⚠️ Demo user seeding failed:', error.message);
+        console.error(' Demo user seeding failed:', error.message);
     }
     
     // Seed guardian data on startup
     try {
         await seedGuardians();
     } catch (error) {
-        console.error('⚠️ Guardian seeding failed:', error.message);
+        console.error(' Guardian seeding failed:', error.message);
     }
     
     // Ensure default privacy notices exist
     try {
         await ensureDefaultPrivacyNotices();
-        console.log('✅ Default privacy notices initialized');
+        console.log(' Default privacy notices initialized');
     } catch (error) {
-        console.error('⚠️ Privacy notice initialization failed:', error.message);
+        console.error(' Privacy notice initialization failed:', error.message);
     }
     
     // Initialize VAS services
     try {
         await initializeVASServices();
-        console.log('✅ VAS services initialized');
+        console.log(' VAS services initialized');
     } catch (error) {
-        console.error('⚠️ VAS initialization failed:', error.message);
+        console.error(' VAS initialization failed:', error.message);
     }
     
-    console.log('📋 Available endpoints:');
+    console.log(' Available endpoints:');
     console.log('   AUTH:');
     console.log('     POST /api/v1/auth/login');
     console.log('     POST /api/v1/auth/register');
@@ -12187,21 +12187,21 @@ server.listen(PORT, async () => {
     console.log('     DELETE /api/v1/compliance-rules/:id');
     console.log('     GET  /api/v1/compliance-rules/stats');
     console.log('');
-    console.log('👥 Demo Users:');
+    console.log(' Demo Users:');
     console.log('   admin@sltmobitel.lk / admin123 (Admin)');
     console.log('   csr@sltmobitel.lk / csr123 (CSR)');
     console.log('   customer@sltmobitel.lk / customer123 (Customer)');
     console.log('');
-    console.log('🌟 Features:');
-    console.log('   ✅ User Authentication & Registration');
-    console.log('   ✅ Customer Dashboard with Real Data');
-    console.log('   ✅ Consent Management');
-    console.log('   ✅ Preference Management');
-    console.log('   ✅ Privacy Notices');
-    console.log('   ✅ Profile Management');
-    console.log('   ✅ Data Subject Access Requests (DSAR)');
+    console.log(' Features:');
+    console.log('    User Authentication & Registration');
+    console.log('    Customer Dashboard with Real Data');
+    console.log('    Consent Management');
+    console.log('    Preference Management');
+    console.log('    Privacy Notices');
+    console.log('    Profile Management');
+    console.log('    Data Subject Access Requests (DSAR)');
     console.log('');
-    console.log('🔧 CSR Dashboard API Endpoints Available:');
+    console.log(' CSR Dashboard API Endpoints Available:');
     console.log('   GET  /api/v1/party (Customer data)');
     console.log('   GET  /api/v1/consent (Consent records)'); 
     console.log('   GET  /api/v1/dsar (DSAR requests)');
@@ -12213,14 +12213,14 @@ server.listen(PORT, async () => {
     console.log('   POST /api/v1/consent (Create consent)');
     console.log('   PUT  /api/v1/consent/:id (Update consent)');
     console.log('');
-    console.log('📊 Dummy Data Loaded:');
-    console.log('   👥 5 Customer records (parties)');
-    console.log('   ✅ 5 Consent records');
-    console.log('   📋 4 DSAR requests (1 overdue for risk alerts)');
-    console.log('   📝 5 Audit events');
-    console.log('   ⚙️  2 Customer preference profiles');
+    console.log(' Dummy Data Loaded:');
+    console.log('    5 Customer records (parties)');
+    console.log('    5 Consent records');
+    console.log('    4 DSAR requests (1 overdue for risk alerts)');
+    console.log('    5 Audit events');
+    console.log('     2 Customer preference profiles');
     console.log('');
-    console.log('🌐 TMF APIs:');
+    console.log(' TMF APIs:');
     console.log('   TMF632: /api/tmf632/privacyConsent');
     console.log('   TMF641: /api/tmf641/party');
     console.log('   TMF669: /api/tmf669/hub');
@@ -12638,7 +12638,7 @@ app.post('/api/guardians/fix-names', verifyToken, async (req, res) => {
       
       if (result.modifiedCount > 0) {
         updatedGuardians.push(`${update.firstName} ${update.lastName}`);
-        console.log(`✅ Updated guardian: ${update.firstName} ${update.lastName}`);
+        console.log(` Updated guardian: ${update.firstName} ${update.lastName}`);
       }
     }
 
@@ -12723,7 +12723,7 @@ app.post('/api/v1/guardian/consent', verifyToken, async (req, res) => {
 
 // Test endpoint for debugging
 app.get('/api/v1/test/automation', (req, res) => {
-  console.log('🔍 Test endpoint called - automation check');
+  console.log(' Test endpoint called - automation check');
   res.json({ message: 'Automation endpoint test successful' });
 });
 
@@ -12731,11 +12731,11 @@ app.get('/api/v1/test/automation', (req, res) => {
 app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
   try {
     const dsarId = req.params.id;
-    console.log(`🔍 Looking for DSAR request with ID: ${dsarId}`);
+    console.log(` Looking for DSAR request with ID: ${dsarId}`);
     
     // Find DSAR request in MongoDB instead of in-memory array
     const dsar = await DSARRequest.findById(dsarId);
-    console.log(`📋 Found DSAR request:`, dsar ? 'YES' : 'NO');
+    console.log(` Found DSAR request:`, dsar ? 'YES' : 'NO');
     
     if (!dsar) {
       return res.status(404).json({ error: 'DSAR request not found' });
@@ -12815,7 +12815,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
       processingResult.completedAt = dsar.completedAt;
       processingResult.requestId = dsarId;
       
-      console.log(`✅ Auto-processed DSAR request ${dsarId} (${dsar.requestType})`);
+      console.log(` Auto-processed DSAR request ${dsarId} (${dsar.requestType})`);
       
       // Publish event
       await publishEvent({
@@ -12842,7 +12842,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
       processingResult.success = false;
       processingResult.error = processingError.message;
       
-      console.error(`❌ Failed to auto-process DSAR request ${dsarId}:`, processingError);
+      console.error(` Failed to auto-process DSAR request ${dsarId}:`, processingError);
       
       res.status(500).json({
         success: false,
@@ -12865,7 +12865,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
 // Get DSAR requests (enhanced for automation dashboard)
 app.get('/api/dsar-requests', async (req, res) => {
   try {
-    console.log('🔍 CSR Dashboard: Fetching DSAR requests from MongoDB');
+    console.log(' CSR Dashboard: Fetching DSAR requests from MongoDB');
     
     // Fetch from MongoDB first
     const mongoRequests = await DSARRequest.find({}).sort({ submittedAt: -1 }).lean();
@@ -12968,21 +12968,21 @@ app.post('/api/v1/privacy-notices/:id/versions', verifyToken, async (req, res) =
   }
 });
 
-console.log('🚀 ConsentHub Backend Server with TMF API Compliance started on port', PORT);
+console.log(' ConsentHub Backend Server with TMF API Compliance started on port', PORT);
 console.log('');
-console.log('📋 New TMF API Endpoints:');
+console.log(' New TMF API Endpoints:');
 console.log('   GET    /api/tmf632/privacyConsent');
 console.log('   POST   /api/tmf632/privacyConsent'); 
 console.log('   GET    /api/tmf641/party');
 console.log('   POST   /api/tmf669/hub');
 console.log('   DELETE /api/tmf669/hub/:id');
 console.log('');
-console.log('🎯 New Features:');
+console.log(' New Features:');
 console.log('   Guardian Consent: POST /api/v1/guardian/consent');
 console.log('   Topic Preferences: GET/POST /api/v1/preferences/topics');
 console.log('   DSAR Auto-process: POST /api/v1/dsar/:id/auto-process');
 console.log('   Version Management: POST /api/v1/privacy-notices/:id/versions');
 console.log('');
-console.log('✅ Implementation Gap Analysis - All High Priority Items Addressed!');
-/ /   D e p l o y m e n t   t r i g g e r   -   0 9 / 0 8 / 2 0 2 5   1 9 : 3 0 : 1 5  
- 
+console.log(' Implementation Gap Analysis - All High Priority Items Addressed!');
+// Deployment trigger - 09/08/2025 19:30:15
+
