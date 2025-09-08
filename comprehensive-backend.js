@@ -9061,7 +9061,7 @@ app.get("/api/customer/vas/services", verifyToken, async (req, res) => {
         
         // Get user's current subscriptions using correct field structure
         const userSubscriptions = await VASSubscription.find({ 
-            userId: req.user.id, 
+            userId: new mongoose.Types.ObjectId(req.user.id), 
             isSubscribed: true,
             status: 'active'
         }).populate('serviceId');
@@ -9121,21 +9121,21 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
         
         // Check if already subscribed using correct field structure
         const existingSubscription = await VASSubscription.findOne({
-            userId: req.user.id,
+            userId: new mongoose.Types.ObjectId(req.user.id),
             serviceId: service._id,
             isSubscribed: true
         });
-        
+
         if (existingSubscription) {
             return res.status(400).json({
                 success: false,
                 message: 'Already subscribed to this service'
             });
         }
-        
+
         // Create new subscription using correct schema
         const subscription = new VASSubscription({
-            userId: req.user.id,
+            userId: new mongoose.Types.ObjectId(req.user.id),
             serviceId: service._id,
             subscriptionId: `sub_${Date.now()}_${req.user.id}`,
             isSubscribed: true,
@@ -9225,7 +9225,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
         // Find and update the subscription using correct field structure
         const subscription = await VASSubscription.findOneAndUpdate(
             {
-                userId: req.user.id,
+                userId: new mongoose.Types.ObjectId(req.user.id),
                 serviceId: service._id,
                 isSubscribed: true
             },
@@ -9633,7 +9633,7 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
     try {
         console.log('📋 Customer VAS: Fetching subscriptions for user:', req.user.id);
         
-        const subscriptions = await VASSubscription.find({ userId: req.user.id })
+        const subscriptions = await VASSubscription.find({ userId: new mongoose.Types.ObjectId(req.user.id) })
             .populate('serviceId')
             .sort({ createdAt: -1 });
         
@@ -9829,7 +9829,7 @@ app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
         console.log('🔍 CSR VAS: Fetching customer subscriptions for ID:', customerId);
         
         // Get customer subscriptions
-        const subscriptions = await VASSubscription.find({ userId: customerId })
+        const subscriptions = await VASSubscription.find({ userId: new mongoose.Types.ObjectId(customerId) })
             .populate('serviceId')
             .sort({ subscribedAt: -1 });
         
@@ -9882,21 +9882,21 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
         
         // Check if already subscribed
         const existingSubscription = await VASSubscription.findOne({
-            userId: customerId,
+            userId: new mongoose.Types.ObjectId(customerId),
             serviceId: service._id,
             status: 'active'
         });
-        
+
         if (existingSubscription) {
             return res.status(400).json({
                 success: false,
                 message: 'Customer already subscribed to this service'
             });
         }
-        
+
         // Create new subscription
         const subscription = new VASSubscription({
-            userId: customerId,
+            userId: new mongoose.Types.ObjectId(customerId),
             serviceId: service._id,
             subscriptionId: `sub_${Date.now()}_${customerId}`,
             status: 'active',
@@ -9967,7 +9967,7 @@ app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
         // Find and update the subscription
         const subscription = await VASSubscription.findOneAndUpdate(
             {
-                userId: customerId,
+                userId: new mongoose.Types.ObjectId(customerId),
                 serviceId: service._id,
                 status: 'active'
             },
