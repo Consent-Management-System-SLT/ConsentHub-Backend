@@ -85,6 +85,29 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly for VAS endpoints
+app.options('/api/csr/customer-vas*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, customerid, customeremail, customer-id, customer-email');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
+// Additional CORS middleware for all CSR endpoints
+app.use('/api/csr', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, customerid, customeremail, customer-id, customer-email, x-requested-with');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 
 // In-memory database for demo (in production, use MongoDB)
@@ -6428,22 +6451,30 @@ app.put("/api/v1/consent/:id", (req, res) => {
 // CSR VAS MANAGEMENT API ENDPOINTS
 // =============================================================================
 
-// GET /api/csr/customer-vas - Get customer VAS services and subscriptions
-app.get('/api/csr/customer-vas', async (req, res) => {
+// GET /api/csr/customer-vas - Get customer VAS services and subscriptions (Enhanced)
+app.get('/api/csr/customer-vas', verifyToken, async (req, res) => {
     try {
+        // Check if user has CSR or Admin role
+        if (req.user.role !== 'csr' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                error: 'Access denied',
+                message: 'CSR or Admin role required for VAS management'
+            });
+        }
+
         console.log('🔍 [CSR VAS] Fetching customer VAS services...');
-        console.log('🔍 [CSR VAS] Headers received:', req.headers);
+        console.log('🔍 [CSR VAS] Query params received:', req.query);
         
-        // Express.js converts header names to lowercase automatically
-        const customerId = req.headers['customerid'] || req.headers['customer-id'];
-        const customerEmail = req.headers['customeremail'] || req.headers['customer-email'];
+        // Get customer information from query parameters
+        const customerId = req.query.customerId || req.query.customerid;
+        const customerEmail = req.query.customerEmail || req.query.customeremail;
         
-        console.log('🔍 [CSR VAS] Extracted headers:', { customerId, customerEmail });
+        console.log('🔍 [CSR VAS] Extracted query params:', { customerId, customerEmail });
         
         if (!customerId && !customerEmail) {
             return res.status(400).json({ 
                 error: 'Customer ID or email required',
-                details: 'Please provide either customerId or customerEmail in headers'
+                details: 'Please provide either customerId or customerEmail in query parameters'
             });
         }
 
@@ -6451,18 +6482,52 @@ app.get('/api/csr/customer-vas', async (req, res) => {
         const allServices = await VASService.find({ status: 'active' }).sort({ name: 1 });
         console.log(`📋 [CSR VAS] Found ${allServices.length} active VAS services`);
 
-        // Find customer by ID or email
+        // Find customer by ID or email with enhanced search
         let customer = null;
         if (customerId) {
-            customer = await User.findById(customerId);
-        } else if (customerEmail) {
+            // Try direct ID search first
+            try {
+                customer = await User.findById(customerId);
+            } catch (err) {
+                // If ID is not valid ObjectId, search by string ID fields
+                customer = await User.findOne({ 
+                    $or: [
+                        { userId: customerId },
+                        { customerId: customerId }
+                    ]
+                });
+            }
+        }
+        
+        if (!customer && customerEmail) {
             customer = await User.findOne({ email: customerEmail });
+        }
+
+        if (!customer) {
+            // Try searching in parties array as fallback
+            const party = parties.find(p => 
+                p.id === customerId || 
+                p.userId === customerId || 
+                p.email === customerEmail
+            );
+            
+            if (party) {
+                // Create temporary customer object from party data
+                customer = {
+                    _id: party.id || party.userId,
+                    name: party.name,
+                    email: party.email,
+                    phone: party.phone,
+                    role: 'customer'
+                };
+            }
         }
 
         if (!customer) {
             return res.status(404).json({ 
                 error: 'Customer not found',
-                details: `No customer found with ${customerId ? 'ID: ' + customerId : 'email: ' + customerEmail}`
+                details: `No customer found with ${customerId ? 'ID: ' + customerId : 'email: ' + customerEmail}`,
+                searchCriteria: { customerId, customerEmail }
             });
         }
 
@@ -6472,7 +6537,12 @@ app.get('/api/csr/customer-vas', async (req, res) => {
         console.log(`🔍 [CSR VAS] Querying subscriptions with userId: ${customer._id} (type: ${typeof customer._id})`);
         
         const subscriptions = await VASSubscription.find({
-            userId: customer._id,
+            $or: [
+                { userId: customer._id },
+                { userId: customer._id.toString() },
+                { partyId: customer._id },
+                { partyId: customer._id.toString() }
+            ],
             status: { $in: ['active', 'suspended'] }
         }).populate('serviceId');
 
@@ -6540,77 +6610,172 @@ app.get('/api/csr/customer-vas', async (req, res) => {
     }
 });
 
-// GET /api/v1/csr/customers/search - Search customers for CSR VAS management
-app.get("/api/v1/csr/customers/search", async (req, res) => {
+// GET /api/v1/csr/customers/search - Search customers for CSR VAS management (Enhanced)
+app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
     try {
-        const { query } = req.query;
+        // Check if user has CSR or Admin role
+        if (req.user.role !== 'csr' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                error: 'Access denied',
+                message: 'CSR or Admin role required to search customers'
+            });
+        }
+
+        const { query, type } = req.query;
         
+        console.log(`🔍 [CSR VAS] Searching customers with query: "${query}", type: "${type}"`);
+
         if (!query) {
-            return res.status(400).json({ 
-                error: 'Search query required',
-                details: 'Please provide a search query parameter'
+            return res.json({
+                success: true,
+                customers: [],
+                total: 0,
+                query: query
             });
         }
 
-        console.log(`🔍 [CSR] Searching customers with query: "${query}"`);
+        const searchQuery = query.toLowerCase();
+        
+        // Build search criteria based on type
+        let searchCriteria = {
+            role: 'customer'
+        };
 
-        // Search customers by email, name, or phone
-        const customers = await User.find({
-            role: 'customer',
-            $or: [
-                { email: { $regex: query, $options: 'i' } },
-                { name: { $regex: query, $options: 'i' } },
-                { phone: { $regex: query, $options: 'i' } }
-            ]
-        }).select('_id name email phone status createdAt').limit(20);
-
-        console.log(`👥 [CSR] Found ${customers.length} customers matching query`);
-
-        if (customers.length === 0) {
-            return res.status(404).json({ 
-                error: 'Customer not found',
-                message: `No customers found matching "${query}"`
-            });
+        if (type === 'email') {
+            searchCriteria['email'] = { $regex: searchQuery, $options: 'i' };
+        } else if (type === 'phone') {
+            searchCriteria['$or'] = [
+                { phone: { $regex: searchQuery, $options: 'i' } },
+                { mobile: { $regex: searchQuery, $options: 'i' } }
+            ];
+        } else if (type === 'name') {
+            searchCriteria['$or'] = [
+                { name: { $regex: searchQuery, $options: 'i' } },
+                { firstName: { $regex: searchQuery, $options: 'i' } },
+                { lastName: { $regex: searchQuery, $options: 'i' } }
+            ];
+        } else {
+            // General search across multiple fields
+            searchCriteria['$or'] = [
+                { email: { $regex: searchQuery, $options: 'i' } },
+                { name: { $regex: searchQuery, $options: 'i' } },
+                { firstName: { $regex: searchQuery, $options: 'i' } },
+                { lastName: { $regex: searchQuery, $options: 'i' } },
+                { phone: { $regex: searchQuery, $options: 'i' } },
+                { mobile: { $regex: searchQuery, $options: 'i' } }
+            ];
         }
+
+        // Search in MongoDB User collection
+        const customers = await User.find(searchCriteria)
+            .select('_id name firstName lastName email phone mobile status createdAt lastLoginAt')
+            .limit(20)
+            .lean();
+
+        console.log(`👥 [CSR VAS] Found ${customers.length} customers in database`);
+
+        // Transform customers to consistent format
+        const transformedCustomers = customers.map(customer => ({
+            id: customer._id.toString(),
+            userId: customer._id.toString(),
+            name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+            email: customer.email,
+            phone: customer.phone || customer.mobile || '',
+            mobile: customer.mobile || customer.phone || '',
+            status: customer.status || 'active',
+            type: 'customer',
+            createdAt: customer.createdAt || new Date().toISOString(),
+            lastLogin: customer.lastLoginAt,
+            userDetails: {
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+                role: customer.role
+            }
+        }));
+
+        // If no results from database, also search in parties array as fallback
+        let allResults = [...transformedCustomers];
+        
+        if (transformedCustomers.length === 0) {
+            console.log(`🔍 [CSR VAS] No database results, searching fallback data...`);
+            const partyResults = parties.filter(party => {
+                const name = party.name?.toLowerCase() || '';
+                const email = party.email?.toLowerCase() || '';
+                const phone = party.phone || '';
+                const mobile = party.mobile || '';
+                
+                if (type === 'email') {
+                    return email.includes(searchQuery);
+                } else if (type === 'phone') {
+                    return phone.includes(searchQuery) || mobile.includes(searchQuery);
+                } else if (type === 'name') {
+                    return name.includes(searchQuery);
+                } else {
+                    return name.includes(searchQuery) || 
+                           email.includes(searchQuery) || 
+                           phone.includes(searchQuery) || 
+                           mobile.includes(searchQuery);
+                }
+            }).map(party => {
+                const user = users.find(u => u.id === party.userId || u.email === party.email);
+                return {
+                    ...party,
+                    userDetails: user
+                };
+            });
+            
+            allResults = [...allResults, ...partyResults];
+        }
+
+        // Remove duplicates based on email
+        const uniqueResults = allResults.filter((customer, index, self) => 
+            index === self.findIndex((c) => (c.email === customer.email))
+        );
+
+        console.log(`🔍 [CSR VAS] Customer Search: "${query}" found ${uniqueResults.length} customers`);
 
         res.json({
-            customers: customers.map(customer => ({
-                id: customer._id,
-                name: customer.name,
-                email: customer.email,
-                phone: customer.phone,
-                status: customer.status || 'active',
-                createdAt: customer.createdAt
-            })),
-            total: customers.length,
+            success: true,
+            customers: uniqueResults,
+            total: uniqueResults.length,
+            searchCriteria: { query, type },
             query: query
         });
 
     } catch (error) {
-        console.error('❌ [CSR] Error searching customers:', error);
+        console.error('❌ [CSR VAS] Error searching customers:', error);
         res.status(500).json({ 
             error: 'Failed to search customers',
-            details: error.message 
+            details: error.message,
+            success: false
         });
     }
 });
 
-// POST /api/csr/customer-vas/:serviceId/toggle - Toggle customer VAS subscription
-app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
+// POST /api/csr/customer-vas/:serviceId/toggle - Toggle customer VAS subscription (Enhanced)
+app.post('/api/csr/customer-vas/:serviceId/toggle', verifyToken, async (req, res) => {
     try {
+        // Check if user has CSR or Admin role
+        if (req.user.role !== 'csr' && req.user.role !== 'admin') {
+            return res.status(403).json({
+                error: 'Access denied',
+                message: 'CSR or Admin role required for VAS management'
+            });
+        }
+
         const { serviceId } = req.params;
-        // Express.js converts header names to lowercase automatically
-        const customerId = req.headers['customerid'] || req.headers['customer-id'];
-        const customerEmail = req.headers['customeremail'] || req.headers['customer-email'];
+        // Get customer information from query parameters or request body
+        const customerId = req.query.customerId || req.body.customerId || req.query.customerid || req.body.customerid;
+        const customerEmail = req.query.customerEmail || req.body.customerEmail || req.query.customeremail || req.body.customeremail;
         const { action } = req.body; // 'subscribe' or 'unsubscribe'
         
-        console.log(`🔄 [CSR VAS] ${action} request for service ${serviceId}`);
-        console.log('🔄 [CSR VAS] Headers:', { customerId, customerEmail });
+        console.log(`🔄 [CSR VAS] ${action} request for service ${serviceId} by CSR ${req.user.email}`);
+        console.log('🔄 [CSR VAS] Customer info:', { customerId, customerEmail });
 
         if (!customerId && !customerEmail) {
             return res.status(400).json({ 
                 error: 'Customer ID or email required',
-                details: 'Please provide either customerId or customerEmail in headers'
+                details: 'Please provide either customerId or customerEmail in query parameters or request body'
             });
         }
 
@@ -6621,18 +6786,52 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
             });
         }
 
-        // Find customer by ID or email
+        // Find customer by ID or email with enhanced search
         let customer = null;
         if (customerId) {
-            customer = await User.findById(customerId);
-        } else if (customerEmail) {
+            // Try direct ID search first
+            try {
+                customer = await User.findById(customerId);
+            } catch (err) {
+                // If ID is not valid ObjectId, search by string ID fields
+                customer = await User.findOne({ 
+                    $or: [
+                        { userId: customerId },
+                        { customerId: customerId }
+                    ]
+                });
+            }
+        }
+        
+        if (!customer && customerEmail) {
             customer = await User.findOne({ email: customerEmail });
+        }
+
+        if (!customer) {
+            // Try searching in parties array as fallback
+            const party = parties.find(p => 
+                p.id === customerId || 
+                p.userId === customerId || 
+                p.email === customerEmail
+            );
+            
+            if (party) {
+                // Create temporary customer object from party data
+                customer = {
+                    _id: party.id || party.userId,
+                    name: party.name,
+                    email: party.email,
+                    phone: party.phone,
+                    role: 'customer'
+                };
+            }
         }
 
         if (!customer) {
             return res.status(404).json({ 
                 error: 'Customer not found',
-                details: `No customer found with ${customerId ? 'ID: ' + customerId : 'email: ' + customerEmail}`
+                details: `No customer found with ${customerId ? 'ID: ' + customerId : 'email: ' + customerEmail}`,
+                searchCriteria: { customerId, customerEmail }
             });
         }
 
@@ -6645,13 +6844,16 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
             });
         }
 
-        console.log(`👤 [CSR VAS] Processing ${action} for ${customer.name} - ${service.name}`);
+        console.log(`👤 [CSR VAS] Processing ${action} for ${customer.name} - ${service.name} by CSR ${req.user.email}`);
 
         if (action === 'subscribe') {
             // Check if already subscribed
             const existingSubscription = await VASSubscription.findOne({
-                userId: customer._id,
-                serviceId: service._id,
+                $or: [
+                    { userId: customer._id, serviceId: service._id },
+                    { userId: customer._id.toString(), serviceId: service._id },
+                    { partyId: customer._id, serviceId: service._id }
+                ],
                 status: 'active'
             });
 
@@ -6672,13 +6874,43 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
                 nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
                 metadata: {
                     subscribedBy: 'csr',
+                    csrUserId: req.user.id,
+                    csrUserEmail: req.user.email,
                     csrAction: true,
-                    ipAddress: req.ip
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
                 }
             });
 
             await subscription.save();
-            console.log(`✅ [CSR VAS] Customer subscribed to ${service.name}`);
+            console.log(`✅ [CSR VAS] Customer subscribed to ${service.name} by CSR ${req.user.email}`);
+
+            // Create audit log entry
+            const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+            const auditEntry = {
+                id: auditId,
+                partyId: customer._id.toString(),
+                eventType: 'csr_vas_subscription',
+                description: `CSR ${req.user.email} subscribed customer ${customer.name} to VAS service ${service.name}`,
+                createdAt: new Date().toISOString(),
+                userId: req.user.id,
+                userName: req.user.name || req.user.email,
+                ipAddress: req.ip || '127.0.0.1',
+                userAgent: req.get('User-Agent') || 'Unknown',
+                metadata: {
+                    targetCustomerId: customer._id.toString(),
+                    targetCustomerName: customer.name,
+                    targetCustomerEmail: customer.email,
+                    vasServiceId: service._id.toString(),
+                    vasServiceName: service.name,
+                    action: 'subscribe',
+                    subscriptionId: subscription._id.toString(),
+                    source: 'csr_vas_management'
+                },
+                category: 'VAS Management',
+                severity: 'info'
+            };
+            auditEvents.push(auditEntry);
 
             // Emit real-time update
             if (global.io) {
@@ -6686,42 +6918,87 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
                     type: 'subscription_created',
                     customer: { id: customer._id, name: customer.name, email: customer.email },
                     service: { id: service._id, name: service.name },
-                    subscription: subscription
+                    subscription: subscription,
+                    csrUser: { id: req.user.id, email: req.user.email }
                 });
             }
 
-            res.json({ 
+            return res.status(200).json({ 
                 success: true,
-                message: `Successfully subscribed to ${service.name}`,
-                subscription: subscription
+                message: `Customer successfully subscribed to ${service.name}`,
+                subscription: subscription,
+                customer: { id: customer._id, name: customer.name, email: customer.email },
+                service: { id: service._id, name: service.name, description: service.description },
+                metadata: {
+                    csrUser: { id: req.user.id, email: req.user.email },
+                    timestamp: new Date().toISOString(),
+                    auditId: auditEntry.id
+                }
             });
 
         } else if (action === 'unsubscribe') {
-            // Find and update existing subscription
+            // Find and update subscription with enhanced search
             const subscription = await VASSubscription.findOne({
-                userId: customer._id,
-                serviceId: service._id,
+                $or: [
+                    { userId: customer._id, serviceId: service._id },
+                    { userId: customer._id.toString(), serviceId: service._id },
+                    { partyId: customer._id, serviceId: service._id }
+                ],
                 status: 'active'
             });
 
             if (!subscription) {
-                return res.status(404).json({ 
-                    error: 'No active subscription found',
-                    details: `Customer is not subscribed to ${service.name}`
+                return res.status(400).json({ 
+                    error: 'Not subscribed',
+                    details: `Customer is not subscribed to ${service.name}`,
+                    customer: { id: customer._id, name: customer.name, email: customer.email },
+                    service: { id: service._id, name: service.name }
                 });
             }
 
             subscription.status = 'cancelled';
             subscription.cancelledAt = new Date();
+            subscription.autoRenewal = false;
             subscription.metadata = {
                 ...subscription.metadata,
                 cancelledBy: 'csr',
+                csrUserId: req.user.id,
+                csrUserEmail: req.user.email,
                 csrAction: true,
-                cancellationReason: 'Customer service request'
+                cancellationReason: 'CSR request',
+                ipAddress: req.ip,
+                userAgent: req.get('User-Agent')
             };
 
             await subscription.save();
-            console.log(`❌ [CSR VAS] Customer unsubscribed from ${service.name}`);
+            console.log(`❌ [CSR VAS] Customer unsubscribed from ${service.name} by CSR ${req.user.email}`);
+
+            // Create audit log entry
+            const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+            const auditEntry = {
+                id: auditId,
+                partyId: customer._id.toString(),
+                eventType: 'csr_vas_unsubscription',
+                description: `CSR ${req.user.email} unsubscribed customer ${customer.name} from VAS service ${service.name}`,
+                createdAt: new Date().toISOString(),
+                userId: req.user.id,
+                userName: req.user.name || req.user.email,
+                ipAddress: req.ip || '127.0.0.1',
+                userAgent: req.get('User-Agent') || 'Unknown',
+                metadata: {
+                    targetCustomerId: customer._id.toString(),
+                    targetCustomerName: customer.name,
+                    targetCustomerEmail: customer.email,
+                    vasServiceId: service._id.toString(),
+                    vasServiceName: service.name,
+                    action: 'unsubscribe',
+                    subscriptionId: subscription._id.toString(),
+                    source: 'csr_vas_management'
+                },
+                category: 'VAS Management',
+                severity: 'info'
+            };
+            auditEvents.push(auditEntry);
 
             // Emit real-time update
             if (global.io) {
@@ -6729,22 +7006,32 @@ app.post('/api/csr/customer-vas/:serviceId/toggle', async (req, res) => {
                     type: 'subscription_cancelled',
                     customer: { id: customer._id, name: customer.name, email: customer.email },
                     service: { id: service._id, name: service.name },
-                    subscription: subscription
+                    subscription: subscription,
+                    csrUser: { id: req.user.id, email: req.user.email }
                 });
             }
 
-            res.json({ 
+            return res.status(200).json({ 
                 success: true,
-                message: `Successfully unsubscribed from ${service.name}`,
-                subscription: subscription
+                message: `Customer successfully unsubscribed from ${service.name}`,
+                subscription: subscription,
+                customer: { id: customer._id, name: customer.name, email: customer.email },
+                service: { id: service._id, name: service.name, description: service.description },
+                metadata: {
+                    csrUser: { id: req.user.id, email: req.user.email },
+                    timestamp: new Date().toISOString(),
+                    auditId: auditEntry.id
+                }
             });
         }
 
     } catch (error) {
-        console.error('❌ [CSR VAS] Error toggling VAS subscription:', error);
+        console.error('🚨 [CSR VAS] Error in VAS toggle:', error);
         res.status(500).json({ 
-            error: 'Failed to update VAS subscription',
-            details: error.message 
+            error: 'Internal server error',
+            details: error.message,
+            timestamp: new Date().toISOString(),
+            requestId: `req_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
         });
     }
 });
