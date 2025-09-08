@@ -9166,13 +9166,29 @@ app.post("/api/customer/vas/subscribe", verifyToken, async (req, res) => {
             }
         );
         
-        // Emit real-time update
-        io.emit('vasSubscriptionUpdate', {
+        // Emit real-time update to both customer and CSR dashboards
+        const updateData = {
             userId: req.user.id,
+            customerId: req.user.id,
             serviceId: serviceId,
+            serviceName: service.name,
             action: 'subscribed',
-            timestamp: new Date()
+            timestamp: new Date(),
+            source: 'customer-self-service'
+        };
+        
+        // Notify CSR dashboard
+        io.to('csr-dashboard').emit('vasSubscriptionUpdate', {
+            type: 'customer_subscription_created',
+            customer: { id: req.user.id, name: req.user.name, email: req.user.email },
+            service: { id: service.id, name: service.name },
+            action: 'subscribed',
+            timestamp: new Date(),
+            source: 'customer-self-service'
         });
+        
+        // Notify customer's personal room
+        io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
         
         console.log('✅ Customer VAS: Subscription created successfully');
         
@@ -9242,13 +9258,29 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
             }
         );
         
-        // Emit real-time update
-        io.emit('vasSubscriptionUpdate', {
+        // Emit real-time update to both customer and CSR dashboards
+        const updateData = {
             userId: req.user.id,
+            customerId: req.user.id,
             serviceId: serviceId,
+            serviceName: service.name,
             action: 'unsubscribed',
-            timestamp: new Date()
+            timestamp: new Date(),
+            source: 'customer-self-service'
+        };
+        
+        // Notify CSR dashboard
+        io.to('csr-dashboard').emit('vasSubscriptionUpdate', {
+            type: 'customer_subscription_cancelled',
+            customer: { id: req.user.id, name: req.user.name, email: req.user.email },
+            service: { id: service.id, name: service.name },
+            action: 'unsubscribed',
+            timestamp: new Date(),
+            source: 'customer-self-service'
         });
+        
+        // Notify customer's personal room
+        io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
         
         console.log('✅ Customer VAS: Unsubscription processed successfully');
         
@@ -9367,13 +9399,29 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 }
             );
             
-            // Emit real-time update
-            io.emit('vasSubscriptionUpdate', {
+            // Emit real-time update to both customer and CSR dashboards
+            const updateData = {
                 userId: req.user.id,
+                customerId: req.user.id,
                 serviceId: serviceId,
+                serviceName: service.name,
                 action: 'unsubscribed',
-                timestamp: new Date()
+                timestamp: new Date(),
+                source: 'customer-toggle'
+            };
+            
+            // Notify CSR dashboard
+            io.to('csr-dashboard').emit('vasSubscriptionUpdate', {
+                type: 'customer_subscription_toggled_off',
+                customer: { id: req.user.id, name: req.user.name, email: req.user.email },
+                service: { id: service.id, name: service.name },
+                action: 'unsubscribed',
+                timestamp: new Date(),
+                source: 'customer-toggle'
             });
+            
+            // Notify customer's personal room
+            io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
             
             console.log('✅ Customer VAS: Successfully unsubscribed from service');
             
@@ -9441,13 +9489,29 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                     }
                 );
                 
-                // Emit real-time update
-                io.emit('vasSubscriptionUpdate', {
+                // Emit real-time update to both customer and CSR dashboards
+                const updateData = {
                     userId: req.user.id,
+                    customerId: req.user.id,
                     serviceId: serviceId,
+                    serviceName: service.name,
                     action: 'subscribed',
-                    timestamp: new Date()
+                    timestamp: new Date(),
+                    source: 'customer-toggle-reactivate'
+                };
+                
+                // Notify CSR dashboard
+                io.to('csr-dashboard').emit('vasSubscriptionUpdate', {
+                    type: 'customer_subscription_toggled_on',
+                    customer: { id: req.user.id, name: req.user.name, email: req.user.email },
+                    service: { id: service.id, name: service.name },
+                    action: 'subscribed',
+                    timestamp: new Date(),
+                    source: 'customer-toggle-reactivate'
                 });
+                
+                // Notify customer's personal room
+                io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
                 
                 console.log('✅ Customer VAS: Successfully subscribed to service (updated existing)');
                 
@@ -9494,13 +9558,29 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                     }
                 );
                 
-                // Emit real-time update
-                io.emit('vasSubscriptionUpdate', {
+                // Emit real-time update to both customer and CSR dashboards
+                const updateData = {
                     userId: req.user.id,
+                    customerId: req.user.id,
                     serviceId: serviceId,
+                    serviceName: service.name,
                     action: 'subscribed',
-                    timestamp: new Date()
+                    timestamp: new Date(),
+                    source: 'customer-toggle-new'
+                };
+                
+                // Notify CSR dashboard
+                io.to('csr-dashboard').emit('vasSubscriptionUpdate', {
+                    type: 'customer_subscription_created',
+                    customer: { id: req.user.id, name: req.user.name, email: req.user.email },
+                    service: { id: service.id, name: service.name },
+                    action: 'subscribed',
+                    timestamp: new Date(),
+                    source: 'customer-toggle-new'
                 });
+                
+                // Notify customer's personal room
+                io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
                 
                 console.log('✅ Customer VAS: Successfully subscribed to service (new subscription)');
                 
