@@ -9553,6 +9553,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                     },
                     {
                         isSubscribed: true,
+                        status: 'active', // <-- CRITICAL: Adding missing status field!
                         serviceName: service.name,
                         customerEmail: req.user.email,
                         billingInfo: {
@@ -9629,6 +9630,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                     serviceId: service._id,
                     subscriptionId: `sub_${Date.now()}_${req.user.id}`,
                     isSubscribed: true,
+                    status: 'active', // <-- CRITICAL: Adding missing status field!
                     billing: {
                         amount: service.priceNumeric || 0,
                         frequency: 'monthly',
