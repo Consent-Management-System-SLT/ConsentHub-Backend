@@ -10142,8 +10142,16 @@ app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
 // ===== ADMIN VAS ENDPOINTS =====
 
 // GET /api/admin/vas/services - Get all VAS services for admin management
-app.get("/api/admin/vas/services", async (req, res) => {
+app.get("/api/admin/vas/services", verifyToken, async (req, res) => {
     try {
+        // Check if user has admin role
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Admin role required for VAS management'
+            });
+        }
+
         const { page = 1, limit = 10, search = '', category = '', status = '' } = req.query;
         
         console.log(' Admin VAS: Fetching VAS services with filters:', { search, category, status });
@@ -10200,8 +10208,15 @@ app.get("/api/admin/vas/services", async (req, res) => {
 });
 
 // POST /api/admin/vas/services - Create new VAS service
-app.post("/api/admin/vas/services", async (req, res) => {
+app.post("/api/admin/vas/services", verifyToken, async (req, res) => {
     try {
+        // Check if user has admin role
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Admin role required for VAS management'
+            });
+        }
         console.log(' Admin VAS: Creating new VAS service');
         
         const serviceData = {
@@ -10234,8 +10249,15 @@ app.post("/api/admin/vas/services", async (req, res) => {
 });
 
 // PUT /api/admin/vas/services/:id - Update VAS service
-app.put("/api/admin/vas/services/:id", async (req, res) => {
+app.put("/api/admin/vas/services/:id", verifyToken, async (req, res) => {
     try {
+        // Check if user has admin role
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Admin role required for VAS management'
+            });
+        }
         const { id } = req.params;
         console.log(' Admin VAS: Updating VAS service:', id);
         
@@ -10273,8 +10295,15 @@ app.put("/api/admin/vas/services/:id", async (req, res) => {
 });
 
 // DELETE /api/admin/vas/services/:id - Delete VAS service
-app.delete("/api/admin/vas/services/:id", async (req, res) => {
+app.delete("/api/admin/vas/services/:id", verifyToken, async (req, res) => {
     try {
+        // Check if user has admin role
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Admin role required for VAS management'
+            });
+        }
         const { id } = req.params;
         console.log(' Admin VAS: Deleting VAS service:', id);
         
@@ -10322,8 +10351,15 @@ app.delete("/api/admin/vas/services/:id", async (req, res) => {
 });
 
 // GET /api/admin/vas/subscriptions - Get all VAS subscriptions for admin
-app.get("/api/admin/vas/subscriptions", async (req, res) => {
+app.get("/api/admin/vas/subscriptions", verifyToken, async (req, res) => {
     try {
+        // Check if user has admin role
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Admin role required for VAS management'
+            });
+        }
         const { page = 1, limit = 20, status = '', serviceId = '' } = req.query;
         
         console.log(' Admin VAS: Fetching subscription data');
@@ -10362,8 +10398,15 @@ app.get("/api/admin/vas/subscriptions", async (req, res) => {
 });
 
 // GET /api/admin/vas/analytics - Get VAS analytics for admin dashboard
-app.get("/api/admin/vas/analytics", async (req, res) => {
+app.get("/api/admin/vas/analytics", verifyToken, async (req, res) => {
     try {
+        // Check if user has admin role
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Admin role required for VAS management'
+            });
+        }
         console.log(' Admin VAS: Generating analytics dashboard');
         
         // Get service statistics
