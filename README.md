@@ -1174,6 +1174,6 @@ ConsentHub Backend represents a comprehensive microservices ecosystem that deliv
 
 ---
 
-*© 2024 SLT Mobitel. All rights reserved. Built for enterprise privacy management.*
+*© 2025 SLT Mobitel. All rights reserved. Built for enterprise privacy management.*
 
 </div>
