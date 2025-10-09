@@ -7244,24 +7244,25 @@ app.post("/api/v1/auth/register", async (req, res) => {
         
         console.log(` Creating default data for new user: ${savedUser.email} (ID: ${savedUser._id})`);
         
-        // Use enhanced customer data provisioning
+        // Use enhanced customer data provisioning - run asynchronously to avoid timeout
         const { provisionDefaultDataForNewCustomer } = require('./customer-data-provisioning');
         
-        try {
-            const provisioningResult = await provisionDefaultDataForNewCustomer(
+        // Run data provisioning in background to avoid blocking registration response
+        setImmediate(() => {
+            provisionDefaultDataForNewCustomer(
                 savedUser._id, 
                 savedUser.email, 
                 savedUser.name
-            );
-            
-            if (provisioningResult.success) {
-                console.log(` Successfully provisioned data for ${savedUser.email}:`, provisioningResult.data);
-            } else {
-                console.error(` Provisioning failed for ${savedUser.email}:`, provisioningResult.error);
-            }
-        } catch (error) {
-            console.error(` Critical error in data provisioning:`, error.message);
-        }
+            ).then(provisioningResult => {
+                if (provisioningResult.success) {
+                    console.log(` Successfully provisioned data for ${savedUser.email}:`, provisioningResult.data);
+                } else {
+                    console.error(` Provisioning failed for ${savedUser.email}:`, provisioningResult.error);
+                }
+            }).catch(error => {
+                console.error(` Critical error in data provisioning:`, error.message);
+            });
+        });
         
         // Create audit log entry
         const auditId = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -7288,25 +7289,29 @@ app.post("/api/v1/auth/register", async (req, res) => {
         
         console.log("New user registered:", savedUser.email, "ID:", savedUser._id);
         
-        // Send welcome email for self-registration
-        try {
-            const { notificationService } = require('./services/notificationService');
-            const welcomeResult = await notificationService.sendWelcomeEmail({
-                email: savedUser.email,
-                name: savedUser.name,
-                firstName: savedUser.firstName,
-                lastName: savedUser.lastName,
-                id: savedUser._id
-            }, 'self');
-            
-            if (welcomeResult.success) {
-                console.log(` Welcome email sent to new user: ${savedUser.email}`);
-            } else {
-                console.error(` Failed to send welcome email to ${savedUser.email}:`, welcomeResult.error);
+        // Send welcome email for self-registration - run asynchronously to avoid timeout
+        setImmediate(() => {
+            try {
+                const { notificationService } = require('./services/notificationService');
+                notificationService.sendWelcomeEmail({
+                    email: savedUser.email,
+                    name: savedUser.name,
+                    firstName: savedUser.firstName,
+                    lastName: savedUser.lastName,
+                    id: savedUser._id
+                }, 'self').then(welcomeResult => {
+                    if (welcomeResult.success) {
+                        console.log(` Welcome email sent to new user: ${savedUser.email}`);
+                    } else {
+                        console.error(` Failed to send welcome email to ${savedUser.email}:`, welcomeResult.error);
+                    }
+                }).catch(emailError => {
+                    console.error(` Welcome email service error for ${savedUser.email}:`, emailError);
+                });
+            } catch (emailError) {
+                console.error(` Welcome email initialization error for ${savedUser.email}:`, emailError);
             }
-        } catch (emailError) {
-            console.error(` Welcome email service error for ${savedUser.email}:`, emailError);
-        }
+        });
         
         res.status(201).json({
             success: true,

@@ -209,16 +209,19 @@ async function createDefaultPreferencesForCustomer(userId, userEmail) {
     for (const template of DEFAULT_PREFERENCE_TEMPLATES) {
         try {
             const preferenceData = {
+                id: `pref_${userIdString}_${template.category}_${template.type}_${Date.now()}`,
                 userId: userIdString,
-                category: template.category,
-                type: template.type,
-                enabled: template.enabled,
-                frequency: template.frequency,
+                partyId: userIdString,
+                preferenceId: `${template.category}_${template.type}`,
                 value: template.value || template.enabled,
+                source: "system",
                 metadata: {
+                    category: template.category,
+                    type: template.type,
+                    enabled: template.enabled,
+                    frequency: template.frequency,
                     description: template.description,
                     customerEmail: userEmail,
-                    source: "auto_provisioned",
                     createdBy: "system"
                 }
             };
@@ -261,7 +264,7 @@ async function createDefaultPrivacyNoticesForCustomer(userId, userEmail) {
                     title: template.title,
                     content: template.content,
                     category: template.category,
-                    status: template.status,
+                    status: 'active', // Use valid status
                     priority: template.priority,
                     version: template.version,
                     effectiveDate: template.effectiveDate,
