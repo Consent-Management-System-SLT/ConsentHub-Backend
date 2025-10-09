@@ -39,7 +39,7 @@ const consentSchema = new mongoose.Schema({
   channel: {
     type: String,
     required: true,
-    enum: ['email', 'sms', 'push', 'voice', 'all', 'guardian_portal']
+    enum: ['email', 'sms', 'push', 'voice', 'all', 'web', 'guardian_portal']
   },
   validFrom: {
     type: Date,

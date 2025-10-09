@@ -10,11 +10,14 @@ class NotificationService {
   // Initialize email transporter with Gmail SMTP
   initializeEmailTransporter() {
     try {
-      this.emailTransporter = nodemailer.createTransport({
+      this.emailTransporter = nodemailer.createTransporter({
         service: 'gmail',
         host: 'smtp.gmail.com',
         port: 587,
         secure: false,
+        connectionTimeout: 5000, // 5 seconds timeout
+        greetingTimeout: 5000,
+        socketTimeout: 5000,
         auth: {
           user: 'ojithatester@gmail.com',
           pass: 'cumm brjo ktzk fook'
@@ -24,16 +27,37 @@ class NotificationService {
         }
       });
 
-      // Verify the connection
-      this.emailTransporter.verify((error, success) => {
-        if (error) {
-          console.error('❌ Email transporter initialization failed:', error);
-        } else {
+      // Verify the connection with timeout
+      const verifyWithTimeout = () => {
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Email verification timeout'));
+          }, 5000);
+
+          this.emailTransporter.verify((error, success) => {
+            clearTimeout(timeout);
+            if (error) {
+              reject(error);
+            } else {
+              resolve(success);
+            }
+          });
+        });
+      };
+
+      verifyWithTimeout()
+        .then(() => {
           console.log('✅ Email transporter ready for sending emails');
-        }
-      });
+        })
+        .catch((error) => {
+          console.error('❌ Email transporter initialization failed:', error.message);
+          // Don't fail the entire service, just log the error
+          this.emailTransporter = null;
+        });
+
     } catch (error) {
       console.error('❌ Failed to initialize email transporter:', error);
+      this.emailTransporter = null;
     }
   }
 
@@ -1197,6 +1221,16 @@ Thank you for helping us make SLT Mobitel the best choice for telecommunications
     try {
       console.log(`📧 Sending welcome email to ${customerData.email} (created by: ${createdBy})`);
       
+      // Check if email transporter is available
+      if (!this.emailTransporter) {
+        console.log(`⚠️ Email transporter not available, skipping welcome email for ${customerData.email}`);
+        return {
+          success: false,
+          error: 'Email service not available',
+          skipped: true
+        };
+      }
+      
       // Choose appropriate template based on who created the account
       const templateId = createdBy === 'admin' ? 'admin_created_account' : 'account_created_welcome';
       const templates = this.getPreBuiltTemplates();
@@ -1225,8 +1259,25 @@ Thank you for helping us make SLT Mobitel the best choice for telecommunications
         subject: subject
       });
       
-      // Send email
-      const result = await this.emailTransporter.sendMail({
+      // Send email with timeout
+      const sendWithTimeout = (mailOptions, timeout = 10000) => {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error('Email send timeout'));
+          }, timeout);
+
+          this.emailTransporter.sendMail(mailOptions, (error, info) => {
+            clearTimeout(timer);
+            if (error) {
+              reject(error);
+            } else {
+              resolve(info);
+            }
+          });
+        });
+      };
+
+      const result = await sendWithTimeout({
         from: {
           name: 'SLT Mobitel ConsentHub',
           address: 'ojithatester@gmail.com'
@@ -1235,7 +1286,7 @@ Thank you for helping us make SLT Mobitel the best choice for telecommunications
         subject: subject,
         html: htmlContent,
         text: message // Fallback plain text
-      });
+      }, 10000); // 10 second timeout
       
       console.log(`✅ Welcome email sent successfully to ${customerData.email}`);
       return {

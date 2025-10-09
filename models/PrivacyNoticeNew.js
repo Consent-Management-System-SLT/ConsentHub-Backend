@@ -32,7 +32,7 @@ const privacyNoticeSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['general', 'marketing', 'analytics', 'cookies', 'cookie_policy', 'privacy_policy', 'third-party', 'location', 'children', 'employment', 'terms'],
+    enum: ['general', 'marketing', 'analytics', 'cookies', 'cookie_policy', 'privacy_policy', 'third-party', 'location', 'children', 'employment', 'terms', 'data_processing'],
     default: 'general'
   },
   purposes: [{
@@ -85,7 +85,7 @@ const privacyNoticeSchema = new mongoose.Schema({
   expirationDate: Date,
   status: {
     type: String,
-    enum: ['draft', 'active', 'inactive', 'archived'],
+    enum: ['draft', 'active', 'inactive', 'archived', 'pending_acknowledgment'],
     default: 'draft'
   },
   language: {
