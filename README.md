@@ -1,4 +1,4 @@
-# 🏗️ ConsentHub Backend
+# ConsentHub Backend
 
 <div align="center">
 
@@ -16,30 +16,14 @@
 
 ---
 
-## 📋 **Table of Contents**
-
-- [🎯 Overview](#-overview)
-- [🏗️ Architecture](#️-architecture)
-- [🔌 Microservices](#-microservices)
-- [📡 API Endpoints](#-api-endpoints)
-- [🚀 Quick Start](#-quick-start)
-- [⚙️ Configuration](#️-configuration)
-- [🔒 Security](#-security)
-- [📊 Monitoring](#-monitoring)
-- [🚀 Deployment](#-deployment)
-- [📚 Documentation](#-documentation)
-- [🤝 Contributing](#-contributing)
-
----
-
-## 🎯 **Overview**
+## **Overview**
 
 ConsentHub Backend is a comprehensive microservices ecosystem designed for enterprise-grade privacy and consent management. Built following **TM Forum Open APIs** and **Open Digital Architecture (ODA)** principles, it provides robust, scalable, and compliant backend services for telecommunications and digital service providers.
 
-### **🎯 Mission**
+### **Mission**
 Deliver a production-ready, TMF Forum-compliant backend infrastructure that handles consent management, privacy governance, and data subject rights with enterprise-scale reliability and performance.
 
-### **📊 System Metrics**
+### **System Metrics**
 - **14 Microservices** with distinct responsibilities
 - **200+ API Endpoints** across all services
 - **TMF Forum APIs**: Complete TMF632, TMF641, TMF669 implementation
@@ -49,29 +33,29 @@ Deliver a production-ready, TMF Forum-compliant backend infrastructure that hand
 
 ---
 
-## 🏗️ **Architecture**
+## **Architecture**
 
-### **🎯 Microservices Architecture**
+### **Microservices Architecture**
 
 ```
 ConsentHub Backend Ecosystem
-├─ 🌐 API Gateway (Port 3001)          # Central routing & authentication
-├─ 🔐 Auth Service (Port 3002)         # JWT authentication & user management
-├─ 🛡️ Consent Service (Port 3003)      # TMF632 privacy consent management
-├─ ⚙️ Preference Service (Port 3004)    # Communication preferences
-├─ 📄 Privacy Notice Service (Port 3005) # Privacy policy management
-├─ 📊 Analytics Service (Port 3006)     # Consent analytics & reporting
-├─ 📋 Agreement Service (Port 3007)     # Digital agreements
-├─ 🔔 Event Service (Port 3008)        # TMF669 event management
-├─ 👥 Party Service (Port 3009)        # TMF641 party management
-├─ 👨‍💼 Admin Service (Port 3010)         # Administrative operations
-├─ 👩‍💼 CSR Service (Port 3011)          # Customer service representative tools
-├─ 👤 Customer Service (Port 3012)      # Customer-facing operations
-├─ 📋 DSAR Service (Port 3013)         # Data Subject Access Rights
-└─ 📚 Shared Libraries                  # Common utilities & models
+├─ API Gateway (Port 3001)          # Central routing & authentication
+├─ Auth Service (Port 3002)         # JWT authentication & user management
+├─ Consent Service (Port 3003)      # TMF632 privacy consent management
+├─ Preference Service (Port 3004)    # Communication preferences
+├─ Privacy Notice Service (Port 3005) # Privacy policy management
+├─ Analytics Service (Port 3006)     # Consent analytics & reporting
+├─ Agreement Service (Port 3007)     # Digital agreements
+├─ Event Service (Port 3008)        # TMF669 event management
+├─ Party Service (Port 3009)        # TMF641 party management
+├─ Admin Service (Port 3010)         # Administrative operations
+├─ CSR Service (Port 3011)          # Customer service representative tools
+├─ Customer Service (Port 3012)      # Customer-facing operations
+├─ DSAR Service (Port 3013)         # Data Subject Access Rights
+└─ Shared Libraries                  # Common utilities & models
 ```
 
-### **🔗 Communication Patterns**
+### **Communication Patterns**
 
 #### **Inter-Service Communication**
 - **HTTP/REST**: Primary communication protocol
@@ -88,18 +72,18 @@ WebSocket ←── Event Service ←── Change Streams
 
 ---
 
-## 🔌 **Microservices**
+## **Microservices**
 
-### **🌐 API Gateway (Core Infrastructure)**
+### **API Gateway (Core Infrastructure)**
 **Port**: 3001 | **Responsibility**: Central routing, authentication, rate limiting
 
 #### **Features**
-- ✅ **Request Routing** - Intelligent service discovery
-- ✅ **Authentication Gateway** - JWT token validation
-- ✅ **Rate Limiting** - Request throttling and protection
-- ✅ **CORS Management** - Cross-origin request handling
-- ✅ **Load Balancing** - Traffic distribution
-- ✅ **Request/Response Logging** - Comprehensive audit trail
+- **Request Routing** - Intelligent service discovery
+- **Authentication Gateway** - JWT token validation
+- **Rate Limiting** - Request throttling and protection
+- **CORS Management** - Cross-origin request handling
+- **Load Balancing** - Traffic distribution
+- **Request/Response Logging** - Comprehensive audit trail
 
 #### **Key Endpoints**
 ```
@@ -109,16 +93,16 @@ POST /api/v1/auth/login         # Authentication proxy
 GET  /api/v1/services/status    # Service health status
 ```
 
-### **🔐 Auth Service (Security)**
+### **Auth Service (Security)**
 **Port**: 3002 | **Responsibility**: Authentication, authorization, user management
 
 #### **Features**
-- ✅ **JWT Authentication** - Stateless token-based auth
-- ✅ **Role-Based Access Control** - Admin/CSR/Customer roles
-- ✅ **User Registration** - Account creation and validation
-- ✅ **Password Management** - Secure password handling
-- ✅ **Session Management** - Token lifecycle management
-- ✅ **Multi-Factor Authentication** - Enhanced security (ready)
+- **JWT Authentication** - Stateless token-based auth
+- **Role-Based Access Control** - Admin/CSR/Customer roles
+- **User Registration** - Account creation and validation
+- **Password Management** - Secure password handling
+- **Session Management** - Token lifecycle management
+- **Multi-Factor Authentication** - Enhanced security (ready)
 
 #### **Key Endpoints**
 ```
@@ -130,16 +114,16 @@ GET  /api/v1/auth/profile       # User profile
 POST /api/v1/auth/verify-token  # Token validation
 ```
 
-### **🛡️ Consent Service (TMF632 Core)**
+### **Consent Service (TMF632 Core)**
 **Port**: 3003 | **Responsibility**: Privacy consent lifecycle management
 
 #### **Features**
-- ✅ **TMF632 Compliance** - Complete privacy consent API
-- ✅ **Consent Lifecycle** - Create, update, grant, revoke, expire
-- ✅ **Granular Permissions** - Purpose, channel, duration-specific
-- ✅ **Legal Basis Tracking** - GDPR Article 6 compliance
-- ✅ **Version Management** - Consent term versioning
-- ✅ **Audit Trail** - Complete consent change history
+- **TMF632 Compliance** - Complete privacy consent API
+- **Consent Lifecycle** - Create, update, grant, revoke, expire
+- **Granular Permissions** - Purpose, channel, duration-specific
+- **Legal Basis Tracking** - GDPR Article 6 compliance
+- **Version Management** - Consent term versioning
+- **Audit Trail** - Complete consent change history
 
 #### **Key Endpoints (TMF632)**
 ```
@@ -154,16 +138,16 @@ PATCH  /privacyConsent/{id}/revoke        # Revoke consent
 GET    /privacyConsent/expired            # Get expired consents
 ```
 
-### **⚙️ Preference Service (Communication Management)**
+### **Preference Service (Communication Management)**
 **Port**: 3004 | **Responsibility**: Communication preferences and channel management
 
 #### **Features**
-- ✅ **Channel Management** - Email, SMS, Push, Phone preferences
-- ✅ **Topic Subscriptions** - Granular communication topics
-- ✅ **Do Not Disturb** - Time-based communication blocking
-- ✅ **Frequency Controls** - Daily, weekly, monthly limits
-- ✅ **Real-time Sync** - Instant preference updates
-- ✅ **Bulk Operations** - Mass preference management
+- **Channel Management** - Email, SMS, Push, Phone preferences
+- **Topic Subscriptions** - Granular communication topics
+- **Do Not Disturb** - Time-based communication blocking
+- **Frequency Controls** - Daily, weekly, monthly limits
+- **Real-time Sync** - Instant preference updates
+- **Bulk Operations** - Mass preference management
 
 #### **Key Endpoints**
 ```
@@ -176,16 +160,16 @@ GET    /privacyPreference/party/{partyId} # Get party preferences
 POST   /privacyPreference/bulk            # Bulk preference operations
 ```
 
-### **📄 Privacy Notice Service (Policy Management)**
+### **Privacy Notice Service (Policy Management)**
 **Port**: 3005 | **Responsibility**: Privacy policy and notice management
 
 #### **Features**
-- ✅ **Multi-language Support** - English, Sinhala, Tamil
-- ✅ **Version Control** - Policy change tracking
-- ✅ **Acknowledgment Tracking** - User acceptance records
-- ✅ **Jurisdiction Support** - Region-specific notices
-- ✅ **Template Management** - Reusable policy templates
-- ✅ **Automated Distribution** - Policy update notifications
+- **Multi-language Support** - English, Sinhala, Tamil
+- **Version Control** - Policy change tracking
+- **Acknowledgment Tracking** - User acceptance records
+- **Jurisdiction Support** - Region-specific notices
+- **Template Management** - Reusable policy templates
+- **Automated Distribution** - Policy update notifications
 
 #### **Key Endpoints**
 ```
@@ -197,16 +181,16 @@ GET    /privacyNotice/language/{lang}     # Get notices by language
 POST   /privacyNotice/{id}/acknowledge    # Acknowledge notice
 ```
 
-### **👥 Party Service (TMF641 Core)**
+### **Party Service (TMF641 Core)**
 **Port**: 3009 | **Responsibility**: Customer and party management
 
 #### **Features**
-- ✅ **TMF641 Compliance** - Complete party management API
-- ✅ **Customer Profiles** - Comprehensive customer data
-- ✅ **Relationship Management** - Party relationships and hierarchies
-- ✅ **Contact Information** - Multi-channel contact management
-- ✅ **Guardian Relationships** - Parent-child consent relationships
-- ✅ **Data Validation** - Comprehensive data integrity checks
+- **TMF641 Compliance** - Complete party management API
+- **Customer Profiles** - Comprehensive customer data
+- **Relationship Management** - Party relationships and hierarchies
+- **Contact Information** - Multi-channel contact management
+- **Guardian Relationships** - Parent-child consent relationships
+- **Data Validation** - Comprehensive data integrity checks
 
 #### **Key Endpoints (TMF641)**
 ```
@@ -219,16 +203,16 @@ GET    /party/{id}/relationships         # Get party relationships
 POST   /party/{id}/relationships         # Create relationship
 ```
 
-### **🔔 Event Service (TMF669 Core)**
+### **Event Service (TMF669 Core)**
 **Port**: 3008 | **Responsibility**: Event management and notifications
 
 #### **Features**
-- ✅ **TMF669 Compliance** - Complete event management API
-- ✅ **Webhook Management** - Event listener registration
-- ✅ **Real-time Events** - WebSocket event distribution
-- ✅ **Event Types** - Consent, preference, DSAR events
-- ✅ **Event Filtering** - Subscription-based filtering
-- ✅ **Event History** - Complete event audit trail
+- **TMF669 Compliance** - Complete event management API
+- **Webhook Management** - Event listener registration
+- **Real-time Events** - WebSocket event distribution
+- **Event Types** - Consent, preference, DSAR events
+- **Event Filtering** - Subscription-based filtering
+- **Event History** - Complete event audit trail
 
 #### **Key Endpoints (TMF669)**
 ```
@@ -240,16 +224,16 @@ POST   /event                            # Publish event
 GET    /event                            # List events
 ```
 
-### **📋 DSAR Service (Data Subject Rights)**
+### **DSAR Service (Data Subject Rights)**
 **Port**: 3013 | **Responsibility**: GDPR/CCPA data subject access rights
 
 #### **Features**
-- ✅ **Request Management** - Data access, portability, erasure, rectification
-- ✅ **Automated Processing** - AI-powered request handling
-- ✅ **Deadline Tracking** - GDPR 30-day compliance
-- ✅ **Data Export** - JSON, CSV, PDF formats
-- ✅ **Request Status** - Real-time processing updates
-- ✅ **Compliance Reporting** - Automated DSAR analytics
+- **Request Management** - Data access, portability, erasure, rectification
+- **Automated Processing** - AI-powered request handling
+- **Deadline Tracking** - GDPR 30-day compliance
+- **Data Export** - JSON, CSV, PDF formats
+- **Request Status** - Real-time processing updates
+- **Compliance Reporting** - Automated DSAR analytics
 
 #### **Key Endpoints**
 ```
@@ -261,33 +245,33 @@ POST   /dsarRequest/{id}/process         # Process request
 GET    /dsarRequest/{id}/download        # Download processed data
 ```
 
-### **👨‍💼 Admin Service (Administrative Operations)**
+### **Admin Service (Administrative Operations)**
 **Port**: 3010 | **Responsibility**: System administration and management
 
 #### **Features**
-- ✅ **User Management** - Create, update, delete users
-- ✅ **System Analytics** - Consent and preference statistics
-- ✅ **Bulk Operations** - Mass data import/export
-- ✅ **Compliance Reports** - Automated regulatory reporting
-- ✅ **System Configuration** - Global system settings
-- ✅ **Audit Log Management** - System activity monitoring
+- **User Management** - Create, update, delete users
+- **System Analytics** - Consent and preference statistics
+- **Bulk Operations** - Mass data import/export
+- **Compliance Reports** - Automated regulatory reporting
+- **System Configuration** - Global system settings
+- **Audit Log Management** - System activity monitoring
 
-### **👩‍💼 CSR Service (Customer Service Tools)**
+### **CSR Service (Customer Service Tools)**
 **Port**: 3011 | **Responsibility**: Customer service representative functionality
 
 #### **Features**
-- ✅ **Customer Search** - Advanced customer lookup
-- ✅ **Consent Management** - CSR consent operations
-- ✅ **DSAR Processing** - Customer service DSAR handling
-- ✅ **Notification Center** - Multi-channel customer notifications
-- ✅ **Activity Tracking** - Customer interaction logging
-- ✅ **Guardian Approvals** - Minor consent management
+- **Customer Search** - Advanced customer lookup
+- **Consent Management** - CSR consent operations
+- **DSAR Processing** - Customer service DSAR handling
+- **Notification Center** - Multi-channel customer notifications
+- **Activity Tracking** - Customer interaction logging
+- **Guardian Approvals** - Minor consent management
 
 ---
 
-## 📡 **API Endpoints**
+## **API Endpoints**
 
-### **🎯 TMF Forum API Implementation**
+### **TMF Forum API Implementation**
 
 #### **TMF632 - Party Privacy Management (100% Compliant)**
 
@@ -343,7 +327,7 @@ GET    /event                            # List events
 GET    /event/{id}                       # Retrieve event
 ```
 
-### **📊 Extended API Endpoints**
+### **Extended API Endpoints**
 
 #### **Authentication & Authorization**
 ```http
@@ -374,7 +358,7 @@ GET    /api/v1/analytics/compliance      # Compliance reports
 
 ---
 
-## 🚀 **Quick Start**
+## **Quick Start**
 
 ### **Prerequisites**
 ```bash
@@ -384,7 +368,7 @@ MongoDB Atlas account
 Git
 ```
 
-### **🔧 Installation & Setup**
+### **Installation & Setup**
 
 #### **1. Clone Repository**
 ```bash
@@ -454,7 +438,7 @@ npm run start:preference
 npm run dev:all
 ```
 
-### **🔍 Verification**
+### **Verification**
 
 #### **Service Health Check**
 ```bash
@@ -473,9 +457,9 @@ curl http://localhost:3003/health  # Consent Service
 
 ---
 
-## ⚙️ **Configuration**
+## **Configuration**
 
-### **🔧 Environment Variables**
+### **Environment Variables**
 
 #### **Database Configuration**
 ```bash
@@ -544,7 +528,7 @@ HELMET_ENABLED=true
 HTTPS_REDIRECT=false  # Set to true in production
 ```
 
-### **📊 Monitoring Configuration**
+### **Monitoring Configuration**
 
 #### **Logging Configuration**
 ```bash
@@ -573,9 +557,9 @@ HEALTH_CHECK_INTERVAL=30s
 
 ---
 
-## 🔒 **Security**
+## **Security**
 
-### **🛡️ Authentication & Authorization**
+### **Authentication & Authorization**
 
 #### **JWT Token Security**
 - **Algorithm**: HMAC SHA-256 (HS256)
@@ -609,7 +593,7 @@ app.use('/api/v1', rateLimiter({
 }));
 ```
 
-### **🔐 Data Protection**
+### **Data Protection**
 
 #### **Encryption Standards**
 - **Data at Rest**: AES-256 encryption
@@ -633,7 +617,7 @@ app.use(mongoSanitize()); // NoSQL injection prevention
 app.use(xss()); // XSS protection
 ```
 
-### **🚫 Security Headers & Protection**
+### **Security Headers & Protection**
 
 #### **Helmet.js Security Headers**
 ```javascript
@@ -662,9 +646,9 @@ app.use(cors({
 
 ---
 
-## 📊 **Monitoring**
+## **Monitoring**
 
-### **📈 Health Monitoring**
+### **Health Monitoring**
 
 #### **Service Health Checks**
 ```javascript
@@ -700,7 +684,7 @@ mongoose.connection.on('disconnected', () => {
 });
 ```
 
-### **📊 Performance Metrics**
+### **Performance Metrics**
 
 #### **Application Metrics**
 - **Request Rate**: Requests per second
@@ -715,7 +699,7 @@ mongoose.connection.on('disconnected', () => {
 - **Database Performance**: Query execution times
 - **Network I/O**: Inbound and outbound traffic
 
-### **📋 Logging & Audit Trail**
+### **Logging & Audit Trail**
 
 #### **Winston Logger Configuration**
 ```javascript
@@ -746,9 +730,9 @@ const logger = winston.createLogger({
 
 ---
 
-## 🚀 **Deployment**
+## **Deployment**
 
-### **🌐 Production Deployment**
+### **Production Deployment**
 
 #### **Docker Deployment**
 
@@ -885,7 +869,7 @@ spec:
           periodSeconds: 5
 ```
 
-### **☁️ Cloud Deployment Options**
+### **Cloud Deployment Options**
 
 #### **AWS Deployment**
 - **ECS/Fargate**: Containerized microservices
@@ -908,7 +892,7 @@ spec:
 - **Cosmos DB**: Multi-model database
 - **Azure Monitor**: Application insights
 
-### **🔧 CI/CD Pipeline**
+### **CI/CD Pipeline**
 
 #### **GitHub Actions Workflow**
 ```yaml
@@ -961,9 +945,9 @@ jobs:
 
 ---
 
-## 📚 **Documentation**
+## **Documentation**
 
-### **📖 API Documentation**
+### **API Documentation**
 
 #### **OpenAPI 3.0 Specification**
 - **Interactive Docs**: http://localhost:3001/api-docs
@@ -992,7 +976,7 @@ jobs:
 }
 ```
 
-### **🏗️ Architecture Documentation**
+### **Architecture Documentation**
 
 #### **Service Architecture Diagrams**
 - **System Overview**: High-level architecture
@@ -1008,7 +992,7 @@ jobs:
 - **Pagination**: Cursor-based pagination implementation
 - **Versioning**: URL path versioning strategy
 
-### **📋 Operational Documentation**
+### **Operational Documentation**
 
 #### **Deployment Guides**
 - **Local Development Setup**: Complete setup instructions
@@ -1024,9 +1008,7 @@ jobs:
 
 ---
 
-## 🤝 **Contributing**
-
-### **🛠️ Development Guidelines**
+### **Development Guidelines**
 
 #### **Code Standards**
 - **JavaScript Style**: ESLint + Prettier configuration
@@ -1054,7 +1036,7 @@ test: add unit tests for preference service
 refactor: optimize database connection pooling
 ```
 
-### **🔧 Development Setup**
+### **Development Setup**
 
 #### **Local Development Environment**
 ```bash
@@ -1087,7 +1069,7 @@ npm run test:coverage
 cd backend/auth-service && npm test
 ```
 
-### **📋 Pull Request Process**
+### **Pull Request Process**
 
 1. **Create Feature Branch**
 ```bash
@@ -1116,7 +1098,7 @@ git commit -m "feat: implement your feature"
 
 ---
 
-### **🔧 Maintenance Schedule**
+### **Maintenance Schedule**
 
 #### **Regular Maintenance**
 - **Security Updates**: Monthly security patch updates
@@ -1134,35 +1116,35 @@ git commit -m "feat: implement your feature"
 
 ---
 
-## 🏆 **Achievement Summary**
+## **Achievement Summary**
 
-### **✅ Technical Excellence**
+### **Technical Excellence**
 
 ConsentHub Backend represents a comprehensive microservices ecosystem that delivers:
 
-- **✅ Complete TMF Forum Compliance** - TMF632, TMF641, TMF669 implementation
-- **✅ Enterprise-Grade Security** - JWT authentication, RBAC, encryption
-- **✅ Scalable Architecture** - 14 microservices with clear separation of concerns
-- **✅ Production-Ready Infrastructure** - Docker, Kubernetes, CI/CD ready
-- **✅ Comprehensive API Coverage** - 200+ endpoints across all services
-- **✅ Real-time Capabilities** - WebSocket integration for live updates
-- **✅ Regulatory Compliance** - GDPR, CCPA, PDPA implementation
-- **✅ Monitoring & Observability** - Complete logging, metrics, and health checks
+- **Complete TMF Forum Compliance** - TMF632, TMF641, TMF669 implementation
+- **Enterprise-Grade Security** - JWT authentication, RBAC, encryption
+- **Scalable Architecture** - 14 microservices with clear separation of concerns
+- **Production-Ready Infrastructure** - Docker, Kubernetes, CI/CD ready
+- **Comprehensive API Coverage** - 200+ endpoints across all services
+- **Real-time Capabilities** - WebSocket integration for live updates
+- **Regulatory Compliance** - GDPR, CCPA, PDPA implementation
+- **Monitoring & Observability** - Complete logging, metrics, and health checks
 
-### **🌟 Innovation Highlights**
+### **Innovation Highlights**
 
-- **🚀 Microservices Excellence** - Domain-driven design with clear service boundaries
-- **🔒 Security-First Approach** - Zero-trust architecture with comprehensive protection
-- **📊 Real-time Processing** - Event-driven architecture with instant notifications
-- **🌍 Multi-tenant Ready** - Scalable design for multiple organizations
-- **🛡️ Compliance Automation** - Automated GDPR, CCPA compliance workflows
-- **📈 Performance Optimized** - Efficient database queries and caching strategies
+- **Microservices Excellence** - Domain-driven design with clear service boundaries
+- **Security-First Approach** - Zero-trust architecture with comprehensive protection
+- **Real-time Processing** - Event-driven architecture with instant notifications
+- **Multi-tenant Ready** - Scalable design for multiple organizations
+- **Compliance Automation** - Automated GDPR, CCPA compliance workflows
+- **Performance Optimized** - Efficient database queries and caching strategies
 
 ---
 
 <div align="center">
 
-**🌟 Enterprise-Grade Microservices Architecture**
+**Enterprise-Grade Microservices Architecture**
 
 [![Node.js](https://img.shields.io/badge/Node.js-18.0+-green.svg)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-5.0+-blue.svg)](https://expressjs.com/)
