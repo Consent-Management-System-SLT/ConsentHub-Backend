@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -60,6 +60,8 @@ const corsOptions = {
   origin: [
     'https://consent-management-system-api.vercel.app',
     'https://consenthub-backend.onrender.com',
+    'https://cinsent-hub.vercel.app',
+    'https://consent-hub.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:5173',

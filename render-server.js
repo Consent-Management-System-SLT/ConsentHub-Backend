@@ -358,6 +358,8 @@ app.use(helmet({
 app.use(cors({
   origin: [
     'https://consent-management-system-api.vercel.app',
+    'https://cinsent-hub.vercel.app',
+    'https://consent-hub.vercel.app',
     'http://localhost:3000',
     'http://localhost:5173',
     'http://localhost:4173'
