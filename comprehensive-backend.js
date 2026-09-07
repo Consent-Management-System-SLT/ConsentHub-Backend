@@ -39,6 +39,8 @@ const io = socketIo(server, {
     origin: [
       "https://consent-management-system-api.vercel.app",
       "https://consenthub-backend.onrender.com",
+      "https://cinsent-hub.vercel.app",
+      "https://consent-hub.vercel.app",
       "http://localhost:5173", 
       "http://localhost:5174", 
       "http://localhost:3000",
