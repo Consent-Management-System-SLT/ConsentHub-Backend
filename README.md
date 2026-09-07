@@ -1152,7 +1152,7 @@ ConsentHub Backend represents a comprehensive microservices ecosystem that deliv
 [![JWT](https://img.shields.io/badge/JWT-Authentication-orange.svg)](https://jwt.io/)
 [![TMF Forum](https://img.shields.io/badge/TMF%20Forum-Compliant-blue.svg)](https://www.tmforum.org/)
 
-**SLT Mobitel ConsentHub Team** 🇱🇰
+**SLT Mobitel ConsentHub Team** 
 
 ---
 

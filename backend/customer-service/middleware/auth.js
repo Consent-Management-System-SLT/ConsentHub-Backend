@@ -6,18 +6,18 @@ const authenticateCustomer = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
-    console.log('🔍 VAS Auth Debug: Authorization header:', authHeader ? 'Present' : 'Missing');
+    console.log(' VAS Auth Debug: Authorization header:', authHeader ? 'Present' : 'Missing');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ VAS Auth: No Bearer token provided');
+      console.log(' VAS Auth: No Bearer token provided');
       return res.status(401).json({
         error: 'Access denied. No token provided.'
       });
     }
 
     const token = authHeader.substring(7);
-    console.log('🔍 VAS Auth Debug: Token length:', token.length);
-    console.log('🔍 VAS Auth Debug: Token starts with:', token.substring(0, 20) + '...');
+    console.log(' VAS Auth Debug: Token length:', token.length);
+
     
     // Try both JWT and base64 token formats (main backend uses base64)
     try {
@@ -40,11 +40,11 @@ const authenticateCustomer = (req, res, next) => {
           if (secret) {
             try {
               decoded = jwt.verify(token, secret);
-              console.log(`✅ VAS Auth: JWT verified with secret: ${secret}`);
+              console.log(` VAS Auth: JWT verified with secret: ${secret}`);
               verificationSuccess = true;
               break;
             } catch (err) {
-              console.log(`❌ VAS Auth: JWT verification failed with secret "${secret}":`, err.message);
+              console.log(` VAS Auth: JWT verification failed with secret "${secret}":`, err.message);
             }
           }
         }
@@ -54,22 +54,22 @@ const authenticateCustomer = (req, res, next) => {
         }
       } else {
         // This is likely a base64 token (main backend format)
-        console.log('🔍 VAS Auth: Attempting base64 decode for main backend token');
+        console.log(' VAS Auth: Attempting base64 decode for main backend token');
         const payload = JSON.parse(Buffer.from(token, 'base64').toString());
         
         // Check token expiration
         if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-          console.log('❌ VAS Auth: Token has expired');
+          console.log(' VAS Auth: Token has expired');
           return res.status(401).json({
             error: 'Token has expired'
           });
         }
         
         decoded = payload;
-        console.log('✅ VAS Auth: Base64 token decoded successfully');
+        console.log(' VAS Auth: Base64 token decoded successfully');
       }
       
-      console.log('🔍 VAS Auth Debug: Decoded payload keys:', Object.keys(decoded));
+      console.log(' VAS Auth Debug: Decoded payload keys:', Object.keys(decoded));
       
       // Set customer information from the decoded token (handle both id and userId fields)
       req.customer = {
@@ -79,12 +79,12 @@ const authenticateCustomer = (req, res, next) => {
         name: decoded.name || `${decoded.firstName || ''} ${decoded.lastName || ''}`.trim()
       };
       
-      console.log(`🔐 VAS Auth: Customer ${req.customer.customerId} (${req.customer.email}) authenticated`);
+      console.log(` VAS Auth: Customer ${req.customer.customerId} (${req.customer.email}) authenticated`);
       next();
     } catch (decodeError) {
-      console.error('❌ VAS Auth: Token decode failed:', decodeError.message);
-      console.log('🔍 VAS Auth Debug: Decode Error type:', decodeError.name);
-      console.log('🔍 VAS Auth Debug: Token details:', {
+      console.error(' VAS Auth: Token decode failed:', decodeError.message);
+      console.log(' VAS Auth Debug: Decode Error type:', decodeError.name);
+      console.log(' VAS Auth Debug: Token details:', {
         tokenLength: token.length,
         tokenStart: token.substring(0, 20) + '...',
         decodedPayload: jwt.decode(token)
@@ -95,7 +95,7 @@ const authenticateCustomer = (req, res, next) => {
       });
     }
   } catch (error) {
-    console.error('❌ VAS Auth: General authentication error:', error);
+    console.error(' VAS Auth: General authentication error:', error);
     logger.error('Authentication error:', error);
     res.status(500).json({
       error: 'Authentication failed'

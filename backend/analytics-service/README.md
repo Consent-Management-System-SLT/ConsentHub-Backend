@@ -6,14 +6,14 @@ The ConsentHub Analytics Service is a comprehensive TMF669-compliant analytics a
 
 ## Features
 
-### 🎯 Core Analytics Capabilities
+###  Core Analytics Capabilities
 - **Consent Analytics Dashboard**: Real-time consent metrics, conversion rates, and purpose-based analysis
 - **Compliance Monitoring**: GDPR, CCPA, PDP compliance scoring and audit readiness
 - **Performance Tracking**: API response times, system health, and uptime monitoring
 - **Trend Analysis**: Historical trends, seasonal patterns, and predictive insights
 - **Real-time Metrics**: Live system status, active users, and current activity
 
-### 🔧 Technical Features
+###  Technical Features
 - TMF669 Event Management API compliance
 - Multi-jurisdiction support (GDPR, CCPA, PDP, PIPEDA, LGPD)
 - Automated report generation (PDF, CSV, Excel)
@@ -21,7 +21,7 @@ The ConsentHub Analytics Service is a comprehensive TMF669-compliant analytics a
 - Rate limiting and security headers
 - Comprehensive audit trails
 
-### 📊 Dashboard Components
+###  Dashboard Components
 1. **Executive Summary**: Overall compliance scores and key metrics
 2. **Consent Metrics**: Grant/revoke rates, channel performance, purpose analysis
 3. **Compliance Status**: DSAR processing times, audit readiness, regulatory scores

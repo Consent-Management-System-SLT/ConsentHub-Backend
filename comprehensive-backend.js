@@ -9061,7 +9061,7 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
 // GET /api/customer/vas/debug - Debug customer VAS status
 app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
     try {
-        console.log('🔧 Customer VAS DEBUG ENDPOINT - START');
+        console.log(' Customer VAS DEBUG ENDPOINT - START');
         
         const debugInfo = {
             user: {
@@ -9105,7 +9105,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
             debugInfo.subscriptions = { error: subError.message };
         }
         
-        console.log('🔧 Customer VAS DEBUG INFO:', JSON.stringify(debugInfo, null, 2));
+        console.log(' Customer VAS DEBUG INFO:', JSON.stringify(debugInfo, null, 2));
         
         res.json({
             success: true,
@@ -9113,7 +9113,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        console.error('🔧 Customer VAS DEBUG ERROR:', error);
+        console.error(' Customer VAS DEBUG ERROR:', error);
         res.status(500).json({
             success: false,
             error: error.message,
@@ -9374,7 +9374,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
 app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req, res) => {
     try {
         const { serviceId } = req.params;
-        console.log('🎯 Customer VAS TOGGLE - START');
+        console.log(' Customer VAS TOGGLE - START');
         console.log('   Service ID:', serviceId);
         console.log('   User ID:', req.user.id);
         console.log('   User ID Type:', typeof req.user.id);
@@ -9429,19 +9429,19 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             });
         }
         
-        console.log('🔍 Customer VAS: Service found!');
+        console.log(' Customer VAS: Service found!');
         console.log('   Service Name:', service.name);
         console.log('   Service MongoDB _id:', service._id);
         console.log('   Service ObjectId Type:', typeof service._id);
         
         // Convert user ID to ObjectId for database operations
         const userObjectId = new mongoose.Types.ObjectId(req.user.id);
-        console.log('🔑 Customer VAS: ObjectId conversion');
+        console.log(' Customer VAS: ObjectId conversion');
         console.log('   Original user ID:', req.user.id);
         console.log('   Converted ObjectId:', userObjectId);
         
         // Check current subscription status using the MongoDB ObjectId
-        console.log('🔍 Customer VAS: Checking existing subscription...');
+        console.log(' Customer VAS: Checking existing subscription...');
         const existingSubscription = await VASSubscription.findOne({
             userId: userObjectId,
             serviceId: service._id,
@@ -9449,7 +9449,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             status: 'active'
         });
         
-        console.log('📊 Customer VAS: Subscription check result:');
+        console.log(' Customer VAS: Subscription check result:');
         console.log('   Existing subscription found:', !!existingSubscription);
         if (existingSubscription) {
             console.log('   Subscription ID:', existingSubscription._id);
@@ -9458,7 +9458,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
         
         if (existingSubscription) {
             // User is subscribed, so unsubscribe
-            console.log('🔄 Customer VAS: UNSUBSCRIBING - User is currently subscribed');
+            console.log(' Customer VAS: UNSUBSCRIBING - User is currently subscribed');
             const updatedSubscription = await VASSubscription.findOneAndUpdate(
                 {
                     userId: userObjectId,
@@ -9516,7 +9516,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             // Notify customer's personal room
             io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
             
-            console.log('✅ Customer VAS: UNSUBSCRIBE COMPLETED');
+            console.log(' Customer VAS: UNSUBSCRIBE COMPLETED');
             console.log('   Updated subscription ID:', updatedSubscription._id);
             console.log('   Final isSubscribed status:', updatedSubscription.isSubscribed);
             
@@ -9531,7 +9531,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             });
         } else {
             // User is not subscribed, so subscribe
-            console.log('🔄 Customer VAS: SUBSCRIBING - User is not currently subscribed');
+            console.log(' Customer VAS: SUBSCRIBING - User is not currently subscribed');
             if (!service) {
                 return res.status(404).json({
                     success: false,
@@ -9540,13 +9540,13 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             }
             
             // Check if subscription record exists but is disabled
-            console.log('🔍 Customer VAS: Checking for existing disabled subscription...');
+            console.log(' Customer VAS: Checking for existing disabled subscription...');
             const existingRecord = await VASSubscription.findOne({
                 userId: userObjectId,
                 serviceId: service._id
             });
             
-            console.log('📊 Customer VAS: Existing record check:');
+            console.log(' Customer VAS: Existing record check:');
             console.log('   Record found:', !!existingRecord);
             if (existingRecord) {
                 console.log('   Record ID:', existingRecord._id);
@@ -9555,7 +9555,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             
             if (existingRecord) {
                 // Update existing record
-                console.log('🔄 Customer VAS: REACTIVATING existing subscription record');
+                console.log(' Customer VAS: REACTIVATING existing subscription record');
                 const updatedSubscription = await VASSubscription.findOneAndUpdate(
                     {
                         userId: userObjectId,
@@ -9619,7 +9619,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 // Notify customer's personal room
                 io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
                 
-                console.log('✅ Customer VAS: REACTIVATION COMPLETED');
+                console.log(' Customer VAS: REACTIVATION COMPLETED');
                 console.log('   Updated subscription ID:', updatedSubscription._id);
                 console.log('   Final isSubscribed status:', updatedSubscription.isSubscribed);
                 
@@ -9659,7 +9659,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 
                 await subscription.save();
                 
-                console.log('💾 Customer VAS: New subscription saved to database');
+                console.log(' Customer VAS: New subscription saved to database');
                 console.log('   Subscription ID:', subscription._id);
                 console.log('   User ID in record:', subscription.userId);
                 console.log('   Service ID in record:', subscription.serviceId);
@@ -9698,7 +9698,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
                 // Notify customer's personal room
                 io.to(`customer-${req.user.id}`).emit('vasSubscriptionUpdate', updateData);
                 
-                console.log('✅ Customer VAS: NEW SUBSCRIPTION COMPLETED');
+                console.log(' Customer VAS: NEW SUBSCRIPTION COMPLETED');
                 console.log('   Final subscription ID:', subscription._id);
                 console.log('   Final isSubscribed status:', subscription.isSubscribed);
                 
@@ -9714,7 +9714,7 @@ app.post("/api/customer/vas/services/:serviceId/toggle", verifyToken, async (req
             }
         }
     } catch (error) {
-        console.error('❌ Customer VAS TOGGLE ERROR - DETAILED DEBUG:');
+        console.error(' Customer VAS TOGGLE ERROR - DETAILED DEBUG:');
         console.error('   Error message:', error.message);
         console.error('   Error name:', error.name);
         console.error('   Error stack:', error.stack);
@@ -10265,7 +10265,7 @@ app.post("/api/admin/vas/services", verifyToken, async (req, res) => {
             priceNumeric = parseFloat(cleanPrice) || 0;
         }
         
-        console.log(`🔧 Price parsing: "${price}" → ${priceNumeric}`);
+        console.log(` Price parsing: "${price}" → ${priceNumeric}`);
         
         const serviceData = {
             name: name.trim(),
