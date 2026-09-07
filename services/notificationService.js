@@ -10,7 +10,7 @@ class NotificationService {
   // Initialize email transporter with Gmail SMTP
   initializeEmailTransporter() {
     try {
-      this.emailTransporter = nodemailer.createTransporter({
+      this.emailTransporter = nodemailer.createTransport({
         service: 'gmail',
         host: 'smtp.gmail.com',
         port: 587,
