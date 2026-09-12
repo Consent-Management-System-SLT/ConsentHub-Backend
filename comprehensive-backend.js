@@ -12426,9 +12426,11 @@ server.listen(PORT, async () => {
     console.log('     GET  /api/v1/compliance-rules/stats');
     console.log('');
     console.log(' Demo Users:');
-    console.log('   admin@sltmobitel.lk / admin123 (Admin)');
-    console.log('   csr@sltmobitel.lk / csr123 (CSR)');
-    console.log('   customer@sltmobitel.lk / customer123 (Customer)');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('   admin@sltmobitel.lk / admin123 (Admin)');
+      console.log('   csr@sltmobitel.lk / csr123 (CSR)');
+      console.log('   customer@sltmobitel.lk / customer123 (Customer)');
+    }
     console.log('');
     console.log(' Features:');
     console.log('    User Authentication & Registration');

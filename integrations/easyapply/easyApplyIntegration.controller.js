@@ -29,12 +29,13 @@ const logAudit = async (action, description, entityType, entityId, metadata = {}
 
 const resolveParty = async (req, res) => {
   try {
-    const { sourceSystem, externalCustomerId, name, phone, email } = req.body;
+    const { externalCustomerId, name, phone, email } = req.body;
+    const sourceSystem = 'EASYAPPLY';
 
-    if (!sourceSystem || !externalCustomerId) {
+    if (!externalCustomerId) {
       return res.status(400).json({
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'sourceSystem and externalCustomerId are required' }
+        error: { code: 'VALIDATION_ERROR', message: 'externalCustomerId is required' }
       });
     }
 
@@ -139,11 +140,6 @@ const getActivePrivacyNotice = async (req, res) => {
     }
 
     let notice = await PrivacyNotice.findOne(filter).sort({ effectiveDate: -1 });
-    
-    // Fallback if not found with service type
-    if (!notice && serviceType) {
-      notice = await PrivacyNotice.findOne({ status: 'active', language }).sort({ effectiveDate: -1 });
-    }
 
     if (!notice) {
       return res.status(404).json({
