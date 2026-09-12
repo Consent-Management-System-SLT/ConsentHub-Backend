@@ -133,6 +133,7 @@ const resolveParty = async (req, res) => {
 const getActivePrivacyNotice = async (req, res) => {
   try {
     const { serviceType, language = 'en' } = req.query;
+    console.log(`[EasyApplyIntegration] GET /privacy-notices/active serviceType=${serviceType || '(none)'} language=${language}`);
     
     let filter = { status: 'active', language };
     if (serviceType) {
@@ -142,12 +143,14 @@ const getActivePrivacyNotice = async (req, res) => {
     let notice = await PrivacyNotice.findOne(filter).sort({ effectiveDate: -1 });
 
     if (!notice) {
+      console.log(`[EasyApplyIntegration] No active privacy notice found for serviceType=${serviceType || '(none)'} language=${language}`);
       return res.status(404).json({
         success: false,
         error: { code: 'PRIVACY_NOTICE_NOT_FOUND', message: 'No active privacy notice was found.' }
       });
     }
 
+    console.log(`[EasyApplyIntegration] Found notice: id=${notice.noticeId} version=${notice.version}`);
     return res.status(200).json({
       success: true,
       data: {

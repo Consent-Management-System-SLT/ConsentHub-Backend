@@ -114,9 +114,24 @@ app.use('/api/csr', (req, res, next) => {
 
 app.use(express.json());
 
-// Mount EasyApply Integration Routes
-const easyApplyRoutes = require('./integrations/easyapply/easyApplyIntegration.routes');
-app.use('/api/v1/integrations/easyapply', easyApplyRoutes);
+// Trust proxy for Render (fixes IP detection for rate limiting behind proxy)
+app.set('trust proxy', 1);
+
+// Dedicated high-capacity rate limiter for EasyApply integration
+const { rateLimit: _rateLimit } = (() => {
+  try { return require('express-rate-limit'); } catch(e) { return { rateLimit: () => (r,s,n) => n() }; }
+})();
+const integrationRateLimiter = _rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Mount EasyApply Integration Routes — BEFORE global rate limiter and 404 handler
+const easyApplyIntegrationRoutes = require('./integrations/easyapply/easyApplyIntegration.routes');
+app.use('/api/v1/integrations/easyapply', integrationRateLimiter, easyApplyIntegrationRoutes);
+console.log('[ConsentHub] EasyApply integration routes mounted at /api/v1/integrations/easyapply');
 
 // In-memory database for demo (in production, use MongoDB)
 let users = [
@@ -12424,6 +12439,14 @@ server.listen(PORT, async () => {
     console.log('     PUT  /api/v1/compliance-rules/:id');
     console.log('     DELETE /api/v1/compliance-rules/:id');
     console.log('     GET  /api/v1/compliance-rules/stats');
+    console.log('   EASYAPPLY INTEGRATION:');
+    console.log('     GET  /api/v1/integrations/easyapply/health');
+    console.log('     POST /api/v1/integrations/easyapply/parties/resolve');
+    console.log('     GET  /api/v1/integrations/easyapply/privacy-notices/active');
+    console.log('     POST /api/v1/integrations/easyapply/consents');
+    console.log('     GET  /api/v1/integrations/easyapply/parties/:externalCustomerId/consents');
+    console.log('     PATCH /api/v1/integrations/easyapply/consents/:consentId');
+    console.log('     PATCH /api/v1/integrations/easyapply/consents/:consentId/revoke');
     console.log('');
     console.log(' Demo Users:');
     if (process.env.NODE_ENV !== 'production') {
