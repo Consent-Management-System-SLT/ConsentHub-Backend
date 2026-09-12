@@ -264,7 +264,7 @@ if (!validateRequiredEnvVars(requiredEnvVars)) {
 }
 
 console.log(' Security: Using encrypted environment variables');
-console.log(' JWT Secret:', maskForLogging(JWT_SECRET));
+console.log(' JWT Secret:', JWT_SECRET ? 'configured' : 'NOT CONFIGURED - server will reject all authenticated requests');
 
 function generateToken(user) {
     const payload = { 
@@ -955,17 +955,68 @@ async function ensureDefaultPrivacyNotices() {
         }
     ];
 
+    // EasyApply integration notices — must have applicableServices set
+    const easyApplyNotices = [
+        {
+            noticeId: 'PN-EASYAPPLY-NC-001',
+            title: 'SLT Mobitel New Connection Privacy Notice',
+            description: 'Privacy notice for customers applying for a new SLT Mobitel fixed-line or broadband connection via EasyApply.',
+            content: 'By submitting your application for a new SLT Mobitel connection, you consent to the collection and processing of your personal information (name, NIC, address, contact details) for the purpose of service provisioning, identity verification, credit assessment, and regulatory compliance. Your information will be retained for the duration of your service contract and for 7 years thereafter as required by telecommunications regulations. You have the right to access, correct, or request deletion of your data by contacting privacy@sltmobitel.lk.',
+            contentType: 'text/plain',
+            version: '1.0',
+            category: 'general',
+            purposes: ['service_delivery', 'identity_verification', 'legal_compliance', 'credit_assessment'],
+            legalBasis: 'contract',
+            dataCategories: ['personal_data', 'financial_data', 'communication_data'],
+            recipients: [
+                { name: 'SLT Mobitel', category: 'internal', purpose: 'Service Provisioning' },
+                { name: 'Regulatory Authorities', category: 'government', purpose: 'Legal Compliance' }
+            ],
+            retentionPeriod: {
+                duration: '7 years',
+                criteria: 'Telecommunications regulatory requirement'
+            },
+            rights: ['access', 'rectification', 'erasure', 'portability', 'objection'],
+            contactInfo: {
+                dpo: { name: 'Data Protection Officer', email: 'dpo@sltmobitel.lk', phone: '+94112575000' },
+                organization: { name: 'SLT Mobitel', email: 'privacy@sltmobitel.lk', phone: '+94112575000', address: 'Lotus Road, Colombo 01, Sri Lanka' }
+            },
+            effectiveDate: new Date('2024-01-01T00:00:00Z'),
+            expirationDate: null,
+            status: 'active',
+            language: 'en',
+            jurisdiction: 'Sri Lanka',
+            applicableRegions: ['sri_lanka'],
+            applicableLaws: ['Personal Data Protection Act', 'Telecommunications Regulatory Commission Act'],
+            applicableServices: ['new-connection'],
+            nextReviewDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            metadata: {
+                author: 'legal@sltmobitel.lk',
+                tags: ['easyapply', 'new-connection', 'pdp', 'privacy'],
+                changeLog: [{ version: '1.0', changes: 'Initial EasyApply new connection privacy notice', author: 'legal@sltmobitel.lk', date: new Date('2024-01-01T00:00:00Z') }]
+            }
+        }
+    ];
+
     // Check and create default notices if they don't exist
-    for (const notice of defaultNotices) {
+    for (const notice of [...defaultNotices, ...easyApplyNotices]) {
         try {
             const existingNotice = await PrivacyNotice.findOne({ noticeId: notice.noticeId });
             if (!existingNotice) {
                 const newNotice = new PrivacyNotice(notice);
                 await newNotice.save();
                 console.log(` Created default privacy notice: ${notice.title}`);
+            } else if (existingNotice.applicableServices !== undefined &&
+                       notice.applicableServices &&
+                       existingNotice.applicableServices.length === 0 &&
+                       notice.applicableServices.length > 0) {
+                // Patch missing applicableServices on an already-seeded notice
+                existingNotice.applicableServices = notice.applicableServices;
+                await existingNotice.save();
+                console.log(` Updated applicableServices on notice: ${notice.title}`);
             }
         } catch (error) {
-            console.log(` Failed to create privacy notice ${notice.title}: ${error.message}`);
+            console.log(` Failed to create/update privacy notice ${notice.title}: ${error.message}`);
         }
     }
 }
