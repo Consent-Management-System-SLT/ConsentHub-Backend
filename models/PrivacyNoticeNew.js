@@ -103,6 +103,7 @@ const privacyNoticeSchema = new mongoose.Schema({
     default: 'sri_lanka'
   }],
   applicableLaws: [String],
+  applicableServices: [{ type: String }],
   lastReviewDate: Date,
   nextReviewDate: Date,
   acknowledgments: [{

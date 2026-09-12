@@ -114,6 +114,10 @@ app.use('/api/csr', (req, res, next) => {
 
 app.use(express.json());
 
+// Mount EasyApply Integration Routes
+const easyApplyRoutes = require('./integrations/easyapply/easyApplyIntegration.routes');
+app.use('/api/v1/integrations/easyapply', easyApplyRoutes);
+
 // In-memory database for demo (in production, use MongoDB)
 let users = [
     { 
