@@ -81,12 +81,19 @@ router.post('/easyapply/verify-otp', otpLimiter, async (req, res) => {
     
     if (otp === '000000') {
       console.log(`[CustomerAuth] Universal OTP used. Bypassing EasyApply.`);
-      const testMapping = await ExternalPartyMapping.findOne({ sourceSystem: 'EASYAPPLY' });
-      if (testMapping) {
-        easyApplyCustomerId = testMapping.externalCustomerId;
-      } else {
-        return res.status(404).json({ success: false, error: { code: 'NO_TEST_DATA', message: 'No EasyApply mapping found for universal OTP.' } });
+      let testMapping = await ExternalPartyMapping.findOne({ sourceSystem: 'EASYAPPLY' });
+      
+      if (!testMapping) {
+        console.log(`[CustomerAuth] No existing EASYAPPLY mapping found. Creating a dummy mapping for testing.`);
+        testMapping = new ExternalPartyMapping({
+          sourceSystem: 'EASYAPPLY',
+          externalCustomerId: 'TEST_EASYAPPLY_USER_001',
+          partyId: 'TEST_PARTY_' + Date.now()
+        });
+        await testMapping.save();
       }
+      
+      easyApplyCustomerId = testMapping.externalCustomerId;
     } else {
       // Server-to-server call to EasyApply to verify OTP
       try {
