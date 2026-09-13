@@ -133,6 +133,14 @@ const easyApplyIntegrationRoutes = require('./integrations/easyapply/easyApplyIn
 app.use('/api/v1/integrations/easyapply', integrationRateLimiter, easyApplyIntegrationRoutes);
 console.log('[ConsentHub] EasyApply integration routes mounted at /api/v1/integrations/easyapply');
 
+// Mount Customer Authentication & Consent Routes
+const customerAuthRoutes = require('./backend/customer-service/routes/customerAuthRoutes');
+const customerConsentRoutes = require('./backend/customer-service/routes/customerConsentRoutes');
+
+app.use('/api/v1/customer-auth', customerAuthRoutes);
+app.use('/api/v1/customer', customerConsentRoutes);
+console.log('[ConsentHub] Customer portal routes mounted at /api/v1/customer-auth and /api/v1/customer');
+
 // In-memory database for demo (in production, use MongoDB)
 let users = [
     { 
