@@ -20,9 +20,9 @@ const otpLimiter = rateLimit({
   }
 });
 
-// Mock/Assume EasyApply Backend URL
-const EASYAPPLY_API_URL = process.env.EASYAPPLY_API_URL || 'http://localhost:5000';
-const EASYAPPLY_API_KEY = process.env.EASYAPPLY_API_KEY || 'easyapply-mock-key';
+// Use environment variables for EasyApply integration
+const EASYAPPLY_API_URL = process.env.EASYAPPLY_API_URL;
+const EASYAPPLY_API_KEY = process.env.EASYAPPLY_API_KEY;
 
 // POST /api/v1/customer-auth/easyapply/request-otp
 router.post('/easyapply/request-otp', otpLimiter, async (req, res) => {
@@ -33,21 +33,31 @@ router.post('/easyapply/request-otp', otpLimiter, async (req, res) => {
       return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'mobileNumber is required' } });
     }
 
+    if (!EASYAPPLY_API_URL || !EASYAPPLY_API_KEY) {
+       console.error('[CustomerAuth] Missing EASYAPPLY_API_URL or EASYAPPLY_API_KEY configuration');
+       return res.status(500).json({ success: false, error: { code: 'CONFIGURATION_ERROR', message: 'System configuration error' } });
+    }
+
     // Call EasyApply backend to request OTP
-    console.log(`[CustomerAuth] Requesting OTP for ${mobileNumber} via EasyApply`);
+    console.log(`[CustomerAuth] Requesting OTP for ${mobileNumber} via EasyApply (${EASYAPPLY_API_URL}/api/integrations/consenthub/auth/request-otp)`);
     
     // Server-to-server call to EasyApply
     try {
-      const response = await axios.post(`${EASYAPPLY_API_URL}/api/otp/request`, { mobileNumber }, {
-        headers: { 'Authorization': `Bearer ${EASYAPPLY_API_KEY}` }
+      const response = await axios.post(`${EASYAPPLY_API_URL}/api/integrations/consenthub/auth/request-otp`, { mobileNumber }, {
+        headers: { 
+          'Authorization': `Bearer ${EASYAPPLY_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
       });
-      console.log('[CustomerAuth] EasyApply OTP Request Success');
+      console.log(`[CustomerAuth] EasyApply OTP Request Success (Status: ${response.status})`);
     } catch (err) {
       // In a real scenario, we handle failure, but to prevent enumeration we might always return 200 to the client
-      console.error('[CustomerAuth] EasyApply OTP Request Failed:', err.message);
-      // For this phase, if EasyApply says user not found, we reject it
+      console.error('[CustomerAuth] EasyApply OTP Request Failed:', err.message, err.response?.status);
+      
       if (err.response && err.response.status === 404) {
         return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Customer not found in EasyApply' } });
+      } else if (err.response && err.response.status === 429) {
+        return res.status(429).json({ success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests to EasyApply' } });
       }
       return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to request OTP' } });
     }
@@ -74,12 +84,16 @@ router.post('/easyapply/verify-otp', otpLimiter, async (req, res) => {
     
     // Server-to-server call to EasyApply to verify OTP
     try {
-      const response = await axios.post(`${EASYAPPLY_API_URL}/api/otp/verify`, { mobileNumber, otp }, {
-        headers: { 'Authorization': `Bearer ${EASYAPPLY_API_KEY}` }
+      const response = await axios.post(`${EASYAPPLY_API_URL}/api/integrations/consenthub/auth/verify-otp`, { mobileNumber, otp }, {
+        headers: { 
+          'Authorization': `Bearer ${EASYAPPLY_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
       });
-      easyApplyCustomerId = response.data.customerId;
+      console.log(`[CustomerAuth] EasyApply OTP Verify Success (Status: ${response.status})`);
+      easyApplyCustomerId = response.data?.customer?.externalCustomerId;
     } catch (err) {
-      console.error('[CustomerAuth] EasyApply OTP Verify Failed:', err.message);
+      console.error('[CustomerAuth] EasyApply OTP Verify Failed:', err.message, err.response?.status);
       return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: 'Invalid or expired OTP' } });
     }
 
@@ -92,7 +106,7 @@ router.post('/easyapply/verify-otp', otpLimiter, async (req, res) => {
     
     if (!mapping) {
       console.log(`[CustomerAuth] No mapping found for EasyApply customer ${easyApplyCustomerId}`);
-      return res.status(404).json({ success: false, error: { code: 'MAPPING_NOT_FOUND', message: 'Customer account found, but no consent records associated.' } });
+      return res.status(404).json({ success: false, error: { code: 'CUSTOMER_MAPPING_NOT_FOUND', message: 'Customer account found, but no consent records associated.' } });
     }
 
     const sessionId = crypto.randomUUID();
@@ -128,14 +142,11 @@ router.post('/easyapply/verify-otp', otpLimiter, async (req, res) => {
 
 // POST /api/v1/customer-auth/logout
 router.post('/logout', customerAuth, (req, res) => {
-  // In a stateless JWT setup, logout is handled client-side by destroying the token
-  // If we had a token blacklist/session store, we would invalidate the token here
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 });
 
 // GET /api/v1/customer-auth/me
 router.get('/me', customerAuth, (req, res) => {
-  // Return basic customer session info
   res.status(200).json({
     success: true,
     data: req.customer

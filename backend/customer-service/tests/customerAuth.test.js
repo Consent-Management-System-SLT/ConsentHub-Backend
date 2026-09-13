@@ -15,11 +15,13 @@ describe('Customer Auth Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.JWT_SECRET = 'test-secret';
+    process.env.EASYAPPLY_API_URL = 'https://easy-apply-backend-23r5.onrender.com';
+    process.env.EASYAPPLY_API_KEY = 'test-secret-key';
   });
 
   describe('POST /api/v1/customer-auth/easyapply/request-otp', () => {
     it('should request OTP successfully', async () => {
-      axios.post.mockResolvedValueOnce({ data: { success: true } });
+      axios.post.mockResolvedValueOnce({ status: 200, data: { success: true } });
 
       const response = await request(app)
         .post('/api/v1/customer-auth/easyapply/request-otp')
@@ -28,16 +30,30 @@ describe('Customer Auth Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(axios.post).toHaveBeenCalledWith(
-        expect.stringContaining('/api/otp/request'),
+        'https://easy-apply-backend-23r5.onrender.com/api/integrations/consenthub/auth/request-otp',
         { mobileNumber: '0771234567' },
-        expect.any(Object)
+        expect.objectContaining({
+          headers: {
+            'Authorization': 'Bearer test-secret-key',
+            'Content-Type': 'application/json'
+          }
+        })
       );
     });
   });
 
   describe('POST /api/v1/customer-auth/easyapply/verify-otp', () => {
     it('should verify OTP and return token', async () => {
-      axios.post.mockResolvedValueOnce({ data: { customerId: 'EA-123' } });
+      axios.post.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          success: true,
+          customer: {
+            externalCustomerId: 'EA-123',
+            mobileNumber: '0771234567'
+          }
+        }
+      });
       ExternalPartyMapping.findOne.mockResolvedValueOnce({
         partyId: 'PARTY-456',
         sourceSystem: 'EASYAPPLY',
@@ -55,7 +71,7 @@ describe('Customer Auth Routes', () => {
     });
 
     it('should fail if EasyApply verification fails', async () => {
-      axios.post.mockRejectedValueOnce(new Error('Invalid OTP'));
+      axios.post.mockRejectedValueOnce(Object.assign(new Error('Invalid OTP'), { response: { status: 401 } }));
 
       const response = await request(app)
         .post('/api/v1/customer-auth/easyapply/verify-otp')
