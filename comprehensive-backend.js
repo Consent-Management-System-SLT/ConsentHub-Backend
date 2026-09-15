@@ -10,6 +10,7 @@ const mongoose = require("mongoose");
 require('dotenv').config();
 const { getSecureEnvVar, validateRequiredEnvVars, maskForLogging } = require('./utils/envEncryption');
 const connectDB = require('./config/database');
+const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Consent = require('./models/Consent');
 const PrivacyNotice = require('./models/PrivacyNoticeNew');
@@ -247,50 +248,17 @@ if (!validateRequiredEnvVars(requiredEnvVars)) {
 console.log(' Security: Using encrypted environment variables');
 console.log(' JWT Secret:', maskForLogging(JWT_SECRET));
 
+const { verifyToken, requireRole } = require('./utils/authMiddleware');
+
 function generateToken(user) {
     const payload = { 
-        id: user.id, 
+        id: user.id || user._id, 
         email: user.email, 
         role: user.role, 
         name: user.name,
-        phone: user.phone,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+        phone: user.phone
     };
-    return Buffer.from(JSON.stringify(payload)).toString("base64");
-}
-
-function verifyToken(req, res, next) {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            error: true,
-            message: 'No valid token provided'
-        });
-    }
-    
-    try {
-        const token = authHeader.substring(7);
-        const payload = JSON.parse(Buffer.from(token, 'base64').toString());
-        
-        // Check token expiration
-        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-            return res.status(401).json({
-                error: true,
-                message: 'Token has expired'
-            });
-        }
-        
-        req.user = payload;
-        next();
-    } catch (error) {
-        console.error('Token verification error:', error);
-        return res.status(401).json({
-            error: true,
-            message: 'Invalid token format'
-        });
-    }
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 }
 
 // VAS Initialization Function
@@ -7065,6 +7033,13 @@ app.post("/api/v1/auth/login", async (req, res) => {
             });
         }
 
+        if (user.role === 'enterprise' && user.isActivated === false) {
+            return res.status(401).json({ 
+                error: true, 
+                message: "Account pending activation" 
+            });
+        }
+
         // Update last login with detailed logging
         const oldLastLogin = user.lastLoginAt;
         const currentTime = new Date();
@@ -7079,7 +7054,26 @@ app.post("/api/v1/auth/login", async (req, res) => {
         const saveResult = await user.save();
         console.log(` User ${user.email} lastLoginAt saved:`, saveResult.lastLoginAt);
         
-        const token = generateToken({ id: user._id, email: user.email, role: user.role });
+        let tokenPayload = { id: user._id, email: user.email, role: user.role };
+        let organizationStatus = 'ACTIVE';
+
+        if (user.role === 'enterprise') {
+            const EnterpriseUser = require('./models/EnterpriseUser');
+            const eu = await EnterpriseUser.findOne({ userId: user._id }).populate('organizationId');
+            if (eu && eu.organizationId) {
+                organizationStatus = eu.organizationId.status;
+                if (organizationStatus !== 'ACTIVE') {
+                    // Block login for unapproved enterprises
+                    return res.status(403).json({
+                        error: true,
+                        message: `Enterprise login blocked. Organization status: ${organizationStatus}.`
+                    });
+                }
+                tokenPayload.organizationId = eu.organizationId._id.toString();
+            }
+        }
+
+        const token = generateToken(tokenPayload);
         console.log("Login successful:", user.email, "Role:", user.role);
         
         res.json({
@@ -7101,7 +7095,8 @@ app.post("/api/v1/auth/login", async (req, res) => {
         console.error('Login error:', error);
         res.status(500).json({
             error: true,
-            message: 'Internal server error'
+            message: 'Internal server error: ' + error.message,
+            stack: error.stack
         });
     }
 });
@@ -13202,21 +13197,25 @@ app.post('/api/v1/privacy-notices/:id/versions', verifyToken, async (req, res) =
   }
 });
 
-console.log(' ConsentHub Backend Server with TMF API Compliance started on port', PORT);
-console.log('');
-console.log(' New TMF API Endpoints:');
-console.log('   GET    /api/tmf632/privacyConsent');
-console.log('   POST   /api/tmf632/privacyConsent'); 
-console.log('   GET    /api/tmf641/party');
-console.log('   POST   /api/tmf669/hub');
-console.log('   DELETE /api/tmf669/hub/:id');
-console.log('');
-console.log(' New Features:');
-console.log('   Guardian Consent: POST /api/v1/guardian/consent');
-console.log('   Topic Preferences: GET/POST /api/v1/preferences/topics');
-console.log('   DSAR Auto-process: POST /api/v1/dsar/:id/auto-process');
-console.log('   Version Management: POST /api/v1/privacy-notices/:id/versions');
-console.log('');
-console.log(' Implementation Gap Analysis - All High Priority Items Addressed!');
+app.use('/api/v2/enterprise', require('./routes/enterpriseRoutes'));
+app.use('/api/v2/admin/enterprise', verifyToken, requireRole(['admin']), require('./routes/adminEnterpriseRoutes'));
+app.use('/api/v2/customer/partner-consents', verifyToken, require('./routes/customerPartnerRoutes'));
+
+  console.log(' ConsentHub Backend Server with TMF API Compliance started on port', PORT);
+  console.log('');
+  console.log(' New TMF API Endpoints:');
+  console.log('   GET    /api/tmf632/privacyConsent');
+  console.log('   POST   /api/tmf632/privacyConsent'); 
+  console.log('   GET    /api/tmf641/party');
+  console.log('   POST   /api/tmf669/hub');
+  console.log('   DELETE /api/tmf669/hub/:id');
+  console.log('');
+  console.log(' New Features:');
+  console.log('   Guardian Consent: POST /api/v1/guardian/consent');
+  console.log('   Topic Preferences: GET/POST /api/v1/preferences/topics');
+  console.log('   DSAR Auto-process: POST /api/v1/dsar/:id/auto-process');
+  console.log('   Version Management: POST /api/v1/privacy-notices/:id/versions');
+  console.log('');
+  console.log(' Implementation Gap Analysis - All High Priority Items Addressed!');
 // Deployment trigger - 09/08/2025 19:30:15
 
