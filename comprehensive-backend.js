@@ -2785,7 +2785,7 @@ app.get("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (re
 });
 
 // GET /api/v1/dsar - Get all DSAR requests for CSR with MongoDB integration
-app.get("/api/v1/dsar", verifyToken, async (req, res) => {
+app.get("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching DSAR data from MongoDB');
         const { status, requestType, priority, page = 1, limit = 50 } = req.query;
@@ -3007,7 +3007,7 @@ app.get("/api/v1/test-audit", verifyToken, requireRole(['admin']), async (req, r
 });
 
 // GET /api/v1/audit-logs - Get paginated audit logs with search and filtering
-app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
+app.get("/api/v1/audit-logs", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching audit logs with filters:', req.query);
         
@@ -3084,7 +3084,7 @@ app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/audit-logs/export/csv - Export filtered audit logs as CSV
-app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
+app.get("/api/v1/audit-logs/export/csv", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Exporting audit logs to CSV with filters:', req.query);
         
@@ -3199,7 +3199,7 @@ app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/audit-logs/stats - Get audit log statistics
-app.get("/api/v1/audit-logs/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/audit-logs/stats", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching audit log statistics');
         
@@ -3284,7 +3284,7 @@ const upload = multer({
 // ============================================================================
 
 // POST /api/v1/bulk-import/upload - Upload and process CSV file
-app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async (req, res) => {
+app.post("/api/v1/bulk-import/upload", verifyToken, requireRole(['admin']), upload.single('file'), async (req, res) => {
     try {
         console.log(' Admin: Bulk import file upload initiated');
         
@@ -3343,7 +3343,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async
 });
 
 // GET /api/v1/bulk-import/history - Get import history with pagination
-app.get("/api/v1/bulk-import/history", verifyToken, async (req, res) => {
+app.get("/api/v1/bulk-import/history", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching bulk import history');
         
@@ -3408,7 +3408,7 @@ app.get("/api/v1/bulk-import/history", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/bulk-import/status/:id - Get import status
-app.get("/api/v1/bulk-import/status/:id", verifyToken, async (req, res) => {
+app.get("/api/v1/bulk-import/status/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const bulkImport = await BulkImport.findById(req.params.id)
             .populate('uploadedBy', 'name email');
@@ -3436,7 +3436,7 @@ app.get("/api/v1/bulk-import/status/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/bulk-import/:id - Delete import record
-app.delete("/api/v1/bulk-import/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/bulk-import/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const bulkImport = await BulkImport.findById(req.params.id);
         
@@ -3783,7 +3783,7 @@ async function processUserRow(row, columnMapping, bulkImport, rowNumber) {
 // ============================================================================
 
 // GET /api/v1/webhooks - Get all webhooks with pagination and filtering
-app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching webhooks');
         
@@ -3842,7 +3842,7 @@ app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/webhooks - Create new webhook
-app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
+app.post("/api/v1/webhooks", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating new webhook');
         
@@ -3900,7 +3900,7 @@ app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/webhooks/:id - Update webhook
-app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/webhooks/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Updating webhook ${req.params.id}`);
         
@@ -3958,7 +3958,7 @@ app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/webhooks/:id - Delete webhook
-app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/webhooks/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Deleting webhook ${req.params.id}`);
         
@@ -3991,7 +3991,7 @@ app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/webhooks/:id/test - Test webhook connection
-app.post("/api/v1/webhooks/:id/test", verifyToken, async (req, res) => {
+app.post("/api/v1/webhooks/:id/test", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Testing webhook ${req.params.id}`);
         
@@ -4022,7 +4022,7 @@ app.post("/api/v1/webhooks/:id/test", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/webhooks/events - Get available events
-app.get("/api/v1/webhooks/events", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks/events", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const events = [
             { value: 'consent.granted', label: 'Consent Granted', description: 'Triggered when a user grants consent' },
@@ -4061,7 +4061,7 @@ app.get("/api/v1/webhooks/events", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/webhooks/:id/logs - Get webhook delivery logs
-app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks/:id/logs", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Fetching logs for webhook ${req.params.id}`);
         
@@ -4107,7 +4107,7 @@ app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/webhooks/stats - Get webhook statistics
-app.get("/api/v1/webhooks/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks/stats", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching webhook statistics');
         
@@ -4256,7 +4256,7 @@ app.use('/api/v1/customer/preference-config', customerConfigRouter);
 // ================================
 
 // GET /api/v1/compliance-rules - Get all compliance rules with pagination and filtering
-app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching compliance rules');
         
@@ -4326,7 +4326,7 @@ app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/compliance-rules - Create new compliance rule
-app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
+app.post("/api/v1/compliance-rules", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating new compliance rule');
         
@@ -4386,7 +4386,7 @@ app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/compliance-rules/:id - Update compliance rule
-app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/compliance-rules/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Updating compliance rule ${req.params.id}`);
         
@@ -4449,7 +4449,7 @@ app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/compliance-rules/:id - Delete compliance rule
-app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/compliance-rules/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Deleting compliance rule ${req.params.id}`);
         
@@ -4501,7 +4501,7 @@ app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/compliance-rules/:id/execute - Execute compliance rule
-app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) => {
+app.post("/api/v1/compliance-rules/:id/execute", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Executing compliance rule ${req.params.id}`);
         
@@ -4554,7 +4554,7 @@ app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) =
 });
 
 // GET /api/v1/compliance-rules/stats - Get compliance statistics
-app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules/stats", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching compliance rule statistics');
         
@@ -4636,7 +4636,7 @@ app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/compliance-rules/overdue-reviews - Get rules that need review
-app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching overdue compliance reviews');
         
@@ -4661,7 +4661,7 @@ app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res
 });
 
 // GET /api/v1/compliance-rules/categories - Get available categories and rule types
-app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules/categories", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching compliance categories and types');
         
@@ -4742,7 +4742,7 @@ app.get("/api/v1/preferences/stats", verifyToken, requireRole(['admin', 'csr']),
 });
 
 // GET /api/v1/preferences - Get customer preferences for CSR
-app.get("/api/v1/preferences", verifyToken, (req, res) => {
+app.get("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Fetching preferences data');
     const partyId = req.query.partyId;
     if (partyId) {
@@ -4754,7 +4754,7 @@ app.get("/api/v1/preferences", verifyToken, (req, res) => {
 });
 
 // POST /api/v1/dsar - Create new DSAR request
-app.post("/api/v1/dsar", verifyToken, (req, res) => {
+app.post("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Creating new DSAR request');
     const newRequest = {
         id: String(dsarRequests.length + 1),
@@ -4954,7 +4954,7 @@ app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async
 });
 
 // POST /api/v1/preferences - Create/Update preferences for CSR
-app.post("/api/v1/preferences", verifyToken, (req, res) => {
+app.post("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Creating/updating preferences');
     const newPrefs = {
         id: Date.now().toString(),
@@ -5051,7 +5051,7 @@ app.delete("/api/v1/preferences/categories/:id", verifyToken, requireRole(['admi
 // ===== ADMIN DASHBOARD OVERVIEW ENDPOINT =====
 
 // GET /api/v1/admin/dashboard/overview - Get comprehensive admin dashboard overview
-app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
+app.get("/api/v1/admin/dashboard/overview", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin Dashboard: Fetching comprehensive overview data');
         
@@ -5562,7 +5562,7 @@ app.post("/api/v1/users", verifyToken, requireRole(['admin']), async (req, res) 
 });
 
 // PUT /api/v1/users/:id/status - Update user status (Admin only)
-app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
+app.put("/api/v1/users/:id/status", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(" Admin: Updating user status for ID:", req.params.id);
         
@@ -5659,7 +5659,7 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/users/:id - Delete user (Admin only)
-app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/users/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log("  Admin: Deleting user with ID:", req.params.id);
         
@@ -5738,7 +5738,7 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/guardians - Get all guardians (Admin only)
-app.get("/api/v1/guardians", verifyToken, async (req, res) => {
+app.get("/api/v1/guardians", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' Admin: Fetching all guardians');
         
@@ -5781,7 +5781,7 @@ app.get("/api/v1/guardians", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/guardians - Create new guardian with dependents (Admin only)
-app.post("/api/v1/guardians", verifyToken, async (req, res) => {
+app.post("/api/v1/guardians", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' Admin: Creating new guardian');
         
@@ -5908,7 +5908,7 @@ app.post("/api/v1/guardians", verifyToken, async (req, res) => {
 });
 
 // Update guardian - PUT endpoint
-app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/guardians/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(" Updating guardian with ID:", req.params.id);
         console.log(" Update data received:", JSON.stringify(req.body, null, 2));
@@ -6054,7 +6054,7 @@ app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
 // ===== LEGACY PREFERENCE ENDPOINTS =====
 
 // GET /api/v1/preferences - Get preference items with filtering (ORIGINAL)
-app.get("/api/v1/preferences", verifyToken, async (req, res) => {
+app.get("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' Admin: Fetching preference items');
         const { 
@@ -6179,7 +6179,7 @@ app.get('/api/v1/preferences/topics', verifyToken, async (req, res) => {
 });
 
 // Update Topic-based Preferences
-app.post('/api/v1/preferences/topics', verifyToken, async (req, res) => {
+app.post('/api/v1/preferences/topics', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     const { userId, topicPreferences, doNotDisturbPeriods } = req.body;
     
@@ -6251,7 +6251,7 @@ app.get("/api/v1/preferences/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/preferences - Create preference item
-app.post("/api/v1/preferences", verifyToken, async (req, res) => {
+app.post("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' Admin: Creating preference item');
         
@@ -6278,7 +6278,7 @@ app.post("/api/v1/preferences", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/preferences/:id - Update preference item
-app.put("/api/v1/preferences/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/preferences/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -6299,7 +6299,7 @@ app.put("/api/v1/preferences/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/:id - Delete preference item
-app.delete("/api/v1/preferences/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/preferences/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Deleting preference item:', req.params.id);
         
@@ -6319,7 +6319,7 @@ app.delete("/api/v1/preferences/:id", verifyToken, async (req, res) => {
 });
 
 // PATCH /api/v1/preferences/:id/toggle - Toggle preference enabled status
-app.patch("/api/v1/preferences/:id/toggle", verifyToken, async (req, res) => {
+app.patch("/api/v1/preferences/:id/toggle", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -6340,7 +6340,7 @@ app.patch("/api/v1/preferences/:id/toggle", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/dsar - Create new DSAR request for CSR
-app.post("/api/v1/dsar", verifyToken, (req, res) => {
+app.post("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Creating DSAR request');
     const newRequest = {
         id: Date.now().toString(),
@@ -8500,7 +8500,7 @@ app.put("/api/v1/consent/:id", verifyToken, async (req, res) => {
 });
 
 // Preferences Management
-app.get("/api/v1/preference", verifyToken, async (req, res) => {
+app.get("/api/v1/preference", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         if (req.user.role === 'customer') {
             // Customer gets their own preferences only
@@ -8524,7 +8524,7 @@ app.get("/api/v1/preference", verifyToken, async (req, res) => {
     }
 });
 
-app.get("/api/v1/preferences", verifyToken, async (req, res) => {
+app.get("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { getCustomerIsolatedData } = require('./customer-data-provisioning');
         const userPreferences = await getCustomerIsolatedData(req.user.id, 'preferences');
@@ -8542,7 +8542,7 @@ app.get("/api/v1/preferences", verifyToken, async (req, res) => {
     }
 });
 
-app.post("/api/v1/preference", verifyToken, async (req, res) => {
+app.post("/api/v1/preference", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { category, type, enabled, frequency } = req.body;
         
@@ -8569,7 +8569,7 @@ app.post("/api/v1/preference", verifyToken, async (req, res) => {
     }
 });
 
-app.put("/api/v1/preference/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/preference/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const prefId = req.params.id;
         const updates = req.body;
@@ -8742,7 +8742,7 @@ app.get("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/privacy-notices - Create new privacy notice
-app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
+app.post("/api/v1/privacy-notices", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const {
             title,
@@ -8862,7 +8862,7 @@ app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/privacy-notices/:id - Update privacy notice
-app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/privacy-notices/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const noticeId = req.params.id;
         const updates = req.body;
@@ -8939,7 +8939,7 @@ app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/privacy-notices/:id - Delete privacy notice
-app.delete("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/privacy-notices/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const noticeId = req.params.id;
         
@@ -9181,7 +9181,7 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
 // ===== CUSTOMER VAS ENDPOINTS =====
 
 // GET /api/customer/vas/debug - Debug customer VAS status
-app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
+app.get("/api/customer/vas/debug", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Customer VAS DEBUG ENDPOINT - START');
         
@@ -9423,7 +9423,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
                 isSubscribed: true
             },
             {
-                isSubscribed: false,
+                $set: { isSubscribed: false },
                 $push: {
                     subscriptionHistory: {
                         action: 'unsubscribe',
@@ -9479,7 +9479,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
         
         res.json({
             success: true,
-            message: `Successfully unsubscribed from ${subscription.serviceName}`,
+            message: `Successfully unsubscribed from ${service.name}`,
             data: subscription
         });
     } catch (error) {
@@ -9915,7 +9915,7 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
 });
 
 // GET /api/customer/vas/debug - Debug endpoint to test VAS models and connections
-app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
+app.get("/api/customer/vas/debug", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' VAS Debug: Starting VAS debug checks...');
         console.log(' VAS Debug: User ID:', req.user.id);
@@ -10015,7 +10015,7 @@ app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
 });
 
 // POST /api/customer/vas/test-toggle - Simple test toggle without complex logic
-app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
+app.post("/api/customer/vas/test-toggle", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' VAS Test Toggle: Testing basic VAS functionality...');
         console.log(' VAS Test Toggle: User:', req.user.id);
@@ -10973,7 +10973,7 @@ const sendRealTimeUpdate = (customerId, updateData) => {
 };
 
 // PUT /api/v1/dsar/requests/:id - Update DSAR request
-app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/dsar/requests/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
@@ -11070,7 +11070,7 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/dsar/requests/:id - Delete DSAR request
-app.delete("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/dsar/requests/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -11106,7 +11106,7 @@ app.delete("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/dsar/export/:format - Export DSAR requests
-app.get("/api/v1/dsar/export/:format", verifyToken, async (req, res) => {
+app.get("/api/v1/dsar/export/:format", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { format } = req.params;
         const { status, requestType, priority, dateFrom, dateTo } = req.query;
@@ -11178,7 +11178,7 @@ app.get("/api/v1/dsar/export/:format", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/dsar/stats - Get DSAR statistics
-app.get("/api/v1/dsar/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/dsar/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { dateFrom, dateTo } = req.query;
         
@@ -11700,7 +11700,7 @@ app.post("/api/v1/dsar/request", verifyToken, async (req, res) => {
 });
 
 // Delete DSAR request (customer can delete their own pending requests)
-app.delete("/api/v1/dsar/request/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/dsar/request/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const requestId = req.params.id;
         
@@ -12577,7 +12577,7 @@ server.listen(PORT, async () => {
 // ===== TMF API COMPLIANCE IMPLEMENTATION =====
 
 // TMF632 - Privacy Consent Management API
-app.get('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
+app.get('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { partyId, status, purpose, offset = 0, limit = 20 } = req.query;
     const query = {};
@@ -12620,7 +12620,7 @@ app.get('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
 });
 
 // TMF632 - Get Privacy Consent by ID
-app.get('/api/tmf632/privacyConsent/:id', verifyToken, async (req, res) => {
+app.get('/api/tmf632/privacyConsent/:id', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const consent = await Consent.findOne({ id: req.params.id });
     
@@ -12661,7 +12661,7 @@ app.get('/api/tmf632/privacyConsent/:id', verifyToken, async (req, res) => {
 });
 
 // TMF632 - Create Privacy Consent
-app.post('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
+app.post('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const consentData = req.body;
     const consent = new Consent({
@@ -12711,7 +12711,7 @@ app.post('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
 });
 
 // TMF641 - Party Management API
-app.get('/api/tmf641/party', verifyToken, async (req, res) => {
+app.get('/api/tmf641/party', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { partyType, status, offset = 0, limit = 20 } = req.query;
     const query = {};
@@ -12756,7 +12756,7 @@ app.get('/api/tmf641/party', verifyToken, async (req, res) => {
 });
 
 // TMF669 - Event Management Hub
-app.post('/api/tmf669/hub', verifyToken, async (req, res) => {
+app.post('/api/tmf669/hub', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     const { callback, query } = req.body;
     
@@ -12789,7 +12789,7 @@ app.post('/api/tmf669/hub', verifyToken, async (req, res) => {
 });
 
 // TMF669 - Unregister Hub
-app.delete('/api/tmf669/hub/:id', verifyToken, async (req, res) => {
+app.delete('/api/tmf669/hub/:id', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     await Webhook.findOneAndUpdate(
       { id: req.params.id },
@@ -12855,7 +12855,7 @@ async function publishEvent(eventData) {
 // ===== GUARDIAN CONSENT IMPLEMENTATION =====
 
 // Get all guardians
-app.get('/api/guardians', verifyToken, async (req, res) => {
+app.get('/api/guardians', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const guardians = await User.find({ 
       role: 'customer',
@@ -12939,7 +12939,7 @@ app.get('/api/guardians', verifyToken, async (req, res) => {
 });
 
 // Get minors for specific guardian
-app.get('/api/guardians/:guardianId/minors', verifyToken, async (req, res) => {
+app.get('/api/guardians/:guardianId/minors', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { guardianId } = req.params;
     const guardian = await User.findById(guardianId);
@@ -12956,7 +12956,7 @@ app.get('/api/guardians/:guardianId/minors', verifyToken, async (req, res) => {
 });
 
 // Update Guardian Names (One-time fix)
-app.post('/api/guardians/fix-names', verifyToken, async (req, res) => {
+app.post('/api/guardians/fix-names', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     // Check admin permission
     if (!req.user || req.user.role !== 'admin') {
@@ -13002,7 +13002,7 @@ app.post('/api/guardians/fix-names', verifyToken, async (req, res) => {
 });
 
 // Guardian Consent for Minors
-app.post('/api/v1/guardian/consent', verifyToken, async (req, res) => {
+app.post('/api/v1/guardian/consent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { guardianId, minorId, consents } = req.body;
     
@@ -13076,7 +13076,7 @@ app.get('/api/v1/test/automation', verifyToken, requireRole(['admin']), (req, re
 });
 
 // Auto-process DSAR Request
-app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
+app.post('/api/v1/dsar/:id/auto-process', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const dsarId = req.params.id;
     console.log(` Looking for DSAR request with ID: ${dsarId}`);
@@ -13270,7 +13270,7 @@ app.get('/api/dsar-requests', verifyToken, requireRole(['admin', 'csr']), async 
 // ===== VERSIONED CONSENT TERMS =====
 
 // Create New Consent Term Version
-app.post('/api/v1/privacy-notices/:id/versions', verifyToken, async (req, res) => {
+app.post('/api/v1/privacy-notices/:id/versions', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     const noticeId = req.params.id;
     const { content, changes, majorVersion = false } = req.body;
