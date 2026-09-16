@@ -250,6 +250,58 @@ console.log(' JWT Secret:', maskForLogging(JWT_SECRET));
 
 const { verifyToken, requireRole } = require('./utils/authMiddleware');
 
+/**
+ * Write one audit-trail entry.
+ *
+ * PDPA/GDPR require a durable record of who did what to whose data, so every
+ * consent, DSAR, user and privacy-notice mutation calls this. It builds a
+ * document that satisfies the AuditLog schema (the previous call sites passed
+ * `resource`/`details`/a free-text `action` and silently failed validation, so
+ * nothing was ever recorded).
+ *
+ * Auditing must never break the request it is recording: failures are logged
+ * to the server console and swallowed.
+ */
+async function writeAuditLog(req, {
+    actor: actorOverride,
+    action,
+    category,
+    description,
+    entityType,
+    entityId,
+    severity = 'medium',
+    outcome = 'success',
+    metadata = {},
+    previousState,
+    newState
+}) {
+    try {
+        const actor = actorOverride || (req && req.user) || {};
+        await AuditLog.create({
+            userId: String(actor.id || actor.userId || 'system'),
+            userName: actor.name || 'System',
+            userEmail: actor.email || 'system@sltmobitel.lk',
+            userRole: ['admin', 'csr', 'customer'].includes(actor.role) ? actor.role : 'system',
+            action,
+            category,
+            description,
+            entityType,
+            entityId: entityId === undefined || entityId === null ? undefined : String(entityId),
+            ipAddress: (req && (req.ip || req.headers['x-forwarded-for'])) || '0.0.0.0',
+            userAgent: req && req.headers ? req.headers['user-agent'] : undefined,
+            severity,
+            outcome,
+            complianceRelevant: true,
+            regulatoryFramework: ['PDPA_SL', 'GDPR'],
+            metadata,
+            previousState,
+            newState
+        });
+    } catch (err) {
+        console.error('Audit log write failed:', err.message);
+    }
+}
+
 function generateToken(user) {
     const payload = { 
         id: user.id || user._id, 
@@ -1940,7 +1992,7 @@ let customerPreferences = [
 // CSR Dashboard API Routes (No authentication required)
 
 // GET /api/csr/stats - Get CSR Dashboard Statistics with Real MongoDB Data
-app.get("/api/csr/stats", async (req, res) => {
+app.get("/api/csr/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching dashboard statistics from MongoDB');
         
@@ -2065,7 +2117,7 @@ app.get("/api/csr/stats", async (req, res) => {
 // CSR Notification Center API Routes
 
 // GET /api/csr/notifications/analytics - Get notification analytics
-app.get("/api/csr/notifications/analytics", async (req, res) => {
+app.get("/api/csr/notifications/analytics", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Notifications: Fetching notification analytics from database');
         
@@ -2147,7 +2199,7 @@ app.get("/api/csr/notifications/analytics", async (req, res) => {
 });
 
 // POST /api/csr/notifications/send - Send notifications to customers
-app.post("/api/csr/notifications/send", async (req, res) => {
+app.post("/api/csr/notifications/send", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerIds, channels, subject, message, messageType } = req.body;
         
@@ -2308,7 +2360,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
 });
 
 // GET /api/csr/notifications/templates - Get pre-built notification templates
-app.get("/api/csr/notifications/templates", async (req, res) => {
+app.get("/api/csr/notifications/templates", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Notifications: Fetching pre-built templates');
         
@@ -2330,7 +2382,7 @@ app.get("/api/csr/notifications/templates", async (req, res) => {
 });
 
 // POST /api/csr/notifications/send/bulk - Send notifications to all customers
-app.post("/api/csr/notifications/send/bulk", async (req, res) => {
+app.post("/api/csr/notifications/send/bulk", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { channels, subject, message, messageType } = req.body;
         
@@ -2472,7 +2524,7 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
 });
 
 // GET /api/csr/customers - Get customer list for notification targeting
-app.get("/api/csr/customers", async (req, res) => {
+app.get("/api/csr/customers", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Notifications: Fetching customer list');
         
@@ -2558,7 +2610,7 @@ app.get("/api/csr/customers", async (req, res) => {
 });
 
 // POST /api/csr/notifications/welcome - Send welcome email to customer
-app.post("/api/csr/notifications/welcome", async (req, res) => {
+app.post("/api/csr/notifications/welcome", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { email, customerName, createdBy = 'admin' } = req.body;
         
@@ -2619,7 +2671,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
 });
 
 // GET /api/v1/party - Get all customers/parties for CSR
-app.get("/api/v1/party", async (req, res) => {
+app.get("/api/v1/party", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching party/customer data from MongoDB');
         
@@ -2675,7 +2727,7 @@ app.get("/api/v1/party", async (req, res) => {
 });
 
 // GET /api/v1/csr/consent - Get all consents for CSR (different path to avoid conflicts)  
-app.get("/api/v1/csr/consent", async (req, res) => {
+app.get("/api/v1/csr/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching consent data');
         
@@ -2704,7 +2756,7 @@ app.get("/api/v1/csr/consent", async (req, res) => {
 });
 
 // GET /api/v1/consent (Non-auth version for CSR dashboard)
-app.get("/api/v1/consent", async (req, res) => {
+app.get("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching all consents (non-auth)');
         
@@ -2783,7 +2835,7 @@ app.get("/api/v1/dsar", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/event - Get all audit events for CSR
-app.get("/api/v1/event", (req, res) => {
+app.get("/api/v1/event", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Fetching event/audit data');
     
     // Add some context to audit events
@@ -2802,7 +2854,7 @@ app.get("/api/v1/event", (req, res) => {
 });
 
 // GET /api/v1/dsar/requests (Non-auth version for CSR dashboard)
-app.get("/api/v1/dsar/requests", async (req, res) => {
+app.get("/api/v1/dsar/requests", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching DSAR requests from MongoDB (non-auth)');
         const { 
@@ -2922,7 +2974,7 @@ app.get("/api/v1/dsar/requests", async (req, res) => {
 });
 
 // Test endpoint without authentication
-app.get("/api/v1/test-audit", async (req, res) => {
+app.get("/api/v1/test-audit", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Testing audit logs endpoint');
         
@@ -4295,18 +4347,13 @@ app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
         await rule.populate('created_by', 'name email role');
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'CREATE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: rule._id,
-            details: { 
-                name: rule.name,
-                ruleType: rule.ruleType,
-                category: rule.category,
-                status: rule.status
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${rule.name}" created`,
+            entityType: 'system',
+            entityId: rule._id,
+            metadata: { name: rule.name, ruleType: rule.ruleType, category: rule.category, status: rule.status }
         });
 
         res.status(201).json({
@@ -4370,18 +4417,15 @@ app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
         await rule.populate('created_by updated_by approved_by', 'name email role');
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'UPDATE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: rule._id,
-            details: { 
-                name: rule.name,
-                changes: Object.keys(req.body),
-                oldStatus: oldValues.status,
-                newStatus: rule.status
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${rule.name}" updated`,
+            entityType: 'system',
+            entityId: rule._id,
+            metadata: { name: rule.name, changes: Object.keys(req.body) },
+            previousState: { status: oldValues.status },
+            newState: { status: rule.status }
         });
 
         res.json({
@@ -4431,18 +4475,14 @@ app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
         await ComplianceRule.findByIdAndDelete(req.params.id);
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'DELETE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: req.params.id,
-            details: { 
-                name: ruleData.name,
-                ruleType: ruleData.ruleType,
-                category: ruleData.category,
-                deletedStatus: ruleData.status
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${ruleData.name}" deleted`,
+            entityType: 'system',
+            entityId: req.params.id,
+            severity: 'high',
+            metadata: { name: ruleData.name, ruleType: ruleData.ruleType, category: ruleData.category }
         });
 
         res.json({
@@ -4485,17 +4525,13 @@ app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) =
         await rule.execute(context);
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'EXECUTE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: rule._id,
-            details: { 
-                name: rule.name,
-                executionContext: context,
-                executionCount: rule.metrics.enforcement_count
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'compliance_check_performed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${rule.name}" executed`,
+            entityType: 'system',
+            entityId: rule._id,
+            metadata: { name: rule.name, executionContext: context, executionCount: rule.metrics.enforcement_count }
         });
 
         res.json({
@@ -4654,7 +4690,7 @@ app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => 
 });
 
 // GET /api/v1/preferences/stats - Get preference statistics (MUST come before generic /preferences route)
-app.get("/api/v1/preferences/stats", async (req, res) => {
+app.get("/api/v1/preferences/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
         console.log(' Admin: Fetching preference statistics');
@@ -4706,7 +4742,7 @@ app.get("/api/v1/preferences/stats", async (req, res) => {
 });
 
 // GET /api/v1/preferences - Get customer preferences for CSR
-app.get("/api/v1/preferences", (req, res) => {
+app.get("/api/v1/preferences", verifyToken, (req, res) => {
     console.log(' CSR Dashboard: Fetching preferences data');
     const partyId = req.query.partyId;
     if (partyId) {
@@ -4718,7 +4754,7 @@ app.get("/api/v1/preferences", (req, res) => {
 });
 
 // POST /api/v1/dsar - Create new DSAR request
-app.post("/api/v1/dsar", (req, res) => {
+app.post("/api/v1/dsar", verifyToken, (req, res) => {
     console.log(' CSR Dashboard: Creating new DSAR request');
     const newRequest = {
         id: String(dsarRequests.length + 1),
@@ -4731,7 +4767,7 @@ app.post("/api/v1/dsar", (req, res) => {
 });
 
 // PUT /api/v1/dsar/:id - Update DSAR request status
-app.put("/api/v1/dsar/:id", (req, res) => {
+app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Updating DSAR request:', req.params.id);
     const requestId = req.params.id;
     const requestIndex = dsarRequests.findIndex(r => r.id === requestId);
@@ -4754,7 +4790,7 @@ app.put("/api/v1/dsar/:id", (req, res) => {
 });
 
 // POST /api/v1/consent - Create new consent record
-app.post("/api/v1/consent", async (req, res) => {
+app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Creating new consent');
         console.log('Request body:', req.body);
@@ -4821,7 +4857,7 @@ app.post("/api/v1/consent", async (req, res) => {
 });
 
 // PUT /api/v1/consent/:id - Update consent status
-app.put("/api/v1/consent/:id", async (req, res) => {
+app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Updating consent:', req.params.id);
         console.log(' Request body:', JSON.stringify(req.body, null, 2));
@@ -4918,7 +4954,7 @@ app.put("/api/v1/consent/:id", async (req, res) => {
 });
 
 // POST /api/v1/preferences - Create/Update preferences for CSR
-app.post("/api/v1/preferences", (req, res) => {
+app.post("/api/v1/preferences", verifyToken, (req, res) => {
     console.log(' CSR Dashboard: Creating/updating preferences');
     const newPrefs = {
         id: Date.now().toString(),
@@ -4932,7 +4968,7 @@ app.post("/api/v1/preferences", (req, res) => {
 // ===== COMPREHENSIVE PREFERENCE MANAGEMENT ENDPOINTS =====
 
 // GET /api/v1/preferences/categories - Get all preference categories
-app.get("/api/v1/preferences/categories", async (req, res) => {
+app.get("/api/v1/preferences/categories", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Fetching preference categories');
         const categories = await PreferenceCategory.find({}).sort({ priority: -1, name: 1 });
@@ -4947,7 +4983,7 @@ app.get("/api/v1/preferences/categories", async (req, res) => {
 });
 
 // POST /api/v1/preferences/categories - Create preference category
-app.post("/api/v1/preferences/categories", async (req, res) => {
+app.post("/api/v1/preferences/categories", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating preference category');
         const categoryData = {
@@ -4966,7 +5002,7 @@ app.post("/api/v1/preferences/categories", async (req, res) => {
 });
 
 // PUT /api/v1/preferences/categories/:id - Update preference category
-app.put("/api/v1/preferences/categories/:id", async (req, res) => {
+app.put("/api/v1/preferences/categories/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Updating preference category:', req.params.id);
         const category = await PreferenceCategory.findOneAndUpdate(
@@ -4987,7 +5023,7 @@ app.put("/api/v1/preferences/categories/:id", async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/categories/:id - Delete preference category
-app.delete("/api/v1/preferences/categories/:id", async (req, res) => {
+app.delete("/api/v1/preferences/categories/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Deleting preference category:', req.params.id);
         
@@ -5103,7 +5139,7 @@ app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
 // ===== ADMIN PREFERENCE MANAGEMENT ENDPOINTS =====
 
 // GET /api/v1/preferences/admin - Get preference items with filtering for admin
-app.get("/api/v1/preferences/admin", async (req, res) => {
+app.get("/api/v1/preferences/admin", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching preference items');
         const { 
@@ -5191,7 +5227,7 @@ app.get("/api/v1/preferences/admin", async (req, res) => {
 });
 
 // GET /api/v1/preferences/admin/:id - Get specific preference item
-app.get("/api/v1/preferences/admin/:id", async (req, res) => {
+app.get("/api/v1/preferences/admin/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' ADMIN ROUTE HIT: /api/v1/preferences/admin/:id - ID param:', req.params.id);
         console.log(' Admin: Fetching preference item:', req.params.id);
@@ -5209,7 +5245,7 @@ app.get("/api/v1/preferences/admin/:id", async (req, res) => {
 });
 
 // POST /api/v1/preferences/admin - Create preference item
-app.post("/api/v1/preferences/admin", async (req, res) => {
+app.post("/api/v1/preferences/admin", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating preference item');
         
@@ -5239,7 +5275,7 @@ app.post("/api/v1/preferences/admin", async (req, res) => {
 });
 
 // PUT /api/v1/preferences/admin/:id - Update preference item
-app.put("/api/v1/preferences/admin/:id", async (req, res) => {
+app.put("/api/v1/preferences/admin/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -5260,7 +5296,7 @@ app.put("/api/v1/preferences/admin/:id", async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/admin/:id - Delete preference item
-app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
+app.delete("/api/v1/preferences/admin/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Deleting preference item:', req.params.id);
         
@@ -5280,7 +5316,7 @@ app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
 });
 
 // PATCH /api/v1/preferences/admin/:id/toggle - Toggle preference enabled status
-app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
+app.patch("/api/v1/preferences/admin/:id/toggle", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -5301,7 +5337,7 @@ app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
 });
 
 // GET /api/v1/users - Get all users for admin management
-app.get("/api/v1/users", async (req, res) => {
+app.get("/api/v1/users", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching all users from MongoDB');
         
@@ -5385,7 +5421,7 @@ app.get("/api/v1/users", async (req, res) => {
 });
 
 // POST /api/v1/users - Create new user (Admin only)
-app.post("/api/v1/users", async (req, res) => {
+app.post("/api/v1/users", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating new user');
         
@@ -5488,6 +5524,16 @@ app.post("/api/v1/users", async (req, res) => {
             permissions: []
         };
         
+        await writeAuditLog(req, {
+            action: 'user_created',
+            category: 'User Management',
+            description: `User account ${savedUser.email} created with role "${savedUser.role}"`,
+            entityType: 'user',
+            entityId: savedUser._id,
+            severity: 'high',
+            metadata: { email: savedUser.email, role: savedUser.role }
+        });
+
         res.status(201).json({
             error: false,
             message: "User created successfully",
@@ -5558,6 +5604,17 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
         }
         
         console.log(" User status updated:", updatedUser.email, "Status:", status);
+
+        await writeAuditLog(req, {
+            action: 'user_updated',
+            category: 'User Management',
+            description: `Account status for ${updatedUser.email} changed to "${status}"`,
+            entityType: 'user',
+            entityId: updatedUser._id,
+            severity: 'high',
+            newState: { status },
+            metadata: { email: updatedUser.email, role: updatedUser.role }
+        });
         
         // Transform response
         const responseUser = {
@@ -5640,6 +5697,16 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
         await User.findByIdAndDelete(req.params.id);
         
         console.log(" User deleted successfully:", userToDelete.email);
+
+        await writeAuditLog(req, {
+            action: 'user_deleted',
+            category: 'User Management',
+            description: `User account ${userToDelete.email} deleted`,
+            entityType: 'user',
+            entityId: userToDelete._id,
+            severity: 'critical',
+            metadata: { email: userToDelete.email, role: userToDelete.role }
+        });
         
         res.json({
             error: false,
@@ -5987,7 +6054,7 @@ app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
 // ===== LEGACY PREFERENCE ENDPOINTS =====
 
 // GET /api/v1/preferences - Get preference items with filtering (ORIGINAL)
-app.get("/api/v1/preferences", async (req, res) => {
+app.get("/api/v1/preferences", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Fetching preference items');
         const { 
@@ -6036,7 +6103,7 @@ app.get("/api/v1/preferences", async (req, res) => {
 });
 
 // GET /api/v1/preferences/stats - Get preference statistics (MUST come before ANY parameterized routes)
-app.get("/api/v1/preferences/stats", async (req, res) => {
+app.get("/api/v1/preferences/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
         console.log(' Admin: Fetching preference statistics');
@@ -6167,7 +6234,7 @@ app.post('/api/v1/preferences/topics', verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/preferences/:id - Get specific preference item
-app.get("/api/v1/preferences/:id", async (req, res) => {
+app.get("/api/v1/preferences/:id", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Fetching preference item:', req.params.id);
         const preference = await PreferenceItem.findOne({ id: req.params.id });
@@ -6184,7 +6251,7 @@ app.get("/api/v1/preferences/:id", async (req, res) => {
 });
 
 // POST /api/v1/preferences - Create preference item
-app.post("/api/v1/preferences", async (req, res) => {
+app.post("/api/v1/preferences", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Creating preference item');
         
@@ -6211,7 +6278,7 @@ app.post("/api/v1/preferences", async (req, res) => {
 });
 
 // PUT /api/v1/preferences/:id - Update preference item
-app.put("/api/v1/preferences/:id", async (req, res) => {
+app.put("/api/v1/preferences/:id", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -6232,7 +6299,7 @@ app.put("/api/v1/preferences/:id", async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/:id - Delete preference item
-app.delete("/api/v1/preferences/:id", async (req, res) => {
+app.delete("/api/v1/preferences/:id", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Deleting preference item:', req.params.id);
         
@@ -6252,7 +6319,7 @@ app.delete("/api/v1/preferences/:id", async (req, res) => {
 });
 
 // PATCH /api/v1/preferences/:id/toggle - Toggle preference enabled status
-app.patch("/api/v1/preferences/:id/toggle", async (req, res) => {
+app.patch("/api/v1/preferences/:id/toggle", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -6273,7 +6340,7 @@ app.patch("/api/v1/preferences/:id/toggle", async (req, res) => {
 });
 
 // POST /api/v1/dsar - Create new DSAR request for CSR
-app.post("/api/v1/dsar", (req, res) => {
+app.post("/api/v1/dsar", verifyToken, (req, res) => {
     console.log(' CSR Dashboard: Creating DSAR request');
     const newRequest = {
         id: Date.now().toString(),
@@ -6286,7 +6353,7 @@ app.post("/api/v1/dsar", (req, res) => {
 });
 
 // PUT /api/v1/dsar/:id - Update DSAR request for CSR
-app.put("/api/v1/dsar/:id", async (req, res) => {
+app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     console.log(` CSR Dashboard: Updating DSAR request ${req.params.id}`);
     console.log(' Update payload:', req.body);
     
@@ -6368,7 +6435,7 @@ app.put("/api/v1/dsar/:id", async (req, res) => {
 });
 
 // POST /api/v1/consent - Create new consent for CSR
-app.post("/api/v1/consent", (req, res) => {
+app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(' CSR Dashboard: Creating consent record');
     const newConsent = {
         id: Date.now().toString(),
@@ -6381,7 +6448,7 @@ app.post("/api/v1/consent", (req, res) => {
 });
 
 // PUT /api/v1/consent/:id - Update consent for CSR
-app.put("/api/v1/consent/:id", (req, res) => {
+app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
     console.log(` CSR Dashboard: Updating consent ${req.params.id}`);
     const { id } = req.params;
     const consentIndex = csrConsents.findIndex(c => c.id === id);
@@ -7075,6 +7142,16 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
         const token = generateToken(tokenPayload);
         console.log("Login successful:", user.email, "Role:", user.role);
+
+        await writeAuditLog(req, {
+            actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+            action: 'user_login',
+            category: 'Security',
+            description: `User signed in (${user.role})`,
+            entityType: 'user',
+            entityId: user._id,
+            severity: 'low'
+        });
         
         res.json({
             success: true,
@@ -7691,6 +7768,17 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
 
         console.log(' Consent granted successfully:', consentId);
 
+        await writeAuditLog(req, {
+            action: 'consent_granted',
+            category: 'Consent Management',
+            description: `Consent granted for purpose "${consent.purpose || consent.consentType || 'unspecified'}"`,
+            entityType: 'consent',
+            entityId: consent._id,
+            severity: 'high',
+            newState: { status: 'granted' },
+            metadata: { purpose: consent.purpose, consentType: consent.consentType, channel: consent.channel }
+        });
+
         // Emit real-time update to CSR dashboard
         if (global.io) {
             global.io.to('csr-dashboard').emit('consent-updated', {
@@ -7763,6 +7851,17 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
         }
 
         console.log(' Consent revoked successfully:', consentId);
+
+        await writeAuditLog(req, {
+            action: 'consent_revoked',
+            category: 'Consent Management',
+            description: `Consent revoked for purpose "${consent.purpose || consent.consentType || 'unspecified'}"`,
+            entityType: 'consent',
+            entityId: consent._id,
+            severity: 'high',
+            newState: { status: 'revoked' },
+            metadata: { purpose: consent.purpose, consentType: consent.consentType, reason: reason || undefined }
+        });
 
         // Emit real-time update to CSR dashboard
         if (global.io) {
@@ -8067,17 +8166,14 @@ app.post("/api/v1/customer/preferences", verifyToken, async (req, res) => {
                     // Log audit event
                     try {
                         const AuditLog = mongoose.model('AuditLog');
-                        await AuditLog.create({
-                            action: 'PREFERENCE_UPDATE',
-                            entity: 'Preference',
+                        await writeAuditLog(req, {
+                            action: 'configuration_changed',
+                            category: 'Data Processing',
+                            description: 'Communication preferences updated by customer',
+                            entityType: 'preference',
                             entityId: communicationPreference._id,
-                            performedBy: req.user.id,
-                            details: {
-                                preferenceType: 'communication',
-                                partyId: req.user.id,
-                                changes: updateData
-                            },
-                            timestamp: new Date()
+                            severity: 'low',
+                            metadata: { preferenceType: 'communication', changes: updateData }
                         });
                     } catch (auditError) {
                         console.log('Audit log creation failed:', auditError.message);
@@ -8504,7 +8600,7 @@ app.put("/api/v1/preference/:id", verifyToken, async (req, res) => {
 });
 
 // Debug endpoint to check privacy notice counts
-app.get("/api/v1/debug/privacy-notice-counts", async (req, res) => {
+app.get("/api/v1/debug/privacy-notice-counts", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Debug: Checking privacy notice counts...');
         
@@ -8734,6 +8830,15 @@ app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
             });
         }
 
+        await writeAuditLog(req, {
+            action: 'privacy_notice_created',
+            category: 'Privacy Notices',
+            description: `Privacy notice "${savedNotice.title}" created`,
+            entityType: 'privacy_notice',
+            entityId: savedNotice._id,
+            metadata: { noticeId: savedNotice.noticeId, title: savedNotice.title, status: savedNotice.status }
+        });
+
         res.status(201).json({
             success: true,
             message: 'Privacy notice created successfully',
@@ -8808,6 +8913,16 @@ app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
             });
         }
 
+        await writeAuditLog(req, {
+            action: 'privacy_notice_updated',
+            category: 'Privacy Notices',
+            description: `Privacy notice "${updatedNotice?.title || noticeId}" updated`,
+            entityType: 'privacy_notice',
+            entityId: updatedNotice?._id,
+            newState: { status: updatedNotice?.status },
+            metadata: { noticeId }
+        });
+
         res.json({
             success: true,
             message: 'Privacy notice updated successfully',
@@ -8859,6 +8974,16 @@ app.delete("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
                 timestamp: new Date()
             });
         }
+
+        await writeAuditLog(req, {
+            action: 'privacy_notice_updated',
+            category: 'Privacy Notices',
+            description: `Privacy notice ${req.params.id} archived`,
+            entityType: 'privacy_notice',
+            entityId: req.params.id,
+            severity: 'high',
+            newState: { status: 'archived' }
+        });
 
         res.json({
             success: true,
@@ -9918,7 +10043,7 @@ app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
 // ===== CSR VAS ENDPOINTS =====
 
 // GET /api/csr/vas/services - Get all VAS services for CSR management
-app.get("/api/csr/vas/services", async (req, res) => {
+app.get("/api/csr/vas/services", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR VAS: Fetching all VAS services for management');
         
@@ -9942,7 +10067,7 @@ app.get("/api/csr/vas/services", async (req, res) => {
 });
 
 // GET /api/csr/vas/customer/:customerId - Get customer's VAS subscriptions for CSR
-app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
+app.get("/api/csr/vas/customer/:customerId", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerId } = req.params;
         console.log(' CSR VAS: Fetching customer subscriptions for ID:', customerId);
@@ -9984,7 +10109,7 @@ app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
 });
 
 // POST /api/csr/vas/customer/:customerId/subscribe - CSR subscribe customer to VAS
-app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
+app.post("/api/csr/vas/customer/:customerId/subscribe", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerId } = req.params;
         const { serviceId } = req.body;
@@ -10068,7 +10193,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
 });
 
 // POST /api/csr/vas/customer/:customerId/unsubscribe - CSR unsubscribe customer from VAS
-app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
+app.post("/api/csr/vas/customer/:customerId/unsubscribe", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerId } = req.params;
         const { serviceId } = req.body;
@@ -10703,6 +10828,16 @@ app.post("/api/v1/dsar/requests", verifyToken, async (req, res) => {
         // Log creation
         console.log(` DSAR request created: ${dsarRequest.requestId} for ${requesterEmail}`);
 
+        await writeAuditLog(req, {
+            action: 'dsar_request_created',
+            category: 'DSAR Processing',
+            description: `DSAR request ${dsarRequest.requestId} submitted`,
+            entityType: 'dsar_request',
+            entityId: dsarRequest._id,
+            severity: 'high',
+            metadata: { requestId: dsarRequest.requestId, requesterEmail, requestType: dsarRequest.requestType }
+        });
+
         res.status(201).json({
             success: true,
             message: 'DSAR request created successfully',
@@ -10769,42 +10904,15 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
             return res.status(401).json({ error: 'Authentication token required' });
         }
 
-        // Verify token manually with proper error handling
+        // Verify the token against the single configured signing secret.
+        // EventSource cannot send an Authorization header, so the token arrives
+        // as a query param - it is still verified exactly as verifyToken() does.
         const jwt = require('jsonwebtoken');
         let decoded;
         try {
-            // Try different JWT secrets
-            const secrets = [
-                process.env.JWT_SECRET,
-                'your-secret-key',
-                'consenthub-secret-key',
-                'default-secret-key'
-            ];
-            
-            let verificationSuccess = false;
-            for (const secret of secrets) {
-                if (secret) {
-                    try {
-                        decoded = jwt.verify(token, secret);
-                        console.log(' SSE JWT verified with secret:', secret);
-                        verificationSuccess = true;
-                        break;
-                    } catch (err) {
-                        console.log(` JWT verification failed with secret "${secret}":`, err.message);
-                    }
-                }
-            }
-            
-            if (!verificationSuccess) {
-                throw new Error('Token verification failed with all secrets');
-            }
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-2023');
         } catch (error) {
             console.log(' SSE JWT verification error:', error.message);
-            console.log(' Token details:', {
-                tokenLength: token.length,
-                tokenStart: token.substring(0, 20) + '...',
-                decodedPayload: jwt.decode(token)
-            });
             return res.status(401).json({ error: 'Invalid authentication token' });
         }
         
@@ -10915,6 +11023,17 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
         await request.save();
 
         console.log(` DSAR request updated: ${request.requestId}`);
+
+        await writeAuditLog(req, {
+            action: 'dsar_request_updated',
+            category: 'DSAR Processing',
+            description: `DSAR request ${request.requestId} updated to status "${request.status}"`,
+            entityType: 'dsar_request',
+            entityId: request._id,
+            severity: 'high',
+            newState: { status: request.status },
+            metadata: { requestId: request.requestId }
+        });
 
         // Send real-time update to customer if status changed
         if (originalStatus !== request.status) {
@@ -12951,7 +13070,7 @@ app.post('/api/v1/guardian/consent', verifyToken, async (req, res) => {
 // ===== ENHANCED DSAR AUTOMATION =====
 
 // Test endpoint for debugging
-app.get('/api/v1/test/automation', (req, res) => {
+app.get('/api/v1/test/automation', verifyToken, requireRole(['admin']), (req, res) => {
   console.log(' Test endpoint called - automation check');
   res.json({ message: 'Automation endpoint test successful' });
 });
@@ -13092,7 +13211,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
 });
 
 // Get DSAR requests (enhanced for automation dashboard)
-app.get('/api/dsar-requests', async (req, res) => {
+app.get('/api/dsar-requests', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     console.log(' CSR Dashboard: Fetching DSAR requests from MongoDB');
     
