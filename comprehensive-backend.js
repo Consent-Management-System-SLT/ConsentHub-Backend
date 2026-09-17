@@ -2828,29 +2828,39 @@ app.get("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), async (req, 
         
     } catch (error) {
         console.error(' Error fetching DSAR requests:', error);
-        // Fallback to in-memory data
-        console.log('Falling back to in-memory DSAR data');
-        res.json(dsarRequests);
+        // No fallback to seed data: returning fabricated DSAR requests as if
+        // they were real is worse than returning an error.
+        res.status(500).json({ error: true, message: 'Failed to fetch DSAR requests' });
     }
 });
 
 // GET /api/v1/event - Get all audit events for CSR
-app.get("/api/v1/event", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
-    console.log(' CSR Dashboard: Fetching event/audit data');
-    
-    // Add some context to audit events
-    const eventsWithContext = auditEvents.map(event => ({
-        ...event,
-        severity: event.eventType.includes('error') || event.eventType.includes('fail') ? 'high' :
-                 event.eventType.includes('warning') || event.eventType.includes('alert') ? 'medium' : 'low',
-        category: event.eventType.includes('consent') ? 'consent' :
-                 event.eventType.includes('dsar') ? 'dsar' :
-                 event.eventType.includes('auth') ? 'authentication' :
-                 event.eventType.includes('user') ? 'user_management' : 'system'
-    }));
-    
-    console.log(`Returning ${eventsWithContext.length} audit events`);
-    res.json(eventsWithContext);
+app.get("/api/v1/event", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        // Real recorded activity, not the demo array this used to serve.
+        const limit = Math.min(parseInt(req.query.limit) || 200, 1000);
+        const logs = await AuditLog.find({}).sort({ createdAt: -1 }).limit(limit).lean();
+        const events = logs.map(log => ({
+            id: log._id,
+            partyId: log.entityId,
+            eventType: log.action,
+            description: log.description,
+            createdAt: log.createdAt,
+            userId: log.userId,
+            userName: log.userName,
+            ipAddress: log.ipAddress,
+            userAgent: log.userAgent,
+            metadata: log.metadata || {},
+            category: log.category,
+            severity: log.severity,
+            outcome: log.outcome
+        }));
+        console.log(`Returning ${events.length} audit events from MongoDB`);
+        res.json(events);
+    } catch (error) {
+        console.error(' Error fetching audit events:', error);
+        res.status(500).json({ error: true, message: 'Failed to fetch audit events' });
+    }
 });
 
 // GET /api/v1/dsar/requests (Non-auth version for CSR dashboard)
@@ -4742,50 +4752,90 @@ app.get("/api/v1/preferences/stats", verifyToken, requireRole(['admin', 'csr']),
 });
 
 // GET /api/v1/preferences - Get customer preferences for CSR
-app.get("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
-    console.log(' CSR Dashboard: Fetching preferences data');
-    const partyId = req.query.partyId;
-    if (partyId) {
-        const prefs = customerPreferences.filter(p => p.partyId === partyId);
-        res.json(prefs);
-    } else {
-        res.json(customerPreferences);
+app.get("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const filter = req.query.partyId ? { partyId: req.query.partyId } : {};
+        const prefs = await CommunicationPreference.find(filter).sort({ updatedAt: -1 }).lean();
+        res.json(prefs);   // bare array, as callers expect
+    } catch (error) {
+        console.error(' Error fetching communication preferences:', error);
+        res.status(500).json({ error: true, message: 'Failed to fetch preferences' });
     }
 });
 
 // POST /api/v1/dsar - Create new DSAR request
-app.post("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
-    console.log(' CSR Dashboard: Creating new DSAR request');
-    const newRequest = {
-        id: String(dsarRequests.length + 1),
-        ...req.body,
-        submittedAt: new Date().toISOString(),
-        status: req.body.status || 'pending'
-    };
-    dsarRequests.push(newRequest);
-    res.json(newRequest);
+app.post("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const b = req.body || {};
+        // Accept the older requestor* spelling this route has always taken.
+        const requesterName  = b.requesterName  || b.requestorName;
+        const requesterEmail = b.requesterEmail || b.requestorEmail;
+        const requestType    = b.requestType;
+        if (!requesterName || !requesterEmail || !requestType) {
+            return res.status(400).json({
+                error: true,
+                message: 'requesterName, requesterEmail and requestType are required'
+            });
+        }
+        const request = await DSARRequest.create({
+            requestId: `DSAR-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+            requesterId: b.requesterId || b.customerId || b.partyId || 'unknown',
+            requesterName,
+            requesterEmail,
+            requestType,
+            subject: b.subject || `${requestType} request`,
+            description: b.description || '',
+            status: b.status || 'pending',
+            priority: b.priority || 'medium',
+            submittedAt: new Date(),
+            dueDate: b.dueDate ? new Date(b.dueDate) : new Date(Date.now() + 30 * 86400000)
+        });
+        await writeAuditLog(req, {
+            action: 'dsar_request_created',
+            category: 'DSAR Processing',
+            description: `DSAR request ${request.requestId} created by staff`,
+            entityType: 'dsar_request',
+            entityId: request._id,
+            severity: 'high',
+            metadata: { requestId: request.requestId, requesterEmail, requestType }
+        });
+        res.json(request);
+    } catch (error) {
+        console.error(' Error creating DSAR request:', error);
+        res.status(500).json({ error: true, message: 'Failed to create DSAR request' });
+    }
 });
 
 // PUT /api/v1/dsar/:id - Update DSAR request status
-app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
-    console.log(' CSR Dashboard: Updating DSAR request:', req.params.id);
-    const requestId = req.params.id;
-    const requestIndex = dsarRequests.findIndex(r => r.id === requestId);
-    
-    if (requestIndex >= 0) {
-        dsarRequests[requestIndex] = {
-            ...dsarRequests[requestIndex],
-            ...req.body,
-            updatedAt: new Date().toISOString()
-        };
-        
-        if (req.body.status === 'completed') {
-            dsarRequests[requestIndex].completedAt = new Date().toISOString();
+app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const id = req.params.id;
+        const update = { ...req.body };
+        if (update.status === 'completed' && !update.completedAt) {
+            update.completedAt = new Date();
         }
-        
-        res.json(dsarRequests[requestIndex]);
-    } else {
-        res.status(404).json({ error: 'DSAR request not found' });
+        // Callers may hold either the human-readable requestId or the ObjectId.
+        const query = mongoose.Types.ObjectId.isValid(id)
+            ? { $or: [{ _id: id }, { requestId: id }] }
+            : { requestId: id };
+        const request = await DSARRequest.findOneAndUpdate(query, { $set: update }, { new: true });
+        if (!request) {
+            return res.status(404).json({ error: 'DSAR request not found' });
+        }
+        await writeAuditLog(req, {
+            action: 'dsar_request_updated',
+            category: 'DSAR Processing',
+            description: `DSAR request ${request.requestId} updated to status "${request.status}"`,
+            entityType: 'dsar_request',
+            entityId: request._id,
+            severity: 'high',
+            newState: { status: request.status },
+            metadata: { requestId: request.requestId }
+        });
+        res.json(request);
+    } catch (error) {
+        console.error(' Error updating DSAR request:', error);
+        res.status(500).json({ error: true, message: 'Failed to update DSAR request' });
     }
 });
 
@@ -4954,15 +5004,32 @@ app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async
 });
 
 // POST /api/v1/preferences - Create/Update preferences for CSR
-app.post("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), (req, res) => {
-    console.log(' CSR Dashboard: Creating/updating preferences');
-    const newPrefs = {
-        id: Date.now().toString(),
-        ...req.body,
-        updatedAt: new Date().toISOString()
-    };
-    customerPreferences.push(newPrefs);
-    res.status(201).json(newPrefs);
+app.post("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const { partyId, ...rest } = req.body;
+        if (!partyId) {
+            return res.status(400).json({ error: true, message: 'partyId is required' });
+        }
+        // One preference record per party: repeated posts update rather than pile up.
+        const prefs = await CommunicationPreference.findOneAndUpdate(
+            { partyId },
+            { $set: { ...rest, updatedBy: req.user?.email || 'system' } },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        ).lean();
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Data Processing',
+            description: `Communication preferences updated for party ${partyId}`,
+            entityType: 'preference',
+            entityId: prefs._id,
+            severity: 'low',
+            metadata: { partyId, changes: Object.keys(rest) }
+        });
+        res.status(201).json(prefs);
+    } catch (error) {
+        console.error(' Error saving communication preferences:', error);
+        res.status(500).json({ error: true, message: 'Failed to save preferences' });
+    }
 });
 
 // ===== COMPREHENSIVE PREFERENCE MANAGEMENT ENDPOINTS =====
@@ -12421,8 +12488,10 @@ app.get('/api/dsar-requests', verifyToken, requireRole(['admin', 'csr']), async 
     const mongoRequests = await DSARRequest.find({}).sort({ submittedAt: -1 }).lean();
     console.log(`Found ${mongoRequests.length} DSAR requests in MongoDB`);
     
-    // Combine with in-memory requests
-    const allRequests = [...mongoRequests, ...dsarRequests];
+    // Real records only. This used to concatenate the hardcoded demo array,
+    // so the automation dashboard listed fabricated DSAR requests alongside
+    // genuine customer ones.
+    const allRequests = mongoRequests;
     
     // Return enhanced DSAR requests with automation metadata
     const enhancedRequests = allRequests.map(request => ({
@@ -12447,25 +12516,7 @@ app.get('/api/dsar-requests', verifyToken, requireRole(['admin', 'csr']), async 
     res.json(enhancedRequests);
   } catch (error) {
     console.error('Error fetching DSAR requests:', error);
-    // Fallback to in-memory data
-    const enhancedRequests = dsarRequests.map(request => ({
-      ...request,
-      daysSinceCreation: Math.floor(
-        (Date.now() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-      ),
-      automationEligible: request.status === 'pending' && 
-        ['export', 'portability'].includes(request.requestType),
-      riskLevel: (() => {
-        const days = Math.floor(
-          (Date.now() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-        );
-        if (days >= 25) return 'critical';
-        if (days >= 20) return 'high';
-        if (days >= 15) return 'medium';
-        return 'low';
-      })()
-    }));
-    res.json(enhancedRequests);
+    res.status(500).json({ error: true, message: 'Failed to fetch DSAR requests' });
   }
 });
 
