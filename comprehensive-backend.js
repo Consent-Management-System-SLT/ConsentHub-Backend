@@ -4249,7 +4249,7 @@ const {
 
 app.use('/api/v1/admin/preference-channels', channelRouter);
 app.use('/api/v1/admin/preference-topics', topicRouter);
-app.use('/api/v1/customer/preference-config', customerConfigRouter);
+app.use('/api/v1/customer/preference-config', verifyToken, customerConfigRouter);
 
 // ================================
 // COMPLIANCE RULES API ENDPOINTS
