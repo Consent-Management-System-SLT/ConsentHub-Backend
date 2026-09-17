@@ -20,7 +20,7 @@ class NodemailerProvider extends BaseProvider {
     });
   }
 
-  async deliver({ customer, subject, content }) {
+  async deliver({ customer, subject, content, html }) {
     if (!customer.email) {
       return { success: false, error: new Error('MISSING_CUSTOMER_EMAIL') };
     }
@@ -33,7 +33,9 @@ class NodemailerProvider extends BaseProvider {
         to: customer.email,
         subject: subject || 'ConsentHub Notification',
         text: content,
-        html: `<p>${content.replace(/\n/g, '<br>')}</p>`
+        // Callers may supply a designed HTML body; otherwise the plain text is
+        // wrapped so the message stays readable in an HTML client.
+        html: html || `<p>${content.replace(/\n/g, '<br>')}</p>`
       });
 
       return {
