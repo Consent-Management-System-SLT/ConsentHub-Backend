@@ -4,7 +4,9 @@ const http = require("http");
 const socketIo = require("socket.io");
 const multer = require("multer");
 const csvParser = require("csv-parser");
-const fs = require("fs-extra");
+const fs = require("fs");
+const fsp = fs.promises;
+const crypto = require("crypto");
 const path = require("path");
 const mongoose = require("mongoose");
 require('dotenv').config();
@@ -3341,7 +3343,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, requireRole(['admin']), uplo
         
         // Clean up uploaded file if error occurred
         if (req.file && req.file.path) {
-            fs.unlink(req.file.path).catch(err => console.error('Error deleting file:', err));
+            fsp.unlink(req.file.path).catch(err => console.error('Error deleting file:', err));
         }
         
         res.status(500).json({
@@ -3459,7 +3461,7 @@ app.delete("/api/v1/bulk-import/:id", verifyToken, requireRole(['admin']), async
 
         // Delete the file if it exists
         if (bulkImport.filePath && fs.existsSync(bulkImport.filePath)) {
-            await fs.unlink(bulkImport.filePath);
+            await fsp.unlink(bulkImport.filePath);
         }
 
         await BulkImport.findByIdAndDelete(req.params.id);
@@ -12079,7 +12081,7 @@ app.post('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']
   try {
     const consentData = req.body;
     const consent = new Consent({
-      id: consentData.id || require('uuid').v4(),
+      id: consentData.id || crypto.randomUUID(),
       partyId: consentData.partyId,
       purpose: consentData.purpose,
       status: consentData.status || 'granted',
@@ -12097,7 +12099,7 @@ app.post('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']
     // Emit TMF669 Event
     await publishEvent({
       eventType: 'PrivacyConsentCreatedEvent',
-      eventId: require('uuid').v4(),
+      eventId: crypto.randomUUID(),
       eventTime: new Date().toISOString(),
       event: {
         privacyConsent: {
@@ -12175,7 +12177,7 @@ app.post('/api/tmf669/hub', verifyToken, requireRole(['admin']), async (req, res
     const { callback, query } = req.body;
     
     const webhook = new Webhook({
-      id: require('uuid').v4(),
+      id: crypto.randomUUID(),
       url: callback,
       events: query ? query.split(',') : ['*'],
       status: 'active',
@@ -12449,7 +12451,7 @@ app.post('/api/v1/guardian/consent', verifyToken, requireRole(['admin', 'csr']),
     const guardianConsents = [];
     for (const consentData of consents) {
       const consent = new Consent({
-        id: require('uuid').v4(),
+        id: crypto.randomUUID(),
         partyId: minorId,
         guardianId: guardianId,
         purpose: consentData.purpose,
@@ -12582,7 +12584,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, requireRole(['admin', 'cs
       // Publish event
       await publishEvent({
         eventType: 'DSARRequestCompletedEvent',
-        eventId: require('uuid').v4(),
+        eventId: crypto.randomUUID(),
         eventTime: new Date().toISOString(),
         event: { dsarRequest: { id: dsar._id, status: dsar.status, requestType: dsar.requestType } }
       });
