@@ -7636,21 +7636,24 @@ app.post("/api/v1/auth/logout", verifyToken, (req, res) => {
 // Customer Consent Endpoints - MongoDB Based
 app.get("/api/v1/customer/consents", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'customer') {
+        // EasyApply logins carry role 'CUSTOMER' and a partyId claim instead of id.
+        if (String(req.user.role).toLowerCase() !== 'customer') {
             return res.status(403).json({
                 error: true,
                 message: 'Access denied'
             });
         }
-        
-        console.log(' Fetching consents for customer:', req.user.id);
-        
-        const consents = await Consent.find({ 
-            $or: [
-                { userId: req.user.id },
-                { partyId: req.user.id }
-            ]
-        }).sort({ createdAt: -1 }).lean();
+
+        const partyId = req.user.partyId || req.user.id;
+        console.log(' Fetching consents for customer:', partyId);
+
+        // An unset clause (e.g. userId on an EasyApply token, which only carries
+        // partyId) must not be sent as { userId: undefined } - Mongo drops undefined
+        // keys, turning that into {} inside $or and matching every customer's records.
+        const orClauses = [{ partyId }];
+        if (req.user.id) orClauses.push({ userId: req.user.id });
+
+        const consents = await Consent.find({ $or: orClauses }).sort({ createdAt: -1 }).lean();
         
         console.log(`Found ${consents.length} consents for customer`);
         
