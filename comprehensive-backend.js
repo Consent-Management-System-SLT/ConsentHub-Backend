@@ -6891,12 +6891,32 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
         // Find user in MongoDB
         const user = await User.findOne({ email: email.toLowerCase() });
-        
-        if (!user || user.password !== password) {
-            return res.status(401).json({ 
-                error: true, 
-                message: "Invalid credentials" 
+
+        // Compare against the stored hash. Accounts created before hashing was
+        // added still hold plain text; when one of those authenticates the
+        // value is re-saved, which the model's hook hashes. That migrates the
+        // collection as people sign in, with no bulk rewrite and no lockout.
+        const check = user
+            ? await user.verifyPassword(password)
+            : { ok: false, legacy: false };
+
+        if (!user || !check.ok) {
+            return res.status(401).json({
+                error: true,
+                message: "Invalid credentials"
             });
+        }
+
+        if (check.legacy) {
+            user.password = password;
+            user.markModified('password');
+            try {
+                await user.save();
+                console.log('Upgraded stored password to a hash for', user.email);
+            } catch (err) {
+                // Never block a valid sign-in on the upgrade.
+                console.error('Password hash upgrade failed:', err.message);
+            }
         }
 
         if (user.role === 'enterprise' && user.isActivated === false) {
@@ -7019,6 +7039,127 @@ app.get("/api/v1/auth/profile", verifyToken, async (req, res) => {
 });
 
 // User registration
+// ---------------------------------------------------------------------------
+// Password reset, in three steps: ask for the account's security question,
+// answer it, then set a new password.
+//
+// This flow used to be simulated entirely in the browser with setTimeout, so
+// "reset your password" did nothing at all.
+// ---------------------------------------------------------------------------
+
+// Step 1 - which question is this account's?
+app.post("/api/v1/auth/forgot-password/question", async (req, res) => {
+    try {
+        const { email } = req.body || {};
+        if (!email) {
+            return res.status(400).json({ error: true, message: "Email is required" });
+        }
+
+        const user = await User.findOne({ email: String(email).toLowerCase() });
+        if (!user || !user.securityQuestion) {
+            // Same shape whether or not the account exists, so this endpoint
+            // cannot be used to enumerate registered addresses.
+            return res.status(404).json({
+                error: true,
+                message: "We could not start a reset for that address. Please contact support."
+            });
+        }
+
+        res.json({ success: true, question: user.securityQuestion });
+    } catch (error) {
+        console.error("Reset question error:", error);
+        res.status(500).json({ error: true, message: "Unable to start the reset" });
+    }
+});
+
+// Step 2 - verify the answer and hand back a short-lived token
+app.post("/api/v1/auth/forgot-password/verify", async (req, res) => {
+    try {
+        const { email, answer } = req.body || {};
+        if (!email || !answer) {
+            return res.status(400).json({ error: true, message: "Email and answer are required" });
+        }
+
+        const user = await User.findOne({ email: String(email).toLowerCase() }).select("+securityAnswer");
+        const check = user && user.securityAnswer
+            ? await user.verifySecurityAnswer(answer)
+            : { ok: false, legacy: false };
+
+        if (!check.ok) {
+            await writeAuditLog(req, {
+                actor: { id: user ? String(user._id) : "unknown", email, role: "system" },
+                action: "password_reset_answer_rejected",
+                category: "security",
+                description: "Security answer did not match during password reset",
+                entityType: "user",
+                entityId: user ? String(user._id) : undefined,
+                severity: "high",
+                outcome: "failure"
+            });
+            return res.status(401).json({ error: true, message: "That answer does not match our records" });
+        }
+
+        // Scoped to resetting a password and short-lived, so it cannot be used
+        // as a session token.
+        const resetToken = jwt.sign(
+            { id: String(user._id), email: user.email, purpose: "password_reset" },
+            JWT_SECRET,
+            { expiresIn: "15m" }
+        );
+
+        res.json({ success: true, resetToken, expiresInMinutes: 15 });
+    } catch (error) {
+        console.error("Reset verify error:", error);
+        res.status(500).json({ error: true, message: "Unable to verify your answer" });
+    }
+});
+
+// Step 3 - set the new password
+app.post("/api/v1/auth/forgot-password/reset", async (req, res) => {
+    try {
+        const { resetToken, password } = req.body || {};
+        if (!resetToken || !password) {
+            return res.status(400).json({ error: true, message: "Reset token and new password are required" });
+        }
+        if (String(password).length < 8) {
+            return res.status(400).json({ error: true, message: "Password must be at least 8 characters" });
+        }
+
+        let payload;
+        try {
+            payload = jwt.verify(resetToken, JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: true, message: "This reset link has expired. Please start again." });
+        }
+        if (payload.purpose !== "password_reset") {
+            return res.status(401).json({ error: true, message: "Invalid reset token" });
+        }
+
+        const user = await User.findById(payload.id);
+        if (!user) {
+            return res.status(404).json({ error: true, message: "Account not found" });
+        }
+
+        user.password = password; // hashed by the model's pre-save hook
+        await user.save();
+
+        await writeAuditLog(req, {
+            actor: { id: String(user._id), name: user.name, email: user.email, role: user.role },
+            action: "password_reset_completed",
+            category: "security",
+            description: "Password reset using the account security question",
+            entityType: "user",
+            entityId: String(user._id),
+            severity: "high"
+        });
+
+        res.json({ success: true, message: "Your password has been updated. Please sign in." });
+    } catch (error) {
+        console.error("Password reset error:", error);
+        res.status(500).json({ error: true, message: "Unable to reset the password" });
+    }
+});
+
 app.post("/api/v1/auth/register", async (req, res) => {
     try {
         const { 
@@ -7030,6 +7171,8 @@ app.post("/api/v1/auth/register", async (req, res) => {
             company, 
             department, 
             jobTitle,
+            securityQuestion,
+            securityAnswer,
             acceptTerms,
             acceptPrivacy,
             language 
@@ -7076,6 +7219,8 @@ app.post("/api/v1/auth/register", async (req, res) => {
             company: company || "SLT-Mobitel",
             department: department || "",
             jobTitle: jobTitle || "",
+            securityQuestion: securityQuestion || "",
+            securityAnswer: securityAnswer || "",
             role: "customer",
             status: "active",
             emailVerified: false,
