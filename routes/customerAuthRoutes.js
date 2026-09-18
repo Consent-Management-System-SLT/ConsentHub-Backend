@@ -5,6 +5,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 const ExternalPartyMapping = require('../models/ExternalPartyMapping');
+const Consent = require('../models/Consent');
 
 const router = express.Router();
 
@@ -148,8 +149,30 @@ router.get('/me', customerAuth, (req, res) => res.json({ success: true, data: re
 
 router.post('/logout', customerAuth, (req, res) => res.json({ success: true, message: 'Logged out' }));
 
-// Consents are served by the pre-existing GET /api/v1/customer/consents handler in
-// comprehensive-backend.js - it's registered before this router's /api/v1/customer
-// mount and wins the route, so a duplicate handler here would just be dead code.
+// Dedicated to EasyApply, deliberately separate from the internal customer-portal's
+// GET /api/v1/customer/consents (comprehensive-backend.js) so changes to one contract
+// never silently break the other.
+router.get('/consents', customerAuth, async (req, res) => {
+  try {
+    const consents = await Consent.find({ partyId: req.customer.partyId }).sort({ createdAt: -1 }).lean();
+    res.json({
+      success: true,
+      data: consents.map((c) => ({
+        consentId: c.id,
+        purpose: c.purpose,
+        status: c.status,
+        grantedAt: c.grantedAt,
+        revokedAt: c.revokedAt,
+        expiresAt: c.expiresAt,
+        privacyNoticeVersion: c.versionAccepted,
+        channel: c.channel,
+        createdAt: c.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('[CustomerAuth] consents fetch failed:', error.message);
+    res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Could not load your consents' } });
+  }
+});
 
 module.exports = router;
