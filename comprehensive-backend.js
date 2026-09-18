@@ -12714,6 +12714,11 @@ app.post('/api/v1/privacy-notices/:id/versions', verifyToken, requireRole(['admi
   }
 });
 
+// EasyApply customer sign-in. Public by design: the OTP is the credential,
+// and the routes inside enforce their own customer token.
+app.use('/api/v1/customer-auth', require('./routes/customerAuthRoutes'));
+app.use('/api/v1/customer', require('./routes/customerAuthRoutes'));
+
 app.use('/api/v2/enterprise', require('./routes/enterpriseRoutes'));
 app.use('/api/v2/admin/enterprise', verifyToken, requireRole(['admin']), require('./routes/adminEnterpriseRoutes'));
 app.use('/api/v2/customer/partner-consents', verifyToken, require('./routes/customerPartnerRoutes'));
