@@ -87,12 +87,19 @@ router.post('/applications/:id/approve', async (req, res) => {
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
         const activationLink = `${frontendUrl}/enterprise/activate?token=${rawToken}&email=${encodeURIComponent(enterpriseUser.email)}`;
         
-        const emailContent = `Hello ${enterpriseUser.firstName},\n\nYour Enterprise registration for ${org.legalName} has been approved by SLT ConsentHub.\n\nLogin Email: ${enterpriseUser.email}\n\nTo activate your Enterprise account and create your password, use the secure activation link below:\n\n${activationLink}\n\nThis link expires in 24 hours and may only be used once.\n\nAfter activation, login through ConsentHub using your registered email.`;
+        const { enterpriseApproved } = require('../services/emailTemplates');
+        const mail = enterpriseApproved({
+          firstName: enterpriseUser.firstName,
+          organisationName: org.legalName,
+          loginEmail: enterpriseUser.email,
+          activationLink
+        });
 
         const result = await NodemailerProvider.deliver({
           customer: enterpriseUser,
-          subject: 'Your SLT ConsentHub Enterprise Account Has Been Approved',
-          content: emailContent
+          subject: mail.subject,
+          content: mail.text,
+          html: mail.html
         });
         
         if (result.success) {
@@ -381,12 +388,19 @@ router.post('/applications/:id/resend-activation', async (req, res) => {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
       const activationLink = frontendUrl + '/enterprise/activate?token=' + rawToken + '&email=' + encodeURIComponent(enterpriseUser.email);
       
-      const emailContent = 'Hello ' + enterpriseUser.firstName + ',\n\nYour Enterprise registration for ' + org.legalName + ' has been approved by SLT ConsentHub.\n\nLogin Email: ' + enterpriseUser.email + '\n\nTo activate your Enterprise account and create your password, use the secure activation link below:\n\n' + activationLink + '\n\nThis link expires in 24 hours and may only be used once.\n\nAfter activation, login through ConsentHub using your registered email.';
+      const { enterpriseApproved } = require('../services/emailTemplates');
+      const mail = enterpriseApproved({
+        firstName: enterpriseUser.firstName,
+        organisationName: org.legalName,
+        loginEmail: enterpriseUser.email,
+        activationLink
+      });
 
       const result = await NodemailerProvider.deliver({
         customer: enterpriseUser,
-        subject: 'Your SLT ConsentHub Enterprise Account Has Been Approved',
-        content: emailContent
+        subject: mail.subject,
+        content: mail.text,
+        html: mail.html
       });
       
       if (result.success) {
