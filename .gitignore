@@ -81,3 +81,6 @@ serviceAccountKey.json
 *.swp
 *.swo
 *~
+
+# JSON dumps of customer consent data (contain personal data)
+db-backup/

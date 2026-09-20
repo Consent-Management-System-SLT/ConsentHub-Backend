@@ -4,7 +4,9 @@ const http = require("http");
 const socketIo = require("socket.io");
 const multer = require("multer");
 const csvParser = require("csv-parser");
-const fs = require("fs-extra");
+const fs = require("fs");
+const fsp = fs.promises;
+const crypto = require("crypto");
 const path = require("path");
 const mongoose = require("mongoose");
 require('dotenv').config();
@@ -13,6 +15,7 @@ const connectDB = require('./config/database');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Consent = require('./models/Consent');
+const consentStore = require('./services/customerConsentStore');
 const PrivacyNotice = require('./models/PrivacyNoticeNew');
 const DSARRequest = require('./models/DSARRequest');
 const AuditLog = require('./models/AuditLog');
@@ -250,6 +253,58 @@ console.log(' JWT Secret:', maskForLogging(JWT_SECRET));
 
 const { verifyToken, requireRole } = require('./utils/authMiddleware');
 
+/**
+ * Write one audit-trail entry.
+ *
+ * PDPA/GDPR require a durable record of who did what to whose data, so every
+ * consent, DSAR, user and privacy-notice mutation calls this. It builds a
+ * document that satisfies the AuditLog schema (the previous call sites passed
+ * `resource`/`details`/a free-text `action` and silently failed validation, so
+ * nothing was ever recorded).
+ *
+ * Auditing must never break the request it is recording: failures are logged
+ * to the server console and swallowed.
+ */
+async function writeAuditLog(req, {
+    actor: actorOverride,
+    action,
+    category,
+    description,
+    entityType,
+    entityId,
+    severity = 'medium',
+    outcome = 'success',
+    metadata = {},
+    previousState,
+    newState
+}) {
+    try {
+        const actor = actorOverride || (req && req.user) || {};
+        await AuditLog.create({
+            userId: String(actor.id || actor.userId || 'system'),
+            userName: actor.name || 'System',
+            userEmail: actor.email || 'system@sltmobitel.lk',
+            userRole: ['admin', 'csr', 'customer'].includes(actor.role) ? actor.role : 'system',
+            action,
+            category,
+            description,
+            entityType,
+            entityId: entityId === undefined || entityId === null ? undefined : String(entityId),
+            ipAddress: (req && (req.ip || req.headers['x-forwarded-for'])) || '0.0.0.0',
+            userAgent: req && req.headers ? req.headers['user-agent'] : undefined,
+            severity,
+            outcome,
+            complianceRelevant: true,
+            regulatoryFramework: ['PDPA_SL', 'GDPR'],
+            metadata,
+            previousState,
+            newState
+        });
+    } catch (err) {
+        console.error('Audit log write failed:', err.message);
+    }
+}
+
 function generateToken(user) {
     const payload = { 
         id: user.id || user._id, 
@@ -465,138 +520,6 @@ async function initializeVASServices() {
 setTimeout(initializeVASServices, 2000);
 
 // Helper Functions for Default Data Creation
-async function createDefaultConsents(userId, partyId) {
-    const defaultConsents = [
-        {
-            id: `consent_${userId}_essential_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "essential_services",
-            description: "Process your account data for service delivery and account management",
-            status: "granted",
-            legalBasis: "contract",
-            category: "essential",
-            channel: "web",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "essential",
-            consentType: "essential",
-            validFrom: new Date().toISOString(),
-            expiresAt: null, // Essential consents don't expire
-            grantedDate: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            required: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_security_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "account_security",
-            description: "Monitor account for security, fraud prevention and compliance",
-            status: "granted",
-            legalBasis: "legitimate_interest",
-            category: "security",
-            channel: "web",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "security",
-            consentType: "security",
-            validFrom: new Date().toISOString(),
-            expiresAt: null, // Security consents don't expire
-            grantedDate: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            required: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_service_comms_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "service_communications",
-            description: "Send you important service updates, billing information and account notifications",
-            status: "granted",
-            legalBasis: "contract",
-            category: "service",
-            channel: "email",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "service",
-            consentType: "service",
-            validFrom: new Date().toISOString(),
-            expiresAt: null, // Service communications are essential
-            grantedDate: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            required: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_marketing_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "marketing",
-            description: "Send promotional offers, product updates and marketing communications",
-            status: "pending",
-            legalBasis: "consent",
-            category: "marketing",
-            channel: "email",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "marketing",
-            consentType: "marketing",
-            validFrom: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 2 years
-            lastModified: new Date().toISOString(),
-            required: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_analytics_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "analytics",
-            description: "Improve your experience with personalized content and service optimization",
-            status: "pending",
-            legalBasis: "consent",
-            category: "analytics",
-            channel: "web",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "analytics",
-            consentType: "analytics",
-            validFrom: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 2 years
-            lastModified: new Date().toISOString(),
-            required: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }
-    ];
-
-    // Add consents to both in-memory and MongoDB
-    for (const consent of defaultConsents) {
-        consents.push(consent);
-        
-        // Also save to MongoDB
-        try {
-            const mongoConsent = new Consent(consent);
-            await mongoConsent.save();
-            console.log(`Created default consent: ${consent.purpose} for user ${userId}`);
-        } catch (error) {
-            console.log(`Failed to save consent to MongoDB: ${error.message}`);
-        }
-    }
-}
-
 async function createDefaultUserPreferences(userId, partyId, language = 'en') {
     const defaultPreferences = [
         {
@@ -1940,14 +1863,14 @@ let customerPreferences = [
 // CSR Dashboard API Routes (No authentication required)
 
 // GET /api/csr/stats - Get CSR Dashboard Statistics with Real MongoDB Data
-app.get("/api/csr/stats", async (req, res) => {
+app.get("/api/csr/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching dashboard statistics from MongoDB');
         
         // Fetch real data from MongoDB collections
         const [users, consents, dsarRequests, auditLogs] = await Promise.all([
             User.find({ role: 'customer', status: 'active' }).lean(),
-            Consent.find({}).lean(),
+            consentStore.find({}),
             DSARRequest.find({}).lean(),
             AuditLog.find({}).lean()
         ]);
@@ -2065,7 +1988,7 @@ app.get("/api/csr/stats", async (req, res) => {
 // CSR Notification Center API Routes
 
 // GET /api/csr/notifications/analytics - Get notification analytics
-app.get("/api/csr/notifications/analytics", async (req, res) => {
+app.get("/api/csr/notifications/analytics", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Notifications: Fetching notification analytics from database');
         
@@ -2147,7 +2070,7 @@ app.get("/api/csr/notifications/analytics", async (req, res) => {
 });
 
 // POST /api/csr/notifications/send - Send notifications to customers
-app.post("/api/csr/notifications/send", async (req, res) => {
+app.post("/api/csr/notifications/send", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerIds, channels, subject, message, messageType } = req.body;
         
@@ -2308,7 +2231,7 @@ app.post("/api/csr/notifications/send", async (req, res) => {
 });
 
 // GET /api/csr/notifications/templates - Get pre-built notification templates
-app.get("/api/csr/notifications/templates", async (req, res) => {
+app.get("/api/csr/notifications/templates", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Notifications: Fetching pre-built templates');
         
@@ -2330,7 +2253,7 @@ app.get("/api/csr/notifications/templates", async (req, res) => {
 });
 
 // POST /api/csr/notifications/send/bulk - Send notifications to all customers
-app.post("/api/csr/notifications/send/bulk", async (req, res) => {
+app.post("/api/csr/notifications/send/bulk", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { channels, subject, message, messageType } = req.body;
         
@@ -2472,7 +2395,7 @@ app.post("/api/csr/notifications/send/bulk", async (req, res) => {
 });
 
 // GET /api/csr/customers - Get customer list for notification targeting
-app.get("/api/csr/customers", async (req, res) => {
+app.get("/api/csr/customers", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Notifications: Fetching customer list');
         
@@ -2558,7 +2481,7 @@ app.get("/api/csr/customers", async (req, res) => {
 });
 
 // POST /api/csr/notifications/welcome - Send welcome email to customer
-app.post("/api/csr/notifications/welcome", async (req, res) => {
+app.post("/api/csr/notifications/welcome", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { email, customerName, createdBy = 'admin' } = req.body;
         
@@ -2619,7 +2542,7 @@ app.post("/api/csr/notifications/welcome", async (req, res) => {
 });
 
 // GET /api/v1/party - Get all customers/parties for CSR
-app.get("/api/v1/party", async (req, res) => {
+app.get("/api/v1/party", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching party/customer data from MongoDB');
         
@@ -2675,65 +2598,37 @@ app.get("/api/v1/party", async (req, res) => {
 });
 
 // GET /api/v1/csr/consent - Get all consents for CSR (different path to avoid conflicts)  
-app.get("/api/v1/csr/consent", async (req, res) => {
+app.get("/api/v1/csr/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching consent data');
         
-        // Fetch from MongoDB
-        const mongoConsents = await Consent.find().sort({ createdAt: -1 }).lean();
-        console.log(`Found ${mongoConsents.length} consents in MongoDB`);
-        
-        // Combine MongoDB data with in-memory data and remove duplicates
-        const allConsents = [...mongoConsents, ...csrConsents];
-        const uniqueConsents = allConsents.reduce((unique, consent) => {
-            if (!unique.find(c => c.id === consent.id || c._id?.toString() === consent._id?.toString())) {
-                unique.push(consent);
-            }
-            return unique;
-        }, []);
-        
-        console.log(`Returning ${uniqueConsents.length} total consents`);
-        res.json(uniqueConsents);
+        const consents = await consentStore.find({});
+        console.log(`Returning ${consents.length} consents`);
+        res.json(consents);
         
     } catch (error) {
         console.error(' Error fetching consents:', error);
-        // Fallback to in-memory data
-        console.log('Falling back to in-memory consent data');
-        res.json(csrConsents);
+        res.status(500).json({ error: true, message: 'Failed to fetch consents' });
     }
 });
 
 // GET /api/v1/consent (Non-auth version for CSR dashboard)
-app.get("/api/v1/consent", async (req, res) => {
+app.get("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching all consents (non-auth)');
         
-        // Fetch from MongoDB
-        const mongoConsents = await Consent.find().sort({ createdAt: -1 }).lean();
-        console.log(`Found ${mongoConsents.length} consents in MongoDB`);
-        
-        // Combine MongoDB data with in-memory data and remove duplicates
-        const allConsents = [...mongoConsents, ...csrConsents];
-        const uniqueConsents = allConsents.reduce((unique, consent) => {
-            if (!unique.find(c => c.id === consent.id || c._id?.toString() === consent._id?.toString())) {
-                unique.push(consent);
-            }
-            return unique;
-        }, []);
-        
-        console.log(`Returning ${uniqueConsents.length} total consents`);
-        res.json(uniqueConsents);
+        const consents = await consentStore.find({});
+        console.log(`Returning ${consents.length} consents`);
+        res.json(consents);
         
     } catch (error) {
         console.error(' Error fetching consents:', error);
-        // Fallback to in-memory data
-        console.log('Falling back to in-memory consent data');
-        res.json(csrConsents);
+        res.status(500).json({ error: true, message: 'Failed to fetch consents' });
     }
 });
 
 // GET /api/v1/dsar - Get all DSAR requests for CSR with MongoDB integration
-app.get("/api/v1/dsar", verifyToken, async (req, res) => {
+app.get("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching DSAR data from MongoDB');
         const { status, requestType, priority, page = 1, limit = 50 } = req.query;
@@ -2776,33 +2671,43 @@ app.get("/api/v1/dsar", verifyToken, async (req, res) => {
         
     } catch (error) {
         console.error(' Error fetching DSAR requests:', error);
-        // Fallback to in-memory data
-        console.log('Falling back to in-memory DSAR data');
-        res.json(dsarRequests);
+        // No fallback to seed data: returning fabricated DSAR requests as if
+        // they were real is worse than returning an error.
+        res.status(500).json({ error: true, message: 'Failed to fetch DSAR requests' });
     }
 });
 
 // GET /api/v1/event - Get all audit events for CSR
-app.get("/api/v1/event", (req, res) => {
-    console.log(' CSR Dashboard: Fetching event/audit data');
-    
-    // Add some context to audit events
-    const eventsWithContext = auditEvents.map(event => ({
-        ...event,
-        severity: event.eventType.includes('error') || event.eventType.includes('fail') ? 'high' :
-                 event.eventType.includes('warning') || event.eventType.includes('alert') ? 'medium' : 'low',
-        category: event.eventType.includes('consent') ? 'consent' :
-                 event.eventType.includes('dsar') ? 'dsar' :
-                 event.eventType.includes('auth') ? 'authentication' :
-                 event.eventType.includes('user') ? 'user_management' : 'system'
-    }));
-    
-    console.log(`Returning ${eventsWithContext.length} audit events`);
-    res.json(eventsWithContext);
+app.get("/api/v1/event", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        // Real recorded activity, not the demo array this used to serve.
+        const limit = Math.min(parseInt(req.query.limit) || 200, 1000);
+        const logs = await AuditLog.find({}).sort({ createdAt: -1 }).limit(limit).lean();
+        const events = logs.map(log => ({
+            id: log._id,
+            partyId: log.entityId,
+            eventType: log.action,
+            description: log.description,
+            createdAt: log.createdAt,
+            userId: log.userId,
+            userName: log.userName,
+            ipAddress: log.ipAddress,
+            userAgent: log.userAgent,
+            metadata: log.metadata || {},
+            category: log.category,
+            severity: log.severity,
+            outcome: log.outcome
+        }));
+        console.log(`Returning ${events.length} audit events from MongoDB`);
+        res.json(events);
+    } catch (error) {
+        console.error(' Error fetching audit events:', error);
+        res.status(500).json({ error: true, message: 'Failed to fetch audit events' });
+    }
 });
 
 // GET /api/v1/dsar/requests (Non-auth version for CSR dashboard)
-app.get("/api/v1/dsar/requests", async (req, res) => {
+app.get("/api/v1/dsar/requests", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Fetching DSAR requests from MongoDB (non-auth)');
         const { 
@@ -2922,7 +2827,7 @@ app.get("/api/v1/dsar/requests", async (req, res) => {
 });
 
 // Test endpoint without authentication
-app.get("/api/v1/test-audit", async (req, res) => {
+app.get("/api/v1/test-audit", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Testing audit logs endpoint');
         
@@ -2955,7 +2860,7 @@ app.get("/api/v1/test-audit", async (req, res) => {
 });
 
 // GET /api/v1/audit-logs - Get paginated audit logs with search and filtering
-app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
+app.get("/api/v1/audit-logs", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching audit logs with filters:', req.query);
         
@@ -3032,7 +2937,7 @@ app.get("/api/v1/audit-logs", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/audit-logs/export/csv - Export filtered audit logs as CSV
-app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
+app.get("/api/v1/audit-logs/export/csv", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Exporting audit logs to CSV with filters:', req.query);
         
@@ -3147,7 +3052,7 @@ app.get("/api/v1/audit-logs/export/csv", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/audit-logs/stats - Get audit log statistics
-app.get("/api/v1/audit-logs/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/audit-logs/stats", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching audit log statistics');
         
@@ -3232,7 +3137,7 @@ const upload = multer({
 // ============================================================================
 
 // POST /api/v1/bulk-import/upload - Upload and process CSV file
-app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async (req, res) => {
+app.post("/api/v1/bulk-import/upload", verifyToken, requireRole(['admin']), upload.single('file'), async (req, res) => {
     try {
         console.log(' Admin: Bulk import file upload initiated');
         
@@ -3279,7 +3184,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async
         
         // Clean up uploaded file if error occurred
         if (req.file && req.file.path) {
-            fs.unlink(req.file.path).catch(err => console.error('Error deleting file:', err));
+            fsp.unlink(req.file.path).catch(err => console.error('Error deleting file:', err));
         }
         
         res.status(500).json({
@@ -3291,7 +3196,7 @@ app.post("/api/v1/bulk-import/upload", verifyToken, upload.single('file'), async
 });
 
 // GET /api/v1/bulk-import/history - Get import history with pagination
-app.get("/api/v1/bulk-import/history", verifyToken, async (req, res) => {
+app.get("/api/v1/bulk-import/history", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching bulk import history');
         
@@ -3356,7 +3261,7 @@ app.get("/api/v1/bulk-import/history", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/bulk-import/status/:id - Get import status
-app.get("/api/v1/bulk-import/status/:id", verifyToken, async (req, res) => {
+app.get("/api/v1/bulk-import/status/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const bulkImport = await BulkImport.findById(req.params.id)
             .populate('uploadedBy', 'name email');
@@ -3384,7 +3289,7 @@ app.get("/api/v1/bulk-import/status/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/bulk-import/:id - Delete import record
-app.delete("/api/v1/bulk-import/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/bulk-import/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const bulkImport = await BulkImport.findById(req.params.id);
         
@@ -3397,7 +3302,7 @@ app.delete("/api/v1/bulk-import/:id", verifyToken, async (req, res) => {
 
         // Delete the file if it exists
         if (bulkImport.filePath && fs.existsSync(bulkImport.filePath)) {
-            await fs.unlink(bulkImport.filePath);
+            await fsp.unlink(bulkImport.filePath);
         }
 
         await BulkImport.findByIdAndDelete(req.params.id);
@@ -3616,8 +3521,13 @@ async function processConsentRow(row, columnMapping, bulkImport, rowNumber) {
         }
 
         // Create consent record
-        const consent = new Consent(consentData);
-        await consent.save();
+        await consentStore.create({
+            customerId: consentData.userId,
+            purpose: consentData.purpose,
+            status: consentData.status,
+            source: 'BULK_IMPORT',
+            capturedBy: 'BULK_IMPORT'
+        });
         
         // Update statistics
         bulkImport.statistics.consents = (bulkImport.statistics.consents || 0) + 1;
@@ -3731,7 +3641,7 @@ async function processUserRow(row, columnMapping, bulkImport, rowNumber) {
 // ============================================================================
 
 // GET /api/v1/webhooks - Get all webhooks with pagination and filtering
-app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching webhooks');
         
@@ -3790,7 +3700,7 @@ app.get("/api/v1/webhooks", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/webhooks - Create new webhook
-app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
+app.post("/api/v1/webhooks", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating new webhook');
         
@@ -3848,7 +3758,7 @@ app.post("/api/v1/webhooks", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/webhooks/:id - Update webhook
-app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/webhooks/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Updating webhook ${req.params.id}`);
         
@@ -3906,7 +3816,7 @@ app.put("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/webhooks/:id - Delete webhook
-app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/webhooks/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Deleting webhook ${req.params.id}`);
         
@@ -3939,7 +3849,7 @@ app.delete("/api/v1/webhooks/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/webhooks/:id/test - Test webhook connection
-app.post("/api/v1/webhooks/:id/test", verifyToken, async (req, res) => {
+app.post("/api/v1/webhooks/:id/test", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Testing webhook ${req.params.id}`);
         
@@ -3970,7 +3880,7 @@ app.post("/api/v1/webhooks/:id/test", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/webhooks/events - Get available events
-app.get("/api/v1/webhooks/events", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks/events", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const events = [
             { value: 'consent.granted', label: 'Consent Granted', description: 'Triggered when a user grants consent' },
@@ -4009,7 +3919,7 @@ app.get("/api/v1/webhooks/events", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/webhooks/:id/logs - Get webhook delivery logs
-app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks/:id/logs", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Fetching logs for webhook ${req.params.id}`);
         
@@ -4055,7 +3965,7 @@ app.get("/api/v1/webhooks/:id/logs", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/webhooks/stats - Get webhook statistics
-app.get("/api/v1/webhooks/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/webhooks/stats", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching webhook statistics');
         
@@ -4197,14 +4107,14 @@ const {
 
 app.use('/api/v1/admin/preference-channels', channelRouter);
 app.use('/api/v1/admin/preference-topics', topicRouter);
-app.use('/api/v1/customer/preference-config', customerConfigRouter);
+app.use('/api/v1/customer/preference-config', verifyToken, customerConfigRouter);
 
 // ================================
 // COMPLIANCE RULES API ENDPOINTS
 // ================================
 
 // GET /api/v1/compliance-rules - Get all compliance rules with pagination and filtering
-app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching compliance rules');
         
@@ -4274,7 +4184,7 @@ app.get("/api/v1/compliance-rules", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/compliance-rules - Create new compliance rule
-app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
+app.post("/api/v1/compliance-rules", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating new compliance rule');
         
@@ -4295,18 +4205,13 @@ app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
         await rule.populate('created_by', 'name email role');
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'CREATE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: rule._id,
-            details: { 
-                name: rule.name,
-                ruleType: rule.ruleType,
-                category: rule.category,
-                status: rule.status
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${rule.name}" created`,
+            entityType: 'system',
+            entityId: rule._id,
+            metadata: { name: rule.name, ruleType: rule.ruleType, category: rule.category, status: rule.status }
         });
 
         res.status(201).json({
@@ -4339,7 +4244,7 @@ app.post("/api/v1/compliance-rules", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/compliance-rules/:id - Update compliance rule
-app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/compliance-rules/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Updating compliance rule ${req.params.id}`);
         
@@ -4370,18 +4275,15 @@ app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
         await rule.populate('created_by updated_by approved_by', 'name email role');
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'UPDATE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: rule._id,
-            details: { 
-                name: rule.name,
-                changes: Object.keys(req.body),
-                oldStatus: oldValues.status,
-                newStatus: rule.status
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${rule.name}" updated`,
+            entityType: 'system',
+            entityId: rule._id,
+            metadata: { name: rule.name, changes: Object.keys(req.body) },
+            previousState: { status: oldValues.status },
+            newState: { status: rule.status }
         });
 
         res.json({
@@ -4405,7 +4307,7 @@ app.put("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/compliance-rules/:id - Delete compliance rule
-app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/compliance-rules/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Deleting compliance rule ${req.params.id}`);
         
@@ -4431,18 +4333,14 @@ app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
         await ComplianceRule.findByIdAndDelete(req.params.id);
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'DELETE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: req.params.id,
-            details: { 
-                name: ruleData.name,
-                ruleType: ruleData.ruleType,
-                category: ruleData.category,
-                deletedStatus: ruleData.status
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${ruleData.name}" deleted`,
+            entityType: 'system',
+            entityId: req.params.id,
+            severity: 'high',
+            metadata: { name: ruleData.name, ruleType: ruleData.ruleType, category: ruleData.category }
         });
 
         res.json({
@@ -4461,7 +4359,7 @@ app.delete("/api/v1/compliance-rules/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/compliance-rules/:id/execute - Execute compliance rule
-app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) => {
+app.post("/api/v1/compliance-rules/:id/execute", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(` Admin: Executing compliance rule ${req.params.id}`);
         
@@ -4485,17 +4383,13 @@ app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) =
         await rule.execute(context);
 
         // Log audit event
-        await AuditLog.create({
-            userId: req.user.id,
-            action: 'EXECUTE_COMPLIANCE_RULE',
-            resource: 'compliance_rule',
-            resourceId: rule._id,
-            details: { 
-                name: rule.name,
-                executionContext: context,
-                executionCount: rule.metrics.enforcement_count
-            },
-            ipAddress: req.ip
+        await writeAuditLog(req, {
+            action: 'compliance_check_performed',
+            category: 'Compliance & Audit',
+            description: `Compliance rule "${rule.name}" executed`,
+            entityType: 'system',
+            entityId: rule._id,
+            metadata: { name: rule.name, executionContext: context, executionCount: rule.metrics.enforcement_count }
         });
 
         res.json({
@@ -4518,7 +4412,7 @@ app.post("/api/v1/compliance-rules/:id/execute", verifyToken, async (req, res) =
 });
 
 // GET /api/v1/compliance-rules/stats - Get compliance statistics
-app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules/stats", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching compliance rule statistics');
         
@@ -4600,7 +4494,7 @@ app.get("/api/v1/compliance-rules/stats", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/compliance-rules/overdue-reviews - Get rules that need review
-app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching overdue compliance reviews');
         
@@ -4625,7 +4519,7 @@ app.get("/api/v1/compliance-rules/overdue-reviews", verifyToken, async (req, res
 });
 
 // GET /api/v1/compliance-rules/categories - Get available categories and rule types
-app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => {
+app.get("/api/v1/compliance-rules/categories", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching compliance categories and types');
         
@@ -4654,7 +4548,7 @@ app.get("/api/v1/compliance-rules/categories", verifyToken, async (req, res) => 
 });
 
 // GET /api/v1/preferences/stats - Get preference statistics (MUST come before generic /preferences route)
-app.get("/api/v1/preferences/stats", async (req, res) => {
+app.get("/api/v1/preferences/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
         console.log(' Admin: Fetching preference statistics');
@@ -4706,233 +4600,207 @@ app.get("/api/v1/preferences/stats", async (req, res) => {
 });
 
 // GET /api/v1/preferences - Get customer preferences for CSR
-app.get("/api/v1/preferences", (req, res) => {
-    console.log(' CSR Dashboard: Fetching preferences data');
-    const partyId = req.query.partyId;
-    if (partyId) {
-        const prefs = customerPreferences.filter(p => p.partyId === partyId);
-        res.json(prefs);
-    } else {
-        res.json(customerPreferences);
+app.get("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const filter = req.query.partyId ? { partyId: req.query.partyId } : {};
+        const prefs = await CommunicationPreference.find(filter).sort({ updatedAt: -1 }).lean();
+        res.json(prefs);   // bare array, as callers expect
+    } catch (error) {
+        console.error(' Error fetching communication preferences:', error);
+        res.status(500).json({ error: true, message: 'Failed to fetch preferences' });
     }
 });
 
 // POST /api/v1/dsar - Create new DSAR request
-app.post("/api/v1/dsar", (req, res) => {
-    console.log(' CSR Dashboard: Creating new DSAR request');
-    const newRequest = {
-        id: String(dsarRequests.length + 1),
-        ...req.body,
-        submittedAt: new Date().toISOString(),
-        status: req.body.status || 'pending'
-    };
-    dsarRequests.push(newRequest);
-    res.json(newRequest);
+app.post("/api/v1/dsar", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const b = req.body || {};
+        // Accept the older requestor* spelling this route has always taken.
+        const requesterName  = b.requesterName  || b.requestorName;
+        const requesterEmail = b.requesterEmail || b.requestorEmail;
+        const requestType    = b.requestType;
+        if (!requesterName || !requesterEmail || !requestType) {
+            return res.status(400).json({
+                error: true,
+                message: 'requesterName, requesterEmail and requestType are required'
+            });
+        }
+        const request = await DSARRequest.create({
+            requestId: `DSAR-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+            requesterId: b.requesterId || b.customerId || b.partyId || 'unknown',
+            requesterName,
+            requesterEmail,
+            requestType,
+            subject: b.subject || `${requestType} request`,
+            description: b.description || '',
+            status: b.status || 'pending',
+            priority: b.priority || 'medium',
+            submittedAt: new Date(),
+            dueDate: b.dueDate ? new Date(b.dueDate) : new Date(Date.now() + 30 * 86400000)
+        });
+        await writeAuditLog(req, {
+            action: 'dsar_request_created',
+            category: 'DSAR Processing',
+            description: `DSAR request ${request.requestId} created by staff`,
+            entityType: 'dsar_request',
+            entityId: request._id,
+            severity: 'high',
+            metadata: { requestId: request.requestId, requesterEmail, requestType }
+        });
+        res.json(request);
+    } catch (error) {
+        console.error(' Error creating DSAR request:', error);
+        res.status(500).json({ error: true, message: 'Failed to create DSAR request' });
+    }
 });
 
 // PUT /api/v1/dsar/:id - Update DSAR request status
-app.put("/api/v1/dsar/:id", (req, res) => {
-    console.log(' CSR Dashboard: Updating DSAR request:', req.params.id);
-    const requestId = req.params.id;
-    const requestIndex = dsarRequests.findIndex(r => r.id === requestId);
-    
-    if (requestIndex >= 0) {
-        dsarRequests[requestIndex] = {
-            ...dsarRequests[requestIndex],
-            ...req.body,
-            updatedAt: new Date().toISOString()
-        };
-        
-        if (req.body.status === 'completed') {
-            dsarRequests[requestIndex].completedAt = new Date().toISOString();
+app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const id = req.params.id;
+        const update = { ...req.body };
+        if (update.status === 'completed' && !update.completedAt) {
+            update.completedAt = new Date();
         }
-        
-        res.json(dsarRequests[requestIndex]);
-    } else {
-        res.status(404).json({ error: 'DSAR request not found' });
+        // Callers may hold either the human-readable requestId or the ObjectId.
+        const query = mongoose.Types.ObjectId.isValid(id)
+            ? { $or: [{ _id: id }, { requestId: id }] }
+            : { requestId: id };
+        const request = await DSARRequest.findOneAndUpdate(query, { $set: update }, { new: true });
+        if (!request) {
+            return res.status(404).json({ error: 'DSAR request not found' });
+        }
+        await writeAuditLog(req, {
+            action: 'dsar_request_updated',
+            category: 'DSAR Processing',
+            description: `DSAR request ${request.requestId} updated to status "${request.status}"`,
+            entityType: 'dsar_request',
+            entityId: request._id,
+            severity: 'high',
+            newState: { status: request.status },
+            metadata: { requestId: request.requestId }
+        });
+        res.json(request);
+    } catch (error) {
+        console.error(' Error updating DSAR request:', error);
+        res.status(500).json({ error: true, message: 'Failed to update DSAR request' });
     }
 });
 
 // POST /api/v1/consent - Create new consent record
-app.post("/api/v1/consent", async (req, res) => {
+const sendConsentError = (res, error, action) => {
+    if (error instanceof consentStore.ConsentInputError) {
+        return res.status(400).json({ error: true, message: error.message });
+    }
+    console.error(` Error trying to ${action} consent:`, error);
+    return res.status(500).json({ error: true, message: `Failed to ${action} consent`, details: error.message });
+};
+
+// Where a staff decision was captured, from the role of whoever made it.
+const staffSource = (req) => (req.user.role === 'csr' ? 'CSR_DASHBOARD' : 'ADMIN_DASHBOARD');
+
+// GET /api/v1/consent-scopes - the consent types (with versions) a decision can be recorded against
+app.get("/api/v1/consent-scopes", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
-        console.log(' CSR Dashboard: Creating new consent');
-        console.log('Request body:', req.body);
-        
-        // Generate unique ID
-        const consentCount = await Consent.countDocuments();
-        const newConsentId = String(consentCount + 1);
-        
-        // Create consent data with proper structure
-        const consentData = {
-            id: newConsentId,
-            partyId: req.body.partyId,
-            customerId: req.body.partyId, // Use partyId as customerId for consistency
-            purpose: req.body.purpose,
-            status: req.body.status,
-            channel: req.body.channel,
-            geoLocation: req.body.geoLocation || 'Sri Lanka',
-            privacyNoticeId: req.body.privacyNoticeId || 'PN-001',
-            versionAccepted: req.body.versionAccepted || '1.0',
-            recordSource: 'admin-dashboard',
-            type: req.body.purpose, // Use purpose as type for compatibility
-            consentType: req.body.purpose, // Use purpose as consentType for compatibility
-            validFrom: req.body.validFor?.startDateTime ? new Date(req.body.validFor.startDateTime) : new Date(),
-            validTo: req.body.validFor?.endDateTime ? new Date(req.body.validFor.endDateTime) : undefined,
-            expiresAt: req.body.validFor?.endDateTime ? new Date(req.body.validFor.endDateTime) : undefined,
-            grantedAt: req.body.status === 'granted' ? new Date() : undefined,
-            timestampGranted: req.body.status === 'granted' ? new Date().toISOString() : undefined,
-            deniedAt: req.body.status === 'revoked' ? new Date() : undefined,
-            metadata: req.body.metadata || {}
-        };
-        
-        // Save to MongoDB
-        const newConsent = new Consent(consentData);
-        const savedConsent = await newConsent.save();
-        
-        // Also add to in-memory array for compatibility with existing frontend
-        const memoryConsent = {
-            id: savedConsent.id,
-            partyId: savedConsent.partyId,
-            customerId: savedConsent.customerId,
-            purpose: savedConsent.purpose,
-            status: savedConsent.status,
-            channel: savedConsent.channel,
-            type: savedConsent.type,
-            consentType: savedConsent.consentType,
-            geoLocation: savedConsent.geoLocation,
-            grantedAt: savedConsent.grantedAt,
-            expiresAt: savedConsent.expiresAt,
-            deniedAt: savedConsent.deniedAt
-        };
-        csrConsents.push(memoryConsent);
-        
-        console.log(' Consent saved to MongoDB:', savedConsent.id);
-        res.json(savedConsent);
-        
+        res.json(await consentStore.listScopes({ activeOnly: req.query.all !== 'true' }));
     } catch (error) {
-        console.error(' Error creating consent:', error);
-        res.status(500).json({ 
-            error: true, 
-            message: 'Failed to create consent',
-            details: error.message 
-        });
+        sendConsentError(res, error, 'load');
     }
 });
 
-// PUT /api/v1/consent/:id - Update consent status
-app.put("/api/v1/consent/:id", async (req, res) => {
+// POST /api/v1/consent - record a customer's consent decision (customer_consents)
+app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
-        console.log(' CSR Dashboard: Updating consent:', req.params.id);
-        console.log(' Request body:', JSON.stringify(req.body, null, 2));
-        const consentId = req.params.id;
-        
-        // Update in MongoDB first
-        let updatedConsent = await Consent.findOne({ id: consentId });
-        
-        if (updatedConsent) {
-            // Update MongoDB document
-            Object.assign(updatedConsent, req.body);
-            
-            // Mark as CSR-updated if this request comes from CSR (based on notes or updatedBy)
-            if ((req.body.notes && req.body.notes.includes('CSR')) || req.body.updatedBy === 'csr-agent') {
-                updatedConsent.source = 'csr-dashboard';
-                updatedConsent.recordSource = 'csr-dashboard';
-                updatedConsent.updatedBy = 'CSR Staff';
-                console.log(' Marking consent update as CSR-initiated');
-            }
-            
-            if (req.body.status === 'granted') {
-                updatedConsent.grantedAt = new Date();
-                updatedConsent.timestampGranted = new Date().toISOString();
-            } else if (req.body.status === 'revoked') {
-                updatedConsent.revokedAt = new Date();
-                updatedConsent.timestampRevoked = new Date().toISOString();
-            }
-            
-            await updatedConsent.save();
-            console.log(' Consent updated in MongoDB:', consentId);
-            
-            // Emit real-time update to CSR dashboard
-            if (global.io && req.body.status) {
-                const eventType = req.body.status === 'granted' ? 'granted' : 'revoked';
-                global.io.to('csr-dashboard').emit('consent-updated', {
-                    type: eventType,
-                    consent: updatedConsent,
-                    timestamp: new Date(),
-                    user: {
-                        id: updatedConsent.partyId || updatedConsent.userId,
-                        email: updatedConsent.customerEmail || 'Unknown'
-                    },
-                    source: updatedConsent.source === 'csr-dashboard' ? 'csr' : 'system',
-                    updatedBy: updatedConsent.updatedBy || 'System'
-                });
-                console.log(` Real-time update sent to CSR dashboard - consent ${eventType} via system`);
-            }
-            
-            // Also update in-memory array for compatibility
-            const consentIndex = csrConsents.findIndex(c => c.id === consentId);
-            if (consentIndex >= 0) {
-                csrConsents[consentIndex] = {
-                    ...csrConsents[consentIndex],
-                    ...req.body,
-                    updatedAt: new Date().toISOString(),
-                    grantedAt: req.body.status === 'granted' ? new Date().toISOString() : csrConsents[consentIndex].grantedAt,
-                    revokedAt: req.body.status === 'revoked' ? new Date().toISOString() : csrConsents[consentIndex].revokedAt
-                };
-            }
-            
-            res.json(updatedConsent);
-        } else {
-            // Fallback to in-memory update
-            const consentIndex = csrConsents.findIndex(c => c.id === consentId);
-            
-            if (consentIndex >= 0) {
-                const updatedConsentMem = {
-                    ...csrConsents[consentIndex],
-                    ...req.body,
-                    updatedAt: new Date().toISOString()
-                };
-                
-                if (req.body.status === 'granted') {
-                    updatedConsentMem.grantedAt = new Date().toISOString();
-                } else if (req.body.status === 'revoked') {
-                    updatedConsentMem.revokedAt = new Date().toISOString();
-                }
-                
-                csrConsents[consentIndex] = updatedConsentMem;
-                res.json(updatedConsentMem);
-            } else {
-                res.status(404).json({ error: 'Consent record not found' });
-            }
-        }
-        
-    } catch (error) {
-        console.error(' Error updating consent:', error);
-        res.status(500).json({ 
-            error: true, 
-            message: 'Failed to update consent',
-            details: error.message 
+        const consent = await consentStore.create({
+            ...req.body,
+            customerId: req.body.customerId || req.body.partyId,
+            source: req.body.source || req.body.recordSource || staffSource(req),
+            capturedBy: req.user.email || String(req.user.id)
         });
+        res.json(consent);
+    } catch (error) {
+        sendConsentError(res, error, 'create');
+    }
+});
+
+// POST /api/v1/consent/bulk - record the same decision for every active customer that has none for this version yet
+app.post("/api/v1/consent/bulk", verifyToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const customers = await User.find({ role: 'customer', status: 'active', isActive: true }).select('_id').lean();
+        const result = await consentStore.createForCustomers(customers.map((c) => String(c._id)), {
+            ...req.body,
+            source: req.body.source || staffSource(req),
+            capturedBy: req.user.email || String(req.user.id)
+        });
+        res.json(result);
+    } catch (error) {
+        sendConsentError(res, error, 'create');
+    }
+});
+
+// PUT /api/v1/consent/:id - change a recorded decision
+app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const consent = await consentStore.update(req.params.id, {
+            ...req.body,
+            source: req.body.source || req.body.recordSource || staffSource(req),
+            capturedBy: req.user.email || String(req.user.id)
+        });
+        if (!consent) {
+            return res.status(404).json({ error: 'Consent record not found' });
+        }
+
+        // Real-time update for the CSR dashboard
+        if (global.io && (req.body.status || req.body.consentStatus)) {
+            const customer = await User.findById(consent.customerId).select('email').lean().catch(() => null);
+            global.io.to('csr-dashboard').emit('consent-updated', {
+                type: consent.status === 'granted' ? 'granted' : 'revoked',
+                consent,
+                timestamp: new Date(),
+                user: { id: consent.customerId, email: customer?.email || 'Unknown' },
+                source: req.user.role === 'csr' ? 'csr' : 'system',
+                updatedBy: req.user.email || 'System'
+            });
+        }
+        res.json(consent);
+    } catch (error) {
+        sendConsentError(res, error, 'update');
     }
 });
 
 // POST /api/v1/preferences - Create/Update preferences for CSR
-app.post("/api/v1/preferences", (req, res) => {
-    console.log(' CSR Dashboard: Creating/updating preferences');
-    const newPrefs = {
-        id: Date.now().toString(),
-        ...req.body,
-        updatedAt: new Date().toISOString()
-    };
-    customerPreferences.push(newPrefs);
-    res.status(201).json(newPrefs);
+app.post("/api/v1/preferences", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const { partyId, ...rest } = req.body;
+        if (!partyId) {
+            return res.status(400).json({ error: true, message: 'partyId is required' });
+        }
+        // One preference record per party: repeated posts update rather than pile up.
+        const prefs = await CommunicationPreference.findOneAndUpdate(
+            { partyId },
+            { $set: { ...rest, updatedBy: req.user?.email || 'system' } },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        ).lean();
+        await writeAuditLog(req, {
+            action: 'configuration_changed',
+            category: 'Data Processing',
+            description: `Communication preferences updated for party ${partyId}`,
+            entityType: 'preference',
+            entityId: prefs._id,
+            severity: 'low',
+            metadata: { partyId, changes: Object.keys(rest) }
+        });
+        res.status(201).json(prefs);
+    } catch (error) {
+        console.error(' Error saving communication preferences:', error);
+        res.status(500).json({ error: true, message: 'Failed to save preferences' });
+    }
 });
 
 // ===== COMPREHENSIVE PREFERENCE MANAGEMENT ENDPOINTS =====
 
 // GET /api/v1/preferences/categories - Get all preference categories
-app.get("/api/v1/preferences/categories", async (req, res) => {
+app.get("/api/v1/preferences/categories", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Fetching preference categories');
         const categories = await PreferenceCategory.find({}).sort({ priority: -1, name: 1 });
@@ -4947,7 +4815,7 @@ app.get("/api/v1/preferences/categories", async (req, res) => {
 });
 
 // POST /api/v1/preferences/categories - Create preference category
-app.post("/api/v1/preferences/categories", async (req, res) => {
+app.post("/api/v1/preferences/categories", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating preference category');
         const categoryData = {
@@ -4966,7 +4834,7 @@ app.post("/api/v1/preferences/categories", async (req, res) => {
 });
 
 // PUT /api/v1/preferences/categories/:id - Update preference category
-app.put("/api/v1/preferences/categories/:id", async (req, res) => {
+app.put("/api/v1/preferences/categories/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Updating preference category:', req.params.id);
         const category = await PreferenceCategory.findOneAndUpdate(
@@ -4987,7 +4855,7 @@ app.put("/api/v1/preferences/categories/:id", async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/categories/:id - Delete preference category
-app.delete("/api/v1/preferences/categories/:id", async (req, res) => {
+app.delete("/api/v1/preferences/categories/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Deleting preference category:', req.params.id);
         
@@ -5015,13 +4883,13 @@ app.delete("/api/v1/preferences/categories/:id", async (req, res) => {
 // ===== ADMIN DASHBOARD OVERVIEW ENDPOINT =====
 
 // GET /api/v1/admin/dashboard/overview - Get comprehensive admin dashboard overview
-app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
+app.get("/api/v1/admin/dashboard/overview", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin Dashboard: Fetching comprehensive overview data');
         
         // Fetch data from MongoDB using available Mongoose models
         const [consentsFromDB, dsarFromDB, preferencesFromDB, usersFromDB] = await Promise.all([
-            Consent.find({}).sort({ createdAt: -1 }).lean(),
+            consentStore.find({}),
             DSARRequest.find({}).sort({ createdAt: -1 }).lean(),
             UserPreference.find({}).sort({ createdAt: -1 }).lean(),
             User.find({}).sort({ createdAt: -1 }).lean()
@@ -5103,7 +4971,7 @@ app.get("/api/v1/admin/dashboard/overview", verifyToken, async (req, res) => {
 // ===== ADMIN PREFERENCE MANAGEMENT ENDPOINTS =====
 
 // GET /api/v1/preferences/admin - Get preference items with filtering for admin
-app.get("/api/v1/preferences/admin", async (req, res) => {
+app.get("/api/v1/preferences/admin", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching preference items');
         const { 
@@ -5191,7 +5059,7 @@ app.get("/api/v1/preferences/admin", async (req, res) => {
 });
 
 // GET /api/v1/preferences/admin/:id - Get specific preference item
-app.get("/api/v1/preferences/admin/:id", async (req, res) => {
+app.get("/api/v1/preferences/admin/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' ADMIN ROUTE HIT: /api/v1/preferences/admin/:id - ID param:', req.params.id);
         console.log(' Admin: Fetching preference item:', req.params.id);
@@ -5209,7 +5077,7 @@ app.get("/api/v1/preferences/admin/:id", async (req, res) => {
 });
 
 // POST /api/v1/preferences/admin - Create preference item
-app.post("/api/v1/preferences/admin", async (req, res) => {
+app.post("/api/v1/preferences/admin", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating preference item');
         
@@ -5239,7 +5107,7 @@ app.post("/api/v1/preferences/admin", async (req, res) => {
 });
 
 // PUT /api/v1/preferences/admin/:id - Update preference item
-app.put("/api/v1/preferences/admin/:id", async (req, res) => {
+app.put("/api/v1/preferences/admin/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -5260,7 +5128,7 @@ app.put("/api/v1/preferences/admin/:id", async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/admin/:id - Delete preference item
-app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
+app.delete("/api/v1/preferences/admin/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Deleting preference item:', req.params.id);
         
@@ -5280,7 +5148,7 @@ app.delete("/api/v1/preferences/admin/:id", async (req, res) => {
 });
 
 // PATCH /api/v1/preferences/admin/:id/toggle - Toggle preference enabled status
-app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
+app.patch("/api/v1/preferences/admin/:id/toggle", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -5301,7 +5169,7 @@ app.patch("/api/v1/preferences/admin/:id/toggle", async (req, res) => {
 });
 
 // GET /api/v1/users - Get all users for admin management
-app.get("/api/v1/users", async (req, res) => {
+app.get("/api/v1/users", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Fetching all users from MongoDB');
         
@@ -5385,7 +5253,7 @@ app.get("/api/v1/users", async (req, res) => {
 });
 
 // POST /api/v1/users - Create new user (Admin only)
-app.post("/api/v1/users", async (req, res) => {
+app.post("/api/v1/users", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Creating new user');
         
@@ -5488,6 +5356,16 @@ app.post("/api/v1/users", async (req, res) => {
             permissions: []
         };
         
+        await writeAuditLog(req, {
+            action: 'user_created',
+            category: 'User Management',
+            description: `User account ${savedUser.email} created with role "${savedUser.role}"`,
+            entityType: 'user',
+            entityId: savedUser._id,
+            severity: 'high',
+            metadata: { email: savedUser.email, role: savedUser.role }
+        });
+
         res.status(201).json({
             error: false,
             message: "User created successfully",
@@ -5516,7 +5394,7 @@ app.post("/api/v1/users", async (req, res) => {
 });
 
 // PUT /api/v1/users/:id/status - Update user status (Admin only)
-app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
+app.put("/api/v1/users/:id/status", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(" Admin: Updating user status for ID:", req.params.id);
         
@@ -5558,6 +5436,17 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
         }
         
         console.log(" User status updated:", updatedUser.email, "Status:", status);
+
+        await writeAuditLog(req, {
+            action: 'user_updated',
+            category: 'User Management',
+            description: `Account status for ${updatedUser.email} changed to "${status}"`,
+            entityType: 'user',
+            entityId: updatedUser._id,
+            severity: 'high',
+            newState: { status },
+            metadata: { email: updatedUser.email, role: updatedUser.role }
+        });
         
         // Transform response
         const responseUser = {
@@ -5602,7 +5491,7 @@ app.put("/api/v1/users/:id/status", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/users/:id - Delete user (Admin only)
-app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/users/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log("  Admin: Deleting user with ID:", req.params.id);
         
@@ -5640,6 +5529,16 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
         await User.findByIdAndDelete(req.params.id);
         
         console.log(" User deleted successfully:", userToDelete.email);
+
+        await writeAuditLog(req, {
+            action: 'user_deleted',
+            category: 'User Management',
+            description: `User account ${userToDelete.email} deleted`,
+            entityType: 'user',
+            entityId: userToDelete._id,
+            severity: 'critical',
+            metadata: { email: userToDelete.email, role: userToDelete.role }
+        });
         
         res.json({
             error: false,
@@ -5671,7 +5570,7 @@ app.delete("/api/v1/users/:id", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/guardians - Get all guardians (Admin only)
-app.get("/api/v1/guardians", verifyToken, async (req, res) => {
+app.get("/api/v1/guardians", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' Admin: Fetching all guardians');
         
@@ -5714,7 +5613,7 @@ app.get("/api/v1/guardians", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/guardians - Create new guardian with dependents (Admin only)
-app.post("/api/v1/guardians", verifyToken, async (req, res) => {
+app.post("/api/v1/guardians", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' Admin: Creating new guardian');
         
@@ -5841,7 +5740,7 @@ app.post("/api/v1/guardians", verifyToken, async (req, res) => {
 });
 
 // Update guardian - PUT endpoint
-app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/guardians/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(" Updating guardian with ID:", req.params.id);
         console.log(" Update data received:", JSON.stringify(req.body, null, 2));
@@ -5986,106 +5885,7 @@ app.put("/api/v1/guardians/:id", verifyToken, async (req, res) => {
 
 // ===== LEGACY PREFERENCE ENDPOINTS =====
 
-// GET /api/v1/preferences - Get preference items with filtering (ORIGINAL)
-app.get("/api/v1/preferences", async (req, res) => {
-    try {
-        console.log(' Admin: Fetching preference items');
-        const { 
-            categoryId, 
-            enabled, 
-            type, 
-            search, 
-            limit = 20, 
-            offset = 0, 
-            sortBy = 'priority', 
-            sortOrder = 'desc' 
-        } = req.query;
-        
-        // Build query
-        const query = {};
-        if (categoryId) query.categoryId = categoryId;
-        if (enabled !== undefined) query.enabled = enabled === 'true';
-        if (type) query.type = type;
-        if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } }
-            ];
-        }
-        
-        // Execute query
-        const sortObj = {};
-        sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
-        
-        const preferences = await PreferenceItem.find(query)
-            .sort(sortObj)
-            .limit(parseInt(limit))
-            .skip(parseInt(offset));
-            
-        const totalCount = await PreferenceItem.countDocuments(query);
-        
-        res.json({
-            preferences,
-            totalCount,
-            hasMore: totalCount > parseInt(offset) + parseInt(limit)
-        });
-    } catch (error) {
-        console.error(' Error fetching preferences:', error);
-        res.status(500).json({ error: 'Failed to fetch preferences', details: error.message });
-    }
-});
 
-// GET /api/v1/preferences/stats - Get preference statistics (MUST come before ANY parameterized routes)
-app.get("/api/v1/preferences/stats", async (req, res) => {
-    try {
-        console.log(' STATS ROUTE HIT: /api/v1/preferences/stats - This should be the stats route!');
-        console.log(' Admin: Fetching preference statistics');
-        
-        const totalPreferences = await PreferenceItem.countDocuments();
-        const activePreferences = await PreferenceItem.countDocuments({ enabled: true });
-        const totalUsers = await User.countDocuments();
-        const categoriesCount = await PreferenceCategory.countDocuments();
-        
-        // Category stats
-        const categories = await PreferenceCategory.find({});
-        const categoryStats = {};
-        
-        for (const category of categories) {
-            const count = await PreferenceItem.countDocuments({ categoryId: category.id });
-            const enabled = await PreferenceItem.countDocuments({ categoryId: category.id, enabled: true });
-            const users = await UserPreference.countDocuments({
-                preferenceId: { $in: await PreferenceItem.find({ categoryId: category.id }).distinct('id') }
-            });
-            
-            categoryStats[category.name] = {
-                count,
-                enabled,
-                users: users || 0
-            };
-        }
-        
-        const customizedUserIds = await UserPreference.distinct('partyId');
-        const customizedUsers = customizedUserIds.length;
-        const engagementRate = totalUsers > 0 ? Math.round((customizedUsers / totalUsers) * 100) : 0;
-        
-        res.json({
-            totalPreferences,
-            activePreferences,
-            totalUsers,
-            categoriesCount,
-            lastUpdated: new Date().toISOString(),
-            categoryStats,
-            userEngagement: {
-                customizedUsers,
-                defaultUsers: totalUsers - customizedUsers,
-                engagementRate
-            }
-        });
-    } catch (error) {
-        console.error(' Error fetching stats:', error);
-        res.status(500).json({ error: 'Failed to fetch statistics', details: error.message });
-    }
-});
 
 // ===== TOPIC-BASED PREFERENCES =====
 // Note: These routes must be defined BEFORE the generic /api/v1/preferences/:id route
@@ -6112,7 +5912,7 @@ app.get('/api/v1/preferences/topics', verifyToken, async (req, res) => {
 });
 
 // Update Topic-based Preferences
-app.post('/api/v1/preferences/topics', verifyToken, async (req, res) => {
+app.post('/api/v1/preferences/topics', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     const { userId, topicPreferences, doNotDisturbPeriods } = req.body;
     
@@ -6167,7 +5967,7 @@ app.post('/api/v1/preferences/topics', verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/preferences/:id - Get specific preference item
-app.get("/api/v1/preferences/:id", async (req, res) => {
+app.get("/api/v1/preferences/:id", verifyToken, async (req, res) => {
     try {
         console.log(' Admin: Fetching preference item:', req.params.id);
         const preference = await PreferenceItem.findOne({ id: req.params.id });
@@ -6183,35 +5983,9 @@ app.get("/api/v1/preferences/:id", async (req, res) => {
     }
 });
 
-// POST /api/v1/preferences - Create preference item
-app.post("/api/v1/preferences", async (req, res) => {
-    try {
-        console.log(' Admin: Creating preference item');
-        
-        // Verify category exists
-        const category = await PreferenceCategory.findOne({ id: req.body.categoryId });
-        if (!category) {
-            return res.status(400).json({ error: 'Category not found' });
-        }
-        
-        const preferenceData = {
-            id: Date.now().toString(),
-            ...req.body,
-            users: 0,
-            priority: req.body.priority || 0
-        };
-        
-        const preference = new PreferenceItem(preferenceData);
-        await preference.save();
-        res.status(201).json(preference);
-    } catch (error) {
-        console.error(' Error creating preference:', error);
-        res.status(500).json({ error: 'Failed to create preference', details: error.message });
-    }
-});
 
 // PUT /api/v1/preferences/:id - Update preference item
-app.put("/api/v1/preferences/:id", async (req, res) => {
+app.put("/api/v1/preferences/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Updating preference item:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -6232,7 +6006,7 @@ app.put("/api/v1/preferences/:id", async (req, res) => {
 });
 
 // DELETE /api/v1/preferences/:id - Delete preference item
-app.delete("/api/v1/preferences/:id", async (req, res) => {
+app.delete("/api/v1/preferences/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Deleting preference item:', req.params.id);
         
@@ -6252,7 +6026,7 @@ app.delete("/api/v1/preferences/:id", async (req, res) => {
 });
 
 // PATCH /api/v1/preferences/:id/toggle - Toggle preference enabled status
-app.patch("/api/v1/preferences/:id/toggle", async (req, res) => {
+app.patch("/api/v1/preferences/:id/toggle", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Admin: Toggling preference:', req.params.id);
         const preference = await PreferenceItem.findOneAndUpdate(
@@ -6272,152 +6046,9 @@ app.patch("/api/v1/preferences/:id/toggle", async (req, res) => {
     }
 });
 
-// POST /api/v1/dsar - Create new DSAR request for CSR
-app.post("/api/v1/dsar", (req, res) => {
-    console.log(' CSR Dashboard: Creating DSAR request');
-    const newRequest = {
-        id: Date.now().toString(),
-        ...req.body,
-        status: "pending",
-        submittedAt: new Date().toISOString()
-    };
-    dsarRequests.push(newRequest);
-    res.status(201).json(newRequest);
-});
 
-// PUT /api/v1/dsar/:id - Update DSAR request for CSR
-app.put("/api/v1/dsar/:id", async (req, res) => {
-    console.log(` CSR Dashboard: Updating DSAR request ${req.params.id}`);
-    console.log(' Update payload:', req.body);
-    
-    const { id } = req.params;
-    
-    try {
-        // Update in-memory array for CSR dashboard compatibility
-        const requestIndex = dsarRequests.findIndex(r => r.id === id);
-        
-        if (requestIndex !== -1) {
-            dsarRequests[requestIndex] = {
-                ...dsarRequests[requestIndex],
-                ...req.body,
-                updatedAt: new Date().toISOString()
-            };
-        }
 
-        // Update in MongoDB for persistence and customer visibility
-        const updatedRequest = await DSARRequest.findOneAndUpdate(
-            { $or: [{ _id: id }, { id: id }] },
-            {
-                ...req.body,
-                updatedAt: new Date()
-            },
-            { new: true }
-        );
 
-        if (updatedRequest) {
-            console.log(` Successfully updated DSAR request ${id} in MongoDB`);
-            
-            // Transform MongoDB result to match expected format
-            const responseData = {
-                id: updatedRequest.id || updatedRequest._id.toString(),
-                requestId: updatedRequest.requestId,
-                partyId: updatedRequest.partyId,
-                customerId: updatedRequest.customerId,
-                requestType: updatedRequest.requestType,
-                status: updatedRequest.status,
-                description: updatedRequest.description,
-                requestorName: updatedRequest.requestorName,
-                requestorEmail: updatedRequest.requestorEmail,
-                submittedAt: updatedRequest.submittedAt,
-                updatedAt: updatedRequest.updatedAt.toISOString(),
-                approvedAt: updatedRequest.approvedAt,
-                rejectedAt: updatedRequest.rejectedAt,
-                completedAt: updatedRequest.completedAt,
-                processingNotes: updatedRequest.processingNotes,
-                processedBy: updatedRequest.processedBy,
-                priority: updatedRequest.priority || 'medium'
-            };
-            
-            res.json(responseData);
-        } else if (requestIndex !== -1) {
-            // Fallback to in-memory data if MongoDB update failed
-            console.log(` MongoDB update failed, using in-memory data for DSAR ${id}`);
-            res.json(dsarRequests[requestIndex]);
-        } else {
-            console.log(` DSAR request ${id} not found in either MongoDB or memory`);
-            res.status(404).json({ error: "DSAR request not found" });
-        }
-    } catch (error) {
-        console.error(' Error updating DSAR request:', error);
-        
-        // Try to update in-memory as fallback
-        const requestIndex = dsarRequests.findIndex(r => r.id === id);
-        if (requestIndex !== -1) {
-            dsarRequests[requestIndex] = {
-                ...dsarRequests[requestIndex],
-                ...req.body,
-                updatedAt: new Date().toISOString()
-            };
-            
-            console.log(` Using in-memory fallback for DSAR ${id}`);
-            res.json(dsarRequests[requestIndex]);
-        } else {
-            res.status(404).json({ error: "DSAR request not found" });
-        }
-    }
-});
-
-// POST /api/v1/consent - Create new consent for CSR
-app.post("/api/v1/consent", (req, res) => {
-    console.log(' CSR Dashboard: Creating consent record');
-    const newConsent = {
-        id: Date.now().toString(),
-        ...req.body,
-        grantedAt: req.body.status === 'granted' ? new Date().toISOString() : undefined,
-        deniedAt: req.body.status === 'denied' ? new Date().toISOString() : undefined
-    };
-    csrConsents.push(newConsent);
-    res.status(201).json(newConsent);
-});
-
-// PUT /api/v1/consent/:id - Update consent for CSR
-app.put("/api/v1/consent/:id", (req, res) => {
-    console.log(` CSR Dashboard: Updating consent ${req.params.id}`);
-    const { id } = req.params;
-    const consentIndex = csrConsents.findIndex(c => c.id === id);
-    
-    if (consentIndex === -1) {
-        return res.status(404).json({ error: "Consent not found" });
-    }
-    
-    const oldConsent = { ...csrConsents[consentIndex] };
-    
-    csrConsents[consentIndex] = {
-        ...csrConsents[consentIndex],
-        ...req.body,
-        updatedAt: new Date().toISOString()
-    };
-    
-    const updatedConsent = csrConsents[consentIndex];
-    
-    // Emit real-time update to CSR dashboard when status changes
-    if (global.io && oldConsent.status !== updatedConsent.status) {
-        const eventType = updatedConsent.status === 'granted' ? 'granted' : 'revoked';
-        global.io.to('csr-dashboard').emit('consent-updated', {
-            type: eventType,
-            consent: updatedConsent,
-            timestamp: new Date(),
-            user: {
-                id: updatedConsent.partyId || updatedConsent.customerId,
-                email: updatedConsent.customerEmail || 'Unknown'
-            },
-            source: 'csr'
-        });
-        console.log(` Real-time update sent to CSR dashboard - consent ${eventType} by CSR`);
-    }
-    
-    res.json(updatedConsent);
-});
 
 // =============================================================================
 // CSR VAS MANAGEMENT API ENDPOINTS
@@ -7025,12 +6656,32 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
         // Find user in MongoDB
         const user = await User.findOne({ email: email.toLowerCase() });
-        
-        if (!user || user.password !== password) {
-            return res.status(401).json({ 
-                error: true, 
-                message: "Invalid credentials" 
+
+        // Compare against the stored hash. Accounts created before hashing was
+        // added still hold plain text; when one of those authenticates the
+        // value is re-saved, which the model's hook hashes. That migrates the
+        // collection as people sign in, with no bulk rewrite and no lockout.
+        const check = user
+            ? await user.verifyPassword(password)
+            : { ok: false, legacy: false };
+
+        if (!user || !check.ok) {
+            return res.status(401).json({
+                error: true,
+                message: "Invalid credentials"
             });
+        }
+
+        if (check.legacy) {
+            user.password = password;
+            user.markModified('password');
+            try {
+                await user.save();
+                console.log('Upgraded stored password to a hash for', user.email);
+            } catch (err) {
+                // Never block a valid sign-in on the upgrade.
+                console.error('Password hash upgrade failed:', err.message);
+            }
         }
 
         if (user.role === 'enterprise' && user.isActivated === false) {
@@ -7075,6 +6726,16 @@ app.post("/api/v1/auth/login", async (req, res) => {
 
         const token = generateToken(tokenPayload);
         console.log("Login successful:", user.email, "Role:", user.role);
+
+        await writeAuditLog(req, {
+            actor: { id: user._id, name: user.name, email: user.email, role: user.role },
+            action: 'user_login',
+            category: 'Security',
+            description: `User signed in (${user.role})`,
+            entityType: 'user',
+            entityId: user._id,
+            severity: 'low'
+        });
         
         res.json({
             success: true,
@@ -7143,6 +6804,127 @@ app.get("/api/v1/auth/profile", verifyToken, async (req, res) => {
 });
 
 // User registration
+// ---------------------------------------------------------------------------
+// Password reset, in three steps: ask for the account's security question,
+// answer it, then set a new password.
+//
+// This flow used to be simulated entirely in the browser with setTimeout, so
+// "reset your password" did nothing at all.
+// ---------------------------------------------------------------------------
+
+// Step 1 - which question is this account's?
+app.post("/api/v1/auth/forgot-password/question", async (req, res) => {
+    try {
+        const { email } = req.body || {};
+        if (!email) {
+            return res.status(400).json({ error: true, message: "Email is required" });
+        }
+
+        const user = await User.findOne({ email: String(email).toLowerCase() });
+        if (!user || !user.securityQuestion) {
+            // Same shape whether or not the account exists, so this endpoint
+            // cannot be used to enumerate registered addresses.
+            return res.status(404).json({
+                error: true,
+                message: "We could not start a reset for that address. Please contact support."
+            });
+        }
+
+        res.json({ success: true, question: user.securityQuestion });
+    } catch (error) {
+        console.error("Reset question error:", error);
+        res.status(500).json({ error: true, message: "Unable to start the reset" });
+    }
+});
+
+// Step 2 - verify the answer and hand back a short-lived token
+app.post("/api/v1/auth/forgot-password/verify", async (req, res) => {
+    try {
+        const { email, answer } = req.body || {};
+        if (!email || !answer) {
+            return res.status(400).json({ error: true, message: "Email and answer are required" });
+        }
+
+        const user = await User.findOne({ email: String(email).toLowerCase() }).select("+securityAnswer");
+        const check = user && user.securityAnswer
+            ? await user.verifySecurityAnswer(answer)
+            : { ok: false, legacy: false };
+
+        if (!check.ok) {
+            await writeAuditLog(req, {
+                actor: { id: user ? String(user._id) : "unknown", email, role: "system" },
+                action: "password_reset_answer_rejected",
+                category: "security",
+                description: "Security answer did not match during password reset",
+                entityType: "user",
+                entityId: user ? String(user._id) : undefined,
+                severity: "high",
+                outcome: "failure"
+            });
+            return res.status(401).json({ error: true, message: "That answer does not match our records" });
+        }
+
+        // Scoped to resetting a password and short-lived, so it cannot be used
+        // as a session token.
+        const resetToken = jwt.sign(
+            { id: String(user._id), email: user.email, purpose: "password_reset" },
+            JWT_SECRET,
+            { expiresIn: "15m" }
+        );
+
+        res.json({ success: true, resetToken, expiresInMinutes: 15 });
+    } catch (error) {
+        console.error("Reset verify error:", error);
+        res.status(500).json({ error: true, message: "Unable to verify your answer" });
+    }
+});
+
+// Step 3 - set the new password
+app.post("/api/v1/auth/forgot-password/reset", async (req, res) => {
+    try {
+        const { resetToken, password } = req.body || {};
+        if (!resetToken || !password) {
+            return res.status(400).json({ error: true, message: "Reset token and new password are required" });
+        }
+        if (String(password).length < 8) {
+            return res.status(400).json({ error: true, message: "Password must be at least 8 characters" });
+        }
+
+        let payload;
+        try {
+            payload = jwt.verify(resetToken, JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: true, message: "This reset link has expired. Please start again." });
+        }
+        if (payload.purpose !== "password_reset") {
+            return res.status(401).json({ error: true, message: "Invalid reset token" });
+        }
+
+        const user = await User.findById(payload.id);
+        if (!user) {
+            return res.status(404).json({ error: true, message: "Account not found" });
+        }
+
+        user.password = password; // hashed by the model's pre-save hook
+        await user.save();
+
+        await writeAuditLog(req, {
+            actor: { id: String(user._id), name: user.name, email: user.email, role: user.role },
+            action: "password_reset_completed",
+            category: "security",
+            description: "Password reset using the account security question",
+            entityType: "user",
+            entityId: String(user._id),
+            severity: "high"
+        });
+
+        res.json({ success: true, message: "Your password has been updated. Please sign in." });
+    } catch (error) {
+        console.error("Password reset error:", error);
+        res.status(500).json({ error: true, message: "Unable to reset the password" });
+    }
+});
+
 app.post("/api/v1/auth/register", async (req, res) => {
     try {
         const { 
@@ -7154,6 +6936,8 @@ app.post("/api/v1/auth/register", async (req, res) => {
             company, 
             department, 
             jobTitle,
+            securityQuestion,
+            securityAnswer,
             acceptTerms,
             acceptPrivacy,
             language 
@@ -7200,6 +6984,8 @@ app.post("/api/v1/auth/register", async (req, res) => {
             company: company || "SLT-Mobitel",
             department: department || "",
             jobTitle: jobTitle || "",
+            securityQuestion: securityQuestion || "",
+            securityAnswer: securityAnswer || "",
             role: "customer",
             status: "active",
             emailVerified: false,
@@ -7363,12 +7149,7 @@ app.get("/api/v1/customer/dashboard/overview", verifyToken, async (req, res) => 
         }
 
         // 1. REAL CONSENTS DATA from MongoDB
-        const consents = await Consent.find({ 
-            $or: [
-                { userId: req.user.id },
-                { partyId: req.user.id }
-            ]
-        }).sort({ createdAt: -1 }).lean();
+        const consents = await consentStore.findForCustomer(req.user.id);
 
         const activeConsents = consents.filter(c => c.status === 'granted').length;
         const revokedConsents = consents.filter(c => c.status === 'revoked').length;
@@ -7613,21 +7394,23 @@ app.post("/api/v1/auth/logout", verifyToken, (req, res) => {
 // Customer Consent Endpoints - MongoDB Based
 app.get("/api/v1/customer/consents", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'customer') {
+        // EasyApply logins carry role 'CUSTOMER' and a partyId claim instead of id.
+        if (String(req.user.role).toLowerCase() !== 'customer') {
             return res.status(403).json({
                 error: true,
                 message: 'Access denied'
             });
         }
-        
-        console.log(' Fetching consents for customer:', req.user.id);
-        
-        const consents = await Consent.find({ 
-            $or: [
-                { userId: req.user.id },
-                { partyId: req.user.id }
-            ]
-        }).sort({ createdAt: -1 }).lean();
+
+        const partyId = req.user.partyId || req.user.id;
+        console.log(' Fetching consents for customer:', partyId);
+
+        // No id at all must never fall through to "every customer".
+        if (!partyId) {
+            return res.status(403).json({ error: true, message: 'Access denied' });
+        }
+
+        const consents = await consentStore.findForCustomer(partyId);
         
         console.log(`Found ${consents.length} consents for customer`);
         
@@ -7657,30 +7440,10 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
         }
 
         const consentId = req.params.id;
-        const { notes } = req.body;
-        
         console.log(' Granting consent:', consentId, 'for customer:', req.user.id);
 
-        // Find and update the consent in MongoDB
-        const consent = await Consent.findOneAndUpdate(
-            { 
-                id: consentId,
-                $or: [
-                    { userId: req.user.id },
-                    { partyId: req.user.id }
-                ]
-            },
-            {
-                $set: {
-                    status: 'granted',
-                    grantedAt: new Date(),
-                    updatedAt: new Date(),
-                    revokedAt: null,
-                    notes: notes || 'Granted by customer'
-                }
-            },
-            { new: true }
-        );
+        // Record the decision against the customer's own consent only
+        const consent = await consentStore.respond(consentId, req.user.id, 'GRANTED');
 
         if (!consent) {
             return res.status(404).json({
@@ -7690,6 +7453,17 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
         }
 
         console.log(' Consent granted successfully:', consentId);
+
+        await writeAuditLog(req, {
+            action: 'consent_granted',
+            category: 'Consent Management',
+            description: `Consent granted for purpose "${consent.purpose || consent.consentType || 'unspecified'}"`,
+            entityType: 'consent',
+            entityId: consent._id,
+            severity: 'high',
+            newState: { status: 'granted' },
+            metadata: { purpose: consent.purpose, consentType: consent.consentType, channel: consent.channel }
+        });
 
         // Emit real-time update to CSR dashboard
         if (global.io) {
@@ -7735,25 +7509,8 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
         
         console.log(' Revoking consent:', consentId, 'for customer:', req.user.id);
 
-        // Find and update the consent in MongoDB
-        const consent = await Consent.findOneAndUpdate(
-            { 
-                id: consentId,
-                $or: [
-                    { userId: req.user.id },
-                    { partyId: req.user.id }
-                ]
-            },
-            {
-                $set: {
-                    status: 'revoked',
-                    revokedAt: new Date(),
-                    updatedAt: new Date(),
-                    reason: reason || 'Revoked by customer'
-                }
-            },
-            { new: true }
-        );
+        // Record the decision against the customer's own consent only
+        const consent = await consentStore.respond(consentId, req.user.id, 'WITHDRAWN');
 
         if (!consent) {
             return res.status(404).json({
@@ -7763,6 +7520,17 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
         }
 
         console.log(' Consent revoked successfully:', consentId);
+
+        await writeAuditLog(req, {
+            action: 'consent_revoked',
+            category: 'Consent Management',
+            description: `Consent revoked for purpose "${consent.purpose || consent.consentType || 'unspecified'}"`,
+            entityType: 'consent',
+            entityId: consent._id,
+            severity: 'high',
+            newState: { status: 'revoked' },
+            metadata: { purpose: consent.purpose, consentType: consent.consentType, reason: reason || undefined }
+        });
 
         // Emit real-time update to CSR dashboard
         if (global.io) {
@@ -8067,17 +7835,14 @@ app.post("/api/v1/customer/preferences", verifyToken, async (req, res) => {
                     // Log audit event
                     try {
                         const AuditLog = mongoose.model('AuditLog');
-                        await AuditLog.create({
-                            action: 'PREFERENCE_UPDATE',
-                            entity: 'Preference',
+                        await writeAuditLog(req, {
+                            action: 'configuration_changed',
+                            category: 'Data Processing',
+                            description: 'Communication preferences updated by customer',
+                            entityType: 'preference',
                             entityId: communicationPreference._id,
-                            performedBy: req.user.id,
-                            details: {
-                                preferenceType: 'communication',
-                                partyId: req.user.id,
-                                changes: updateData
-                            },
-                            timestamp: new Date()
+                            severity: 'low',
+                            metadata: { preferenceType: 'communication', changes: updateData }
                         });
                     } catch (auditError) {
                         console.log('Audit log creation failed:', auditError.message);
@@ -8276,30 +8041,6 @@ app.get("/api/v1/customer/dsar", verifyToken, async (req, res) => {
     }
 });
 
-// Consent Management
-app.get("/api/v1/consent", verifyToken, async (req, res) => {
-    try {
-        if (req.user.role === 'customer') {
-            // Customer gets their own consents only
-            const { getCustomerIsolatedData } = require('./customer-data-provisioning');
-            const userConsents = await getCustomerIsolatedData(req.user.id, 'consents');
-            
-            console.log(` Customer ${req.user.email} requested consents: ${userConsents.length} found`);
-            res.json(userConsents); // Direct array for easier access
-        } else {
-            // CSR/Admin gets all consents
-            const allConsents = await Consent.find({}).sort({ createdAt: -1 });
-            console.log(` CSR/Admin requested consents: ${allConsents.length} found`);
-            res.json(allConsents);
-        }
-    } catch (error) {
-        console.error('Error fetching consents:', error);
-        res.status(500).json({
-            error: true,
-            message: 'Internal server error'
-        });
-    }
-});
 
 app.get("/api/v1/consents", verifyToken, async (req, res) => {
     try {
@@ -8319,92 +8060,10 @@ app.get("/api/v1/consents", verifyToken, async (req, res) => {
     }
 });
 
-app.post("/api/v1/consent", verifyToken, async (req, res) => {
-    try {
-        const { type, purpose, status } = req.body;
-        
-        if (!type || !purpose || !status) {
-            return res.status(400).json({
-                error: true,
-                message: "Type, purpose, and status are required"
-            });
-        }
-        
-        const newConsent = new Consent({
-            id: Date.now().toString(), // Generate unique ID
-            partyId: req.user.id,
-            customerId: req.user.id,
-            type,
-            purpose,
-            status,
-            channel: 'all',
-            grantedAt: status === 'granted' ? new Date() : null,
-            deniedAt: status === 'denied' ? new Date() : null,
-            expiresAt: status === 'granted' ? new Date(Date.now() + 31536000000) : null
-        });
-        
-        await newConsent.save();
-        console.log("Consent created:", newConsent);
-        
-        res.json({
-            success: true,
-            consent: newConsent
-        });
-    } catch (error) {
-        console.error('Error creating consent:', error);
-        res.status(500).json({
-            error: true,
-            message: 'Internal server error'
-        });
-    }
-});
 
-app.put("/api/v1/consent/:id", verifyToken, async (req, res) => {
-    try {
-        const consentId = req.params.id;
-        const { status } = req.body;
-        
-        // Ensure customer can only update their own consents
-        const consent = await Consent.findOne({ 
-            _id: consentId,
-            $or: [
-                { partyId: req.user.id },
-                { customerId: req.user.id }
-            ]
-        });
-        
-        if (!consent) {
-            return res.status(404).json({
-                error: true,
-                message: "Consent not found or access denied"
-            });
-        }
-        
-        consent.status = status;
-        consent.grantedAt = status === 'granted' ? new Date() : null;
-        consent.deniedAt = status === 'denied' ? new Date() : null;
-        consent.revokedAt = status === 'revoked' ? new Date() : null;
-        
-        await consent.save();
-        
-        console.log(` User ${req.user.id} updated consent ${consentId} to ${status}`);
-        
-        res.json({
-            success: true,
-            consent,
-            message: `Consent ${status} successfully`
-        });
-    } catch (error) {
-        console.error('Error updating consent:', error);
-        res.status(500).json({
-            error: true,
-            message: 'Internal server error'
-        });
-    }
-});
 
 // Preferences Management
-app.get("/api/v1/preference", verifyToken, async (req, res) => {
+app.get("/api/v1/preference", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         if (req.user.role === 'customer') {
             // Customer gets their own preferences only
@@ -8428,25 +8087,8 @@ app.get("/api/v1/preference", verifyToken, async (req, res) => {
     }
 });
 
-app.get("/api/v1/preferences", verifyToken, async (req, res) => {
-    try {
-        const { getCustomerIsolatedData } = require('./customer-data-provisioning');
-        const userPreferences = await getCustomerIsolatedData(req.user.id, 'preferences');
-        
-        res.json({
-            success: true,
-            preferences: userPreferences
-        });
-    } catch (error) {
-        console.error('Error fetching preferences:', error);
-        res.status(500).json({
-            error: true,
-            message: 'Internal server error'
-        });
-    }
-});
 
-app.post("/api/v1/preference", verifyToken, async (req, res) => {
+app.post("/api/v1/preference", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { category, type, enabled, frequency } = req.body;
         
@@ -8473,7 +8115,7 @@ app.post("/api/v1/preference", verifyToken, async (req, res) => {
     }
 });
 
-app.put("/api/v1/preference/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/preference/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const prefId = req.params.id;
         const updates = req.body;
@@ -8504,7 +8146,7 @@ app.put("/api/v1/preference/:id", verifyToken, async (req, res) => {
 });
 
 // Debug endpoint to check privacy notice counts
-app.get("/api/v1/debug/privacy-notice-counts", async (req, res) => {
+app.get("/api/v1/debug/privacy-notice-counts", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Debug: Checking privacy notice counts...');
         
@@ -8646,7 +8288,7 @@ app.get("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
 });
 
 // POST /api/v1/privacy-notices - Create new privacy notice
-app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
+app.post("/api/v1/privacy-notices", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const {
             title,
@@ -8734,6 +8376,15 @@ app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
             });
         }
 
+        await writeAuditLog(req, {
+            action: 'privacy_notice_created',
+            category: 'Privacy Notices',
+            description: `Privacy notice "${savedNotice.title}" created`,
+            entityType: 'privacy_notice',
+            entityId: savedNotice._id,
+            metadata: { noticeId: savedNotice.noticeId, title: savedNotice.title, status: savedNotice.status }
+        });
+
         res.status(201).json({
             success: true,
             message: 'Privacy notice created successfully',
@@ -8757,7 +8408,7 @@ app.post("/api/v1/privacy-notices", verifyToken, async (req, res) => {
 });
 
 // PUT /api/v1/privacy-notices/:id - Update privacy notice
-app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/privacy-notices/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const noticeId = req.params.id;
         const updates = req.body;
@@ -8808,6 +8459,16 @@ app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
             });
         }
 
+        await writeAuditLog(req, {
+            action: 'privacy_notice_updated',
+            category: 'Privacy Notices',
+            description: `Privacy notice "${updatedNotice?.title || noticeId}" updated`,
+            entityType: 'privacy_notice',
+            entityId: updatedNotice?._id,
+            newState: { status: updatedNotice?.status },
+            metadata: { noticeId }
+        });
+
         res.json({
             success: true,
             message: 'Privacy notice updated successfully',
@@ -8824,7 +8485,7 @@ app.put("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/privacy-notices/:id - Delete privacy notice
-app.delete("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/privacy-notices/:id", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         const noticeId = req.params.id;
         
@@ -8859,6 +8520,16 @@ app.delete("/api/v1/privacy-notices/:id", verifyToken, async (req, res) => {
                 timestamp: new Date()
             });
         }
+
+        await writeAuditLog(req, {
+            action: 'privacy_notice_updated',
+            category: 'Privacy Notices',
+            description: `Privacy notice ${req.params.id} archived`,
+            entityType: 'privacy_notice',
+            entityId: req.params.id,
+            severity: 'high',
+            newState: { status: 'archived' }
+        });
 
         res.json({
             success: true,
@@ -9056,7 +8727,7 @@ app.get("/api/v1/privacy-notices/export/:format", verifyToken, async (req, res) 
 // ===== CUSTOMER VAS ENDPOINTS =====
 
 // GET /api/customer/vas/debug - Debug customer VAS status
-app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
+app.get("/api/customer/vas/debug", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' Customer VAS DEBUG ENDPOINT - START');
         
@@ -9298,7 +8969,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
                 isSubscribed: true
             },
             {
-                isSubscribed: false,
+                $set: { isSubscribed: false },
                 $push: {
                     subscriptionHistory: {
                         action: 'unsubscribe',
@@ -9354,7 +9025,7 @@ app.post("/api/customer/vas/unsubscribe", verifyToken, async (req, res) => {
         
         res.json({
             success: true,
-            message: `Successfully unsubscribed from ${subscription.serviceName}`,
+            message: `Successfully unsubscribed from ${service.name}`,
             data: subscription
         });
     } catch (error) {
@@ -9789,108 +9460,9 @@ app.get("/api/customer/vas/subscriptions", verifyToken, async (req, res) => {
     }
 });
 
-// GET /api/customer/vas/debug - Debug endpoint to test VAS models and connections
-app.get("/api/customer/vas/debug", verifyToken, async (req, res) => {
-    try {
-        console.log(' VAS Debug: Starting VAS debug checks...');
-        console.log(' VAS Debug: User ID:', req.user.id);
-        
-        const debugInfo = {
-            timestamp: new Date().toISOString(),
-            user: {
-                id: req.user.id,
-                email: req.user.email
-            },
-            checks: {}
-        };
-
-        // Check 1: VAS Models availability
-        try {
-            console.log(' VAS Debug: Checking VAS models...');
-            debugInfo.checks.modelsLoaded = {
-                VASService: typeof VASService !== 'undefined',
-                VASSubscription: typeof VASSubscription !== 'undefined'
-            };
-        } catch (error) {
-            debugInfo.checks.modelsLoaded = { error: error.message };
-        }
-
-        // Check 2: Database connection
-        try {
-            console.log(' VAS Debug: Testing database connection...');
-            const serviceCount = await VASService.countDocuments();
-            const subscriptionCount = await VASSubscription.countDocuments();
-            debugInfo.checks.database = {
-                connected: true,
-                serviceCount,
-                subscriptionCount
-            };
-        } catch (error) {
-            debugInfo.checks.database = { 
-                connected: false, 
-                error: error.message 
-            };
-        }
-
-        // Check 3: VAS Services availability
-        try {
-            console.log(' VAS Debug: Checking VAS services...');
-            const services = await VASService.find({ status: 'active' }).limit(3);
-            debugInfo.checks.services = {
-                count: services.length,
-                sampleServices: services.map(s => ({
-                    id: s.id,
-                    name: s.name,
-                    category: s.category
-                }))
-            };
-        } catch (error) {
-            debugInfo.checks.services = { error: error.message };
-        }
-
-        // Check 4: User subscriptions
-        try {
-            console.log(' VAS Debug: Checking user subscriptions...');
-            const subscriptions = await VASSubscription.find({ 
-                customerId: req.user.id 
-            });
-            debugInfo.checks.userSubscriptions = {
-                count: subscriptions.length,
-                activeCount: subscriptions.filter(s => s.isSubscribed).length
-            };
-        } catch (error) {
-            debugInfo.checks.userSubscriptions = { error: error.message };
-        }
-
-        // Check 5: Environment
-        debugInfo.checks.environment = {
-            nodeVersion: process.version,
-            mongooseVersion: require('mongoose').version,
-            dbConnectionState: mongoose.connection.readyState,
-            dbName: mongoose.connection.name
-        };
-
-        console.log(' VAS Debug: Debug info collected:', JSON.stringify(debugInfo, null, 2));
-
-        res.json({
-            success: true,
-            message: 'VAS debug information collected',
-            debug: debugInfo
-        });
-
-    } catch (error) {
-        console.error(' VAS Debug: Error during debug check:', error);
-        res.status(500).json({
-            success: false,
-            message: 'VAS debug check failed',
-            error: error.message,
-            stack: error.stack
-        });
-    }
-});
 
 // POST /api/customer/vas/test-toggle - Simple test toggle without complex logic
-app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
+app.post("/api/customer/vas/test-toggle", verifyToken, requireRole(['admin']), async (req, res) => {
     try {
         console.log(' VAS Test Toggle: Testing basic VAS functionality...');
         console.log(' VAS Test Toggle: User:', req.user.id);
@@ -9918,7 +9490,7 @@ app.post("/api/customer/vas/test-toggle", verifyToken, async (req, res) => {
 // ===== CSR VAS ENDPOINTS =====
 
 // GET /api/csr/vas/services - Get all VAS services for CSR management
-app.get("/api/csr/vas/services", async (req, res) => {
+app.get("/api/csr/vas/services", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR VAS: Fetching all VAS services for management');
         
@@ -9942,7 +9514,7 @@ app.get("/api/csr/vas/services", async (req, res) => {
 });
 
 // GET /api/csr/vas/customer/:customerId - Get customer's VAS subscriptions for CSR
-app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
+app.get("/api/csr/vas/customer/:customerId", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerId } = req.params;
         console.log(' CSR VAS: Fetching customer subscriptions for ID:', customerId);
@@ -9984,7 +9556,7 @@ app.get("/api/csr/vas/customer/:customerId", async (req, res) => {
 });
 
 // POST /api/csr/vas/customer/:customerId/subscribe - CSR subscribe customer to VAS
-app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
+app.post("/api/csr/vas/customer/:customerId/subscribe", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerId } = req.params;
         const { serviceId } = req.body;
@@ -10068,7 +9640,7 @@ app.post("/api/csr/vas/customer/:customerId/subscribe", async (req, res) => {
 });
 
 // POST /api/csr/vas/customer/:customerId/unsubscribe - CSR unsubscribe customer from VAS
-app.post("/api/csr/vas/customer/:customerId/unsubscribe", async (req, res) => {
+app.post("/api/csr/vas/customer/:customerId/unsubscribe", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { customerId } = req.params;
         const { serviceId } = req.body;
@@ -10527,131 +10099,6 @@ app.get("/api/admin/vas/analytics", verifyToken, async (req, res) => {
 // COMPREHENSIVE DSAR REQUEST MANAGEMENT - MongoDB Integration
 // =============================================================================
 
-// GET /api/v1/dsar/requests - Get all DSAR requests with advanced filtering
-app.get("/api/v1/dsar/requests", verifyToken, async (req, res) => {
-    try {
-        console.log(' DSAR requests endpoint called with query:', req.query);
-        
-        const { 
-            status, 
-            requestType, 
-            priority, 
-            requesterEmail,
-            dateFrom,
-            dateTo,
-            isOverdue,
-            page = 1, 
-            limit = 20,
-            sortBy = 'submittedAt',
-            sortOrder = 'desc'
-        } = req.query;
-
-        // Build query
-        const query = {};
-        if (status) query.status = status;
-        if (requestType) query.requestType = requestType;
-        if (priority) query.priority = priority;
-        if (requesterEmail) query.requesterEmail = new RegExp(requesterEmail, 'i');
-        
-        if (dateFrom || dateTo) {
-            query.submittedAt = {};
-            if (dateFrom) query.submittedAt.$gte = new Date(dateFrom);
-            if (dateTo) query.submittedAt.$lte = new Date(dateTo);
-        }
-
-        // Handle overdue filter
-        if (isOverdue === 'true') {
-            query.status = { $in: ['pending', 'in_progress'] };
-            query.dueDate = { $lt: new Date() };
-        }
-
-        console.log(' MongoDB query:', query);
-
-        // Execute query with pagination
-        const requests = await DSARRequest.find(query)
-            .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-            .limit(parseInt(limit))
-            .skip((parseInt(page) - 1) * parseInt(limit))
-            .lean(); // Use lean() to get plain JavaScript objects
-
-        const total = await DSARRequest.countDocuments(query);
-        
-        console.log(` Found ${requests.length} requests from MongoDB`);
-        console.log(' Sample raw request:', JSON.stringify(requests[0], null, 2));
-        
-        // Process requests to add computed fields and ensure proper structure
-        const processedRequests = requests.map(request => {
-            const now = new Date();
-            const submittedAt = new Date(request.submittedAt);
-            const dueDate = new Date(request.dueDate);
-            
-            // Calculate days since submission and days remaining
-            const daysSinceSubmission = Math.floor((now - submittedAt) / (1000 * 60 * 60 * 24));
-            const daysRemaining = Math.floor((dueDate - now) / (1000 * 60 * 60 * 24));
-            
-            return {
-                _id: request._id,
-                requestId: request.requestId,
-                requesterId: request.requesterId,
-                requesterName: request.requesterName,
-                requesterEmail: request.requesterEmail,
-                requesterPhone: request.requesterPhone,
-                requestType: request.requestType,
-                subject: request.subject,
-                description: request.description,
-                status: request.status,
-                priority: request.priority,
-                submittedAt: request.submittedAt,
-                dueDate: request.dueDate,
-                completedAt: request.completedAt,
-                assignedTo: request.assignedTo,
-                responseData: request.responseData,
-                verificationStatus: request.verificationStatus,
-                rejectionReason: request.rejectionReason,
-                rejectionDetails: request.rejectionDetails,
-                metadata: request.metadata,
-                
-                // Computed fields
-                daysSinceSubmission,
-                daysRemaining,
-                isOverdue: daysRemaining < 0 && ['pending', 'in_progress'].includes(request.status),
-                riskLevel: daysRemaining < 0 ? 'high' : daysRemaining <= 7 ? 'medium' : 'low'
-            };
-        });
-        
-        console.log(' Processed request sample:', JSON.stringify(processedRequests[0], null, 2));
-        
-        // Get statistics
-        const stats = {
-            total: await DSARRequest.countDocuments(),
-            pending: await DSARRequest.countDocuments({ status: 'pending' }),
-            in_progress: await DSARRequest.countDocuments({ status: 'in_progress' }),
-            completed: await DSARRequest.countDocuments({ status: 'completed' }),
-            overdue: await DSARRequest.countDocuments({ 
-                status: { $in: ['pending', 'in_progress'] },
-                dueDate: { $lt: new Date() }
-            })
-        };
-
-        res.json({
-            success: true,
-            requests: processedRequests,
-            total,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            totalPages: Math.ceil(total / parseInt(limit)),
-            stats
-        });
-
-    } catch (error) {
-        console.error(' Error fetching DSAR requests:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: 'Failed to fetch DSAR requests',
-            details: error.message 
-        });
-    }
-});
 
 // POST /api/v1/dsar/requests - Create new DSAR request
 app.post("/api/v1/dsar/requests", verifyToken, async (req, res) => {
@@ -10702,6 +10149,16 @@ app.post("/api/v1/dsar/requests", verifyToken, async (req, res) => {
 
         // Log creation
         console.log(` DSAR request created: ${dsarRequest.requestId} for ${requesterEmail}`);
+
+        await writeAuditLog(req, {
+            action: 'dsar_request_created',
+            category: 'DSAR Processing',
+            description: `DSAR request ${dsarRequest.requestId} submitted`,
+            entityType: 'dsar_request',
+            entityId: dsarRequest._id,
+            severity: 'high',
+            metadata: { requestId: dsarRequest.requestId, requesterEmail, requestType: dsarRequest.requestType }
+        });
 
         res.status(201).json({
             success: true,
@@ -10769,42 +10226,15 @@ app.get("/api/v1/dsar/updates/stream", async (req, res) => {
             return res.status(401).json({ error: 'Authentication token required' });
         }
 
-        // Verify token manually with proper error handling
+        // Verify the token against the single configured signing secret.
+        // EventSource cannot send an Authorization header, so the token arrives
+        // as a query param - it is still verified exactly as verifyToken() does.
         const jwt = require('jsonwebtoken');
         let decoded;
         try {
-            // Try different JWT secrets
-            const secrets = [
-                process.env.JWT_SECRET,
-                'your-secret-key',
-                'consenthub-secret-key',
-                'default-secret-key'
-            ];
-            
-            let verificationSuccess = false;
-            for (const secret of secrets) {
-                if (secret) {
-                    try {
-                        decoded = jwt.verify(token, secret);
-                        console.log(' SSE JWT verified with secret:', secret);
-                        verificationSuccess = true;
-                        break;
-                    } catch (err) {
-                        console.log(` JWT verification failed with secret "${secret}":`, err.message);
-                    }
-                }
-            }
-            
-            if (!verificationSuccess) {
-                throw new Error('Token verification failed with all secrets');
-            }
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-super-secret-jwt-key-2023');
         } catch (error) {
             console.log(' SSE JWT verification error:', error.message);
-            console.log(' Token details:', {
-                tokenLength: token.length,
-                tokenStart: token.substring(0, 20) + '...',
-                decodedPayload: jwt.decode(token)
-            });
             return res.status(401).json({ error: 'Invalid authentication token' });
         }
         
@@ -10865,7 +10295,7 @@ const sendRealTimeUpdate = (customerId, updateData) => {
 };
 
 // PUT /api/v1/dsar/requests/:id - Update DSAR request
-app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
+app.put("/api/v1/dsar/requests/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
@@ -10916,6 +10346,17 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
 
         console.log(` DSAR request updated: ${request.requestId}`);
 
+        await writeAuditLog(req, {
+            action: 'dsar_request_updated',
+            category: 'DSAR Processing',
+            description: `DSAR request ${request.requestId} updated to status "${request.status}"`,
+            entityType: 'dsar_request',
+            entityId: request._id,
+            severity: 'high',
+            newState: { status: request.status },
+            metadata: { requestId: request.requestId }
+        });
+
         // Send real-time update to customer if status changed
         if (originalStatus !== request.status) {
             const updateData = {
@@ -10951,7 +10392,7 @@ app.put("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/v1/dsar/requests/:id - Delete DSAR request
-app.delete("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/dsar/requests/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -10987,7 +10428,7 @@ app.delete("/api/v1/dsar/requests/:id", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/dsar/export/:format - Export DSAR requests
-app.get("/api/v1/dsar/export/:format", verifyToken, async (req, res) => {
+app.get("/api/v1/dsar/export/:format", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { format } = req.params;
         const { status, requestType, priority, dateFrom, dateTo } = req.query;
@@ -11059,7 +10500,7 @@ app.get("/api/v1/dsar/export/:format", verifyToken, async (req, res) => {
 });
 
 // GET /api/v1/dsar/stats - Get DSAR statistics
-app.get("/api/v1/dsar/stats", verifyToken, async (req, res) => {
+app.get("/api/v1/dsar/stats", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const { dateFrom, dateTo } = req.query;
         
@@ -11441,30 +10882,6 @@ app.put("/api/v1/customer/dashboard/profile", verifyToken, (req, res) => {
     });
 });
 
-// Data Subject Access Requests (DSAR)
-app.get("/api/v1/dsar/requests", verifyToken, (req, res) => {
-    // Mock DSAR requests
-    const dsarRequests = [
-        {
-            id: "1",
-            type: "data_export",
-            status: "completed",
-            requestedAt: new Date(Date.now() - 86400000).toISOString(),
-            completedAt: new Date().toISOString()
-        },
-        {
-            id: "2", 
-            type: "data_deletion",
-            status: "pending",
-            requestedAt: new Date().toISOString()
-        }
-    ];
-    
-    res.json({
-        success: true,
-        requests: dsarRequests
-    });
-});
 
 app.post("/api/v1/dsar/request", verifyToken, async (req, res) => {
     try {
@@ -11581,7 +10998,7 @@ app.post("/api/v1/dsar/request", verifyToken, async (req, res) => {
 });
 
 // Delete DSAR request (customer can delete their own pending requests)
-app.delete("/api/v1/dsar/request/:id", verifyToken, async (req, res) => {
+app.delete("/api/v1/dsar/request/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         const requestId = req.params.id;
         
@@ -11892,165 +11309,6 @@ app.put("/api/v1/csr/customers/:customerId", verifyToken, (req, res) => {
     });
 });
 
-// CSR - Search customers
-app.get("/api/v1/csr/customers/search", verifyToken, async (req, res) => {
-    if (req.user.role !== 'csr' && req.user.role !== 'admin') {
-        return res.status(403).json({
-            error: true,
-            message: 'Access denied. CSR or Admin role required.'
-        });
-    }
-    
-    const { query, type } = req.query;
-    
-    if (!query) {
-        return res.json({
-            success: true,
-            customers: [],
-            total: 0
-        });
-    }
-
-    try {
-        const searchQuery = query.toLowerCase();
-        let filteredCustomers = [];
-        
-        // Import User model for MongoDB search
-        const mongoose = require('mongoose');
-        const User = mongoose.model('User');
-        
-        // Search in MongoDB User collection for customers
-        const searchCriteria = {
-            role: 'customer',
-            $or: [
-                { name: { $regex: searchQuery, $options: 'i' } },
-                { email: { $regex: searchQuery, $options: 'i' } },
-                { phone: { $regex: searchQuery, $options: 'i' } },
-                { firstName: { $regex: searchQuery, $options: 'i' } },
-                { lastName: { $regex: searchQuery, $options: 'i' } }
-            ]
-        };
-        
-        // If searching by specific type
-        if (type === 'email') {
-            searchCriteria.$or = [{ email: { $regex: searchQuery, $options: 'i' } }];
-        } else if (type === 'phone') {
-            searchCriteria.$or = [{ phone: { $regex: searchQuery, $options: 'i' } }];
-        } else if (type === 'name') {
-            searchCriteria.$or = [
-                { name: { $regex: searchQuery, $options: 'i' } },
-                { firstName: { $regex: searchQuery, $options: 'i' } },
-                { lastName: { $regex: searchQuery, $options: 'i' } }
-            ];
-        }
-        
-        const dbCustomers = await User.find(searchCriteria).limit(20).lean();
-        
-        // Convert MongoDB users to customer format
-        const mongoCustomers = dbCustomers.map(user => ({
-            id: user._id.toString(),
-            userId: user._id.toString(),
-            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            email: user.email,
-            phone: user.phone || '',
-            mobile: user.phone || '',
-            status: user.status || 'active',
-            type: 'customer',
-            createdAt: user.createdAt || new Date().toISOString(),
-            address: user.address || '',
-            dateOfBirth: user.dateOfBirth || '',
-            lastLogin: user.lastLoginAt,
-            userDetails: {
-                firstName: user.firstName,
-                lastName: user.lastName,
-                company: user.company,
-                organization: user.organization,
-                emailVerified: user.emailVerified,
-                role: user.role
-            }
-        }));
-        
-        filteredCustomers = mongoCustomers;
-        
-        // Also search in parties array as fallback
-        const allCustomers = parties.map(party => {
-            const user = users.find(u => u.id === party.userId || u.email === party.email);
-            return {
-                ...party,
-                userDetails: user
-            };
-        });
-        
-        // Filter parties based on search criteria
-        const partyResults = allCustomers.filter(customer => {
-            const name = customer.name?.toLowerCase() || '';
-            const email = customer.email?.toLowerCase() || '';
-            const phone = customer.phone || '';
-            const mobile = customer.mobile || '';
-            
-            if (type === 'email') {
-                return email.includes(searchQuery);
-            } else if (type === 'phone') {
-                return phone.includes(searchQuery) || mobile.includes(searchQuery);
-            } else if (type === 'name') {
-                return name.includes(searchQuery);
-            } else {
-                // General search
-                return name.includes(searchQuery) || 
-                       email.includes(searchQuery) || 
-                       phone.includes(searchQuery) || 
-                       mobile.includes(searchQuery);
-            }
-        });
-        
-        // Combine results and remove duplicates
-        const allResults = [...filteredCustomers, ...partyResults];
-        const uniqueResults = allResults.filter((customer, index, self) => 
-            index === self.findIndex((c) => (c.email === customer.email))
-        );
-        
-        console.log(` CSR Customer Search: "${query}" found ${uniqueResults.length} customers`);
-        
-        res.json({
-            success: true,
-            customers: uniqueResults,
-            total: uniqueResults.length,
-            searchCriteria: { query, type }
-        });
-        
-    } catch (error) {
-        console.error('Error searching customers:', error);
-        
-        // Fallback to original parties search
-        const searchQuery = query.toLowerCase();
-        const allCustomers = parties.map(party => {
-            const user = users.find(u => u.id === party.userId || u.email === party.email);
-            return {
-                ...party,
-                userDetails: user
-            };
-        });
-        
-        const filteredCustomers = allCustomers.filter(customer => {
-            const name = customer.name?.toLowerCase() || '';
-            const email = customer.email?.toLowerCase() || '';
-            const phone = customer.phone || '';
-            const mobile = customer.mobile || '';
-            
-            return name.includes(searchQuery) || 
-                   email.includes(searchQuery) || 
-                   phone.includes(searchQuery) || 
-                   mobile.includes(searchQuery);
-        });
-        
-        res.json({
-            success: true,
-            customers: filteredCustomers,
-            total: filteredCustomers.length,
-            searchCriteria: { query, type }
-        });
-    }
-});
 
 // CSR - Get specific customer's communication preferences
 app.get("/api/v1/csr/customers/:customerId/preferences", verifyToken, async (req, res) => {
@@ -12458,19 +11716,23 @@ server.listen(PORT, async () => {
 // ===== TMF API COMPLIANCE IMPLEMENTATION =====
 
 // TMF632 - Privacy Consent Management API
-app.get('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
+app.get('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { partyId, status, purpose, offset = 0, limit = 20 } = req.query;
     const query = {};
     
-    if (partyId) query.partyId = partyId;
-    if (status) query.status = status;
-    if (purpose) query.purpose = purpose;
+    if (partyId) query.customerId = String(partyId);
+    if (status) {
+      const consentStatus = consentStore.toPdfStatus(status);
+      if (!consentStatus) return res.json([]);
+      query.consentStatus = consentStatus;
+    }
+    if (purpose) {
+      const scopes = (await consentStore.listScopes({ activeOnly: false })).filter(s => s.purpose === purpose);
+      query.consentScopeId = { $in: scopes.map(s => s.consentScopeId) };
+    }
     
-    const consents = await Consent.find(query)
-      .skip(parseInt(offset))
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+    const consents = await consentStore.find(query, { skip: parseInt(offset), limit: parseInt(limit) });
     
     res.json(consents.map(consent => ({
       id: consent.id,
@@ -12501,9 +11763,9 @@ app.get('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
 });
 
 // TMF632 - Get Privacy Consent by ID
-app.get('/api/tmf632/privacyConsent/:id', verifyToken, async (req, res) => {
+app.get('/api/tmf632/privacyConsent/:id', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
-    const consent = await Consent.findOne({ id: req.params.id });
+    const consent = await consentStore.findOne(req.params.id);
     
     if (!consent) {
       return res.status(404).json({
@@ -12542,29 +11804,23 @@ app.get('/api/tmf632/privacyConsent/:id', verifyToken, async (req, res) => {
 });
 
 // TMF632 - Create Privacy Consent
-app.post('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
+app.post('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const consentData = req.body;
-    const consent = new Consent({
-      id: consentData.id || require('uuid').v4(),
-      partyId: consentData.partyId,
+    const consent = await consentStore.create({
+      customerId: consentData.partyId,
+      consentScopeId: consentData.consentScopeId,
       purpose: consentData.purpose,
       status: consentData.status || 'granted',
       channel: consentData.channel || 'web',
-      validFrom: consentData.validFor?.startDateTime || new Date(),
-      validTo: consentData.validFor?.endDateTime,
-      privacyNoticeId: consentData.privacyNoticeId,
-      versionAccepted: consentData.versionAccepted || '1.0',
-      grantedAt: new Date(),
-      source: 'tmf632-api'
+      source: 'TMF632_API',
+      capturedBy: req.user.email || String(req.user.id)
     });
-    
-    await consent.save();
     
     // Emit TMF669 Event
     await publishEvent({
       eventType: 'PrivacyConsentCreatedEvent',
-      eventId: require('uuid').v4(),
+      eventId: crypto.randomUUID(),
       eventTime: new Date().toISOString(),
       event: {
         privacyConsent: {
@@ -12592,7 +11848,7 @@ app.post('/api/tmf632/privacyConsent', verifyToken, async (req, res) => {
 });
 
 // TMF641 - Party Management API
-app.get('/api/tmf641/party', verifyToken, async (req, res) => {
+app.get('/api/tmf641/party', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { partyType, status, offset = 0, limit = 20 } = req.query;
     const query = {};
@@ -12637,12 +11893,12 @@ app.get('/api/tmf641/party', verifyToken, async (req, res) => {
 });
 
 // TMF669 - Event Management Hub
-app.post('/api/tmf669/hub', verifyToken, async (req, res) => {
+app.post('/api/tmf669/hub', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     const { callback, query } = req.body;
     
     const webhook = new Webhook({
-      id: require('uuid').v4(),
+      id: crypto.randomUUID(),
       url: callback,
       events: query ? query.split(',') : ['*'],
       status: 'active',
@@ -12670,7 +11926,7 @@ app.post('/api/tmf669/hub', verifyToken, async (req, res) => {
 });
 
 // TMF669 - Unregister Hub
-app.delete('/api/tmf669/hub/:id', verifyToken, async (req, res) => {
+app.delete('/api/tmf669/hub/:id', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     await Webhook.findOneAndUpdate(
       { id: req.params.id },
@@ -12736,7 +11992,7 @@ async function publishEvent(eventData) {
 // ===== GUARDIAN CONSENT IMPLEMENTATION =====
 
 // Get all guardians
-app.get('/api/guardians', verifyToken, async (req, res) => {
+app.get('/api/guardians', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const guardians = await User.find({ 
       role: 'customer',
@@ -12820,7 +12076,7 @@ app.get('/api/guardians', verifyToken, async (req, res) => {
 });
 
 // Get minors for specific guardian
-app.get('/api/guardians/:guardianId/minors', verifyToken, async (req, res) => {
+app.get('/api/guardians/:guardianId/minors', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { guardianId } = req.params;
     const guardian = await User.findById(guardianId);
@@ -12837,7 +12093,7 @@ app.get('/api/guardians/:guardianId/minors', verifyToken, async (req, res) => {
 });
 
 // Update Guardian Names (One-time fix)
-app.post('/api/guardians/fix-names', verifyToken, async (req, res) => {
+app.post('/api/guardians/fix-names', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     // Check admin permission
     if (!req.user || req.user.role !== 'admin') {
@@ -12883,7 +12139,7 @@ app.post('/api/guardians/fix-names', verifyToken, async (req, res) => {
 });
 
 // Guardian Consent for Minors
-app.post('/api/v1/guardian/consent', verifyToken, async (req, res) => {
+app.post('/api/v1/guardian/consent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const { guardianId, minorId, consents } = req.body;
     
@@ -12916,7 +12172,7 @@ app.post('/api/v1/guardian/consent', verifyToken, async (req, res) => {
     const guardianConsents = [];
     for (const consentData of consents) {
       const consent = new Consent({
-        id: require('uuid').v4(),
+        id: crypto.randomUUID(),
         partyId: minorId,
         guardianId: guardianId,
         purpose: consentData.purpose,
@@ -12951,13 +12207,13 @@ app.post('/api/v1/guardian/consent', verifyToken, async (req, res) => {
 // ===== ENHANCED DSAR AUTOMATION =====
 
 // Test endpoint for debugging
-app.get('/api/v1/test/automation', (req, res) => {
+app.get('/api/v1/test/automation', verifyToken, requireRole(['admin']), (req, res) => {
   console.log(' Test endpoint called - automation check');
   res.json({ message: 'Automation endpoint test successful' });
 });
 
 // Auto-process DSAR Request
-app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
+app.post('/api/v1/dsar/:id/auto-process', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const dsarId = req.params.id;
     console.log(` Looking for DSAR request with ID: ${dsarId}`);
@@ -13049,7 +12305,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
       // Publish event
       await publishEvent({
         eventType: 'DSARRequestCompletedEvent',
-        eventId: require('uuid').v4(),
+        eventId: crypto.randomUUID(),
         eventTime: new Date().toISOString(),
         event: { dsarRequest: { id: dsar._id, status: dsar.status, requestType: dsar.requestType } }
       });
@@ -13092,7 +12348,7 @@ app.post('/api/v1/dsar/:id/auto-process', verifyToken, async (req, res) => {
 });
 
 // Get DSAR requests (enhanced for automation dashboard)
-app.get('/api/dsar-requests', async (req, res) => {
+app.get('/api/dsar-requests', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     console.log(' CSR Dashboard: Fetching DSAR requests from MongoDB');
     
@@ -13100,8 +12356,10 @@ app.get('/api/dsar-requests', async (req, res) => {
     const mongoRequests = await DSARRequest.find({}).sort({ submittedAt: -1 }).lean();
     console.log(`Found ${mongoRequests.length} DSAR requests in MongoDB`);
     
-    // Combine with in-memory requests
-    const allRequests = [...mongoRequests, ...dsarRequests];
+    // Real records only. This used to concatenate the hardcoded demo array,
+    // so the automation dashboard listed fabricated DSAR requests alongside
+    // genuine customer ones.
+    const allRequests = mongoRequests;
     
     // Return enhanced DSAR requests with automation metadata
     const enhancedRequests = allRequests.map(request => ({
@@ -13126,32 +12384,14 @@ app.get('/api/dsar-requests', async (req, res) => {
     res.json(enhancedRequests);
   } catch (error) {
     console.error('Error fetching DSAR requests:', error);
-    // Fallback to in-memory data
-    const enhancedRequests = dsarRequests.map(request => ({
-      ...request,
-      daysSinceCreation: Math.floor(
-        (Date.now() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-      ),
-      automationEligible: request.status === 'pending' && 
-        ['export', 'portability'].includes(request.requestType),
-      riskLevel: (() => {
-        const days = Math.floor(
-          (Date.now() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-        );
-        if (days >= 25) return 'critical';
-        if (days >= 20) return 'high';
-        if (days >= 15) return 'medium';
-        return 'low';
-      })()
-    }));
-    res.json(enhancedRequests);
+    res.status(500).json({ error: true, message: 'Failed to fetch DSAR requests' });
   }
 });
 
 // ===== VERSIONED CONSENT TERMS =====
 
 // Create New Consent Term Version
-app.post('/api/v1/privacy-notices/:id/versions', verifyToken, async (req, res) => {
+app.post('/api/v1/privacy-notices/:id/versions', verifyToken, requireRole(['admin']), async (req, res) => {
   try {
     const noticeId = req.params.id;
     const { content, changes, majorVersion = false } = req.body;
@@ -13196,6 +12436,13 @@ app.post('/api/v1/privacy-notices/:id/versions', verifyToken, async (req, res) =
     res.status(500).json({ error: 'Failed to create new version' });
   }
 });
+
+// EasyApply customer sign-in. Public by design: the OTP is the credential,
+// and the routes inside enforce their own customer token.
+app.use('/api/v1/customer-auth', require('./routes/customerAuthRoutes'));
+app.use('/api/v1/customer', require('./routes/customerAuthRoutes'));
+
+app.use('/api/v1/admin/consent-catalog', verifyToken, requireRole(['admin']), require('./routes/consentCatalogRoutes'));
 
 app.use('/api/v2/enterprise', require('./routes/enterpriseRoutes'));
 app.use('/api/v2/admin/enterprise', verifyToken, requireRole(['admin']), require('./routes/adminEnterpriseRoutes'));

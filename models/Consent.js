@@ -44,7 +44,7 @@ const consentSchema = new mongoose.Schema({
   channel: {
     type: String,
     required: true,
-    enum: ['email', 'sms', 'push', 'voice', 'all', 'web', 'guardian_portal']
+    enum: ['email', 'sms', 'push', 'voice', 'all', 'web', 'guardian_portal', 'mobile_app', 'ivr', 'call_center', 'branch']
   },
   validFrom: {
     type: Date,
@@ -93,6 +93,10 @@ const consentSchema = new mongoose.Schema({
   recordSource: {
     type: String,
     default: 'admin-dashboard'
+  },
+  capturedBy: {
+    type: String,
+    required: false
   },
   metadata: {
     type: mongoose.Schema.Types.Mixed,

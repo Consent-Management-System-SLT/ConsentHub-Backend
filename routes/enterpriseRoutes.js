@@ -253,9 +253,11 @@ router.post('/campaigns/:id/launch', verifyToken, requireEnterpriseTenant, async
     // In strict mode, we'd fail if no template. For demo, we can fallback to default.
     const messageContent = template ? template.content : null;
 
-    // Execute targeting logic
+    // Execute targeting logic. This must select the same population that
+    // POST /audience/estimate counts, otherwise the enterprise is shown one
+    // audience size and a different set of people is messaged.
     const User = require('../models/User');
-    const matchCriteria = { role: 'enterprise', status: 'active' };
+    const matchCriteria = { role: 'customer', status: 'active' };
     if (campaign.audienceDefinition?.ageRange) {
       matchCriteria.age = {};
       if (campaign.audienceDefinition.ageRange.min) matchCriteria.age.$gte = parseInt(campaign.audienceDefinition.ageRange.min);
