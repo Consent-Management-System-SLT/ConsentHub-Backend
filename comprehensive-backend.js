@@ -15,6 +15,7 @@ const connectDB = require('./config/database');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Consent = require('./models/Consent');
+const consentStore = require('./services/customerConsentStore');
 const PrivacyNotice = require('./models/PrivacyNoticeNew');
 const DSARRequest = require('./models/DSARRequest');
 const AuditLog = require('./models/AuditLog');
@@ -519,138 +520,6 @@ async function initializeVASServices() {
 setTimeout(initializeVASServices, 2000);
 
 // Helper Functions for Default Data Creation
-async function createDefaultConsents(userId, partyId) {
-    const defaultConsents = [
-        {
-            id: `consent_${userId}_essential_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "essential_services",
-            description: "Process your account data for service delivery and account management",
-            status: "granted",
-            legalBasis: "contract",
-            category: "essential",
-            channel: "web",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "essential",
-            consentType: "essential",
-            validFrom: new Date().toISOString(),
-            expiresAt: null, // Essential consents don't expire
-            grantedDate: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            required: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_security_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "account_security",
-            description: "Monitor account for security, fraud prevention and compliance",
-            status: "granted",
-            legalBasis: "legitimate_interest",
-            category: "security",
-            channel: "web",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "security",
-            consentType: "security",
-            validFrom: new Date().toISOString(),
-            expiresAt: null, // Security consents don't expire
-            grantedDate: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            required: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_service_comms_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "service_communications",
-            description: "Send you important service updates, billing information and account notifications",
-            status: "granted",
-            legalBasis: "contract",
-            category: "service",
-            channel: "email",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "service",
-            consentType: "service",
-            validFrom: new Date().toISOString(),
-            expiresAt: null, // Service communications are essential
-            grantedDate: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            required: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_marketing_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "marketing",
-            description: "Send promotional offers, product updates and marketing communications",
-            status: "pending",
-            legalBasis: "consent",
-            category: "marketing",
-            channel: "email",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "marketing",
-            consentType: "marketing",
-            validFrom: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 2 years
-            lastModified: new Date().toISOString(),
-            required: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        },
-        {
-            id: `consent_${userId}_analytics_${Date.now()}`,
-            partyId: partyId,
-            userId: userId.toString(),
-            purpose: "analytics",
-            description: "Improve your experience with personalized content and service optimization",
-            status: "pending",
-            legalBasis: "consent",
-            category: "analytics",
-            channel: "web",
-            geoLocation: "Sri Lanka",
-            versionAccepted: "1.0",
-            recordSource: "registration",
-            type: "analytics",
-            consentType: "analytics",
-            validFrom: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 2 years
-            lastModified: new Date().toISOString(),
-            required: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }
-    ];
-
-    // Add consents to both in-memory and MongoDB
-    for (const consent of defaultConsents) {
-        consents.push(consent);
-        
-        // Also save to MongoDB
-        try {
-            const mongoConsent = new Consent(consent);
-            await mongoConsent.save();
-            console.log(`Created default consent: ${consent.purpose} for user ${userId}`);
-        } catch (error) {
-            console.log(`Failed to save consent to MongoDB: ${error.message}`);
-        }
-    }
-}
-
 async function createDefaultUserPreferences(userId, partyId, language = 'en') {
     const defaultPreferences = [
         {
@@ -2001,7 +1870,7 @@ app.get("/api/csr/stats", verifyToken, requireRole(['admin', 'csr']), async (req
         // Fetch real data from MongoDB collections
         const [users, consents, dsarRequests, auditLogs] = await Promise.all([
             User.find({ role: 'customer', status: 'active' }).lean(),
-            Consent.find({}).lean(),
+            consentStore.find({}),
             DSARRequest.find({}).lean(),
             AuditLog.find({}).lean()
         ]);
@@ -2733,27 +2602,13 @@ app.get("/api/v1/csr/consent", verifyToken, requireRole(['admin', 'csr']), async
     try {
         console.log(' CSR Dashboard: Fetching consent data');
         
-        // Fetch from MongoDB
-        const mongoConsents = await Consent.find().sort({ createdAt: -1 }).lean();
-        console.log(`Found ${mongoConsents.length} consents in MongoDB`);
-        
-        // Combine MongoDB data with in-memory data and remove duplicates
-        const allConsents = [...mongoConsents, ...csrConsents];
-        const uniqueConsents = allConsents.reduce((unique, consent) => {
-            if (!unique.find(c => c.id === consent.id || c._id?.toString() === consent._id?.toString())) {
-                unique.push(consent);
-            }
-            return unique;
-        }, []);
-        
-        console.log(`Returning ${uniqueConsents.length} total consents`);
-        res.json(uniqueConsents);
+        const consents = await consentStore.find({});
+        console.log(`Returning ${consents.length} consents`);
+        res.json(consents);
         
     } catch (error) {
         console.error(' Error fetching consents:', error);
-        // Fallback to in-memory data
-        console.log('Falling back to in-memory consent data');
-        res.json(csrConsents);
+        res.status(500).json({ error: true, message: 'Failed to fetch consents' });
     }
 });
 
@@ -2762,27 +2617,13 @@ app.get("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (re
     try {
         console.log(' CSR Dashboard: Fetching all consents (non-auth)');
         
-        // Fetch from MongoDB
-        const mongoConsents = await Consent.find().sort({ createdAt: -1 }).lean();
-        console.log(`Found ${mongoConsents.length} consents in MongoDB`);
-        
-        // Combine MongoDB data with in-memory data and remove duplicates
-        const allConsents = [...mongoConsents, ...csrConsents];
-        const uniqueConsents = allConsents.reduce((unique, consent) => {
-            if (!unique.find(c => c.id === consent.id || c._id?.toString() === consent._id?.toString())) {
-                unique.push(consent);
-            }
-            return unique;
-        }, []);
-        
-        console.log(`Returning ${uniqueConsents.length} total consents`);
-        res.json(uniqueConsents);
+        const consents = await consentStore.find({});
+        console.log(`Returning ${consents.length} consents`);
+        res.json(consents);
         
     } catch (error) {
         console.error(' Error fetching consents:', error);
-        // Fallback to in-memory data
-        console.log('Falling back to in-memory consent data');
-        res.json(csrConsents);
+        res.status(500).json({ error: true, message: 'Failed to fetch consents' });
     }
 });
 
@@ -3680,8 +3521,13 @@ async function processConsentRow(row, columnMapping, bulkImport, rowNumber) {
         }
 
         // Create consent record
-        const consent = new Consent(consentData);
-        await consent.save();
+        await consentStore.create({
+            customerId: consentData.userId,
+            purpose: consentData.purpose,
+            status: consentData.status,
+            source: 'BULK_IMPORT',
+            capturedBy: 'BULK_IMPORT'
+        });
         
         // Update statistics
         bulkImport.statistics.consents = (bulkImport.statistics.consents || 0) + 1;
@@ -4842,206 +4688,68 @@ app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), async (r
 });
 
 // POST /api/v1/consent - Create new consent record
-// Shared by create and update: rejects values the Consent model would only fail on at save time.
-function validateConsentInput(body, { requireAll }) {
-    const statuses = Consent.schema.path('status').enumValues;
-    const channels = Consent.schema.path('channel').enumValues;
-    if (requireAll && (!body.partyId || !body.purpose)) return 'partyId and purpose are required';
-    if ((requireAll || body.status !== undefined) && !statuses.includes(body.status)) return `status must be one of: ${statuses.join(', ')}`;
-    if ((requireAll || body.channel !== undefined) && !channels.includes(body.channel)) return `channel must be one of: ${channels.join(', ')}`;
-    if (body.recordSource !== undefined && (typeof body.recordSource !== 'string' || body.recordSource.length > 50)) return 'recordSource must be text of 50 characters or fewer';
-    for (const field of ['consentDateTime', 'withdrawalDateTime']) {
-        if (body[field] && Number.isNaN(new Date(body[field]).getTime())) return `${field} is not a valid date`;
+const sendConsentError = (res, error, action) => {
+    if (error instanceof consentStore.ConsentInputError) {
+        return res.status(400).json({ error: true, message: error.message });
     }
-    if (body.consentDateTime && body.withdrawalDateTime && new Date(body.withdrawalDateTime) < new Date(body.consentDateTime)) {
-        return 'withdrawalDateTime cannot be before consentDateTime';
-    }
-    return null;
-}
+    console.error(` Error trying to ${action} consent:`, error);
+    return res.status(500).json({ error: true, message: `Failed to ${action} consent`, details: error.message });
+};
 
-app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+// Where a staff decision was captured, from the role of whoever made it.
+const staffSource = (req) => (req.user.role === 'csr' ? 'CSR_DASHBOARD' : 'ADMIN_DASHBOARD');
+
+// GET /api/v1/consent-scopes - the consent types (with versions) a decision can be recorded against
+app.get("/api/v1/consent-scopes", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
-        console.log(' CSR Dashboard: Creating new consent');
-        console.log('Request body:', req.body);
-        
-        const invalid = validateConsentInput(req.body, { requireAll: true });
-        if (invalid) {
-            return res.status(400).json({ error: true, message: invalid });
-        }
-
-        // Generate unique ID
-        const consentCount = await Consent.countDocuments();
-        const newConsentId = String(consentCount + 1);
-
-        const decidedAt = req.body.consentDateTime ? new Date(req.body.consentDateTime) : new Date();
-        const withdrawnAt = req.body.withdrawalDateTime ? new Date(req.body.withdrawalDateTime) : new Date();
-
-        // Create consent data with proper structure
-        const consentData = {
-            id: newConsentId,
-            partyId: req.body.partyId,
-            customerId: req.body.partyId, // Use partyId as customerId for consistency
-            purpose: req.body.purpose,
-            status: req.body.status,
-            channel: req.body.channel,
-            geoLocation: req.body.geoLocation || 'Sri Lanka',
-            privacyNoticeId: req.body.privacyNoticeId || 'PN-001',
-            versionAccepted: req.body.versionAccepted || '1.0',
-            recordSource: req.body.recordSource || 'admin-dashboard',
-            capturedBy: req.user.email || String(req.user.id),
-            type: req.body.purpose, // Use purpose as type for compatibility
-            consentType: req.body.purpose, // Use purpose as consentType for compatibility
-            validFrom: req.body.validFor?.startDateTime ? new Date(req.body.validFor.startDateTime) : new Date(),
-            validTo: req.body.validFor?.endDateTime ? new Date(req.body.validFor.endDateTime) : undefined,
-            expiresAt: req.body.validFor?.endDateTime ? new Date(req.body.validFor.endDateTime) : undefined,
-            // A withdrawn consent was granted first, then withdrawn.
-            grantedAt: ['granted', 'revoked'].includes(req.body.status) ? decidedAt : undefined,
-            timestampGranted: req.body.status === 'granted' ? decidedAt.toISOString() : undefined,
-            revokedAt: req.body.status === 'revoked' ? withdrawnAt : undefined,
-            timestampRevoked: req.body.status === 'revoked' ? withdrawnAt.toISOString() : undefined,
-            deniedAt: req.body.status === 'declined' ? decidedAt : undefined,
-            metadata: req.body.metadata || {}
-        };
-        
-        // Save to MongoDB
-        const newConsent = new Consent(consentData);
-        const savedConsent = await newConsent.save();
-        
-        // Also add to in-memory array for compatibility with existing frontend
-        const memoryConsent = {
-            id: savedConsent.id,
-            partyId: savedConsent.partyId,
-            customerId: savedConsent.customerId,
-            purpose: savedConsent.purpose,
-            status: savedConsent.status,
-            channel: savedConsent.channel,
-            type: savedConsent.type,
-            consentType: savedConsent.consentType,
-            geoLocation: savedConsent.geoLocation,
-            grantedAt: savedConsent.grantedAt,
-            expiresAt: savedConsent.expiresAt,
-            deniedAt: savedConsent.deniedAt
-        };
-        csrConsents.push(memoryConsent);
-        
-        console.log(' Consent saved to MongoDB:', savedConsent.id);
-        res.json(savedConsent);
-        
+        res.json(await consentStore.listScopes({ activeOnly: req.query.all !== 'true' }));
     } catch (error) {
-        console.error(' Error creating consent:', error);
-        res.status(500).json({ 
-            error: true, 
-            message: 'Failed to create consent',
-            details: error.message 
-        });
+        sendConsentError(res, error, 'load');
     }
 });
 
-// PUT /api/v1/consent/:id - Update consent status
+// POST /api/v1/consent - record a customer's consent decision (customer_consents)
+app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+    try {
+        const consent = await consentStore.create({
+            ...req.body,
+            customerId: req.body.customerId || req.body.partyId,
+            source: req.body.source || req.body.recordSource || staffSource(req),
+            capturedBy: req.user.email || String(req.user.id)
+        });
+        res.json(consent);
+    } catch (error) {
+        sendConsentError(res, error, 'create');
+    }
+});
+
+// PUT /api/v1/consent/:id - change a recorded decision
 app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
-        console.log(' CSR Dashboard: Updating consent:', req.params.id);
-        console.log(' Request body:', JSON.stringify(req.body, null, 2));
-        const consentId = req.params.id;
-
-        const invalid = validateConsentInput(req.body, { requireAll: false });
-        if (invalid) {
-            return res.status(400).json({ error: true, message: invalid });
-        }
-        
-        // Update in MongoDB first
-        let updatedConsent = await Consent.findOne({ id: consentId });
-        
-        if (updatedConsent) {
-            // Update MongoDB document
-            Object.assign(updatedConsent, req.body);
-            
-            // Mark as CSR-updated if this request comes from CSR (based on notes or updatedBy)
-            if ((req.body.notes && req.body.notes.includes('CSR')) || req.body.updatedBy === 'csr-agent') {
-                updatedConsent.source = 'csr-dashboard';
-                updatedConsent.recordSource = 'csr-dashboard';
-                updatedConsent.updatedBy = 'CSR Staff';
-                console.log(' Marking consent update as CSR-initiated');
-            }
-            
-            // An explicit consent/withdrawal time (admin edit form) wins over "now".
-            const decidedAt = req.body.consentDateTime ? new Date(req.body.consentDateTime) : null;
-            const withdrawnAt = req.body.withdrawalDateTime ? new Date(req.body.withdrawalDateTime) : null;
-            if (req.body.status === 'granted') {
-                updatedConsent.grantedAt = decidedAt || new Date();
-                updatedConsent.timestampGranted = updatedConsent.grantedAt.toISOString();
-            } else if (req.body.status === 'revoked') {
-                if (decidedAt) updatedConsent.grantedAt = decidedAt;
-                updatedConsent.revokedAt = withdrawnAt || new Date();
-                updatedConsent.timestampRevoked = updatedConsent.revokedAt.toISOString();
-            } else if (req.body.status === 'declined') {
-                updatedConsent.deniedAt = decidedAt || new Date();
-            }
-            
-            await updatedConsent.save();
-            console.log(' Consent updated in MongoDB:', consentId);
-            
-            // Emit real-time update to CSR dashboard
-            if (global.io && req.body.status) {
-                const eventType = req.body.status === 'granted' ? 'granted' : 'revoked';
-                global.io.to('csr-dashboard').emit('consent-updated', {
-                    type: eventType,
-                    consent: updatedConsent,
-                    timestamp: new Date(),
-                    user: {
-                        id: updatedConsent.partyId || updatedConsent.userId,
-                        email: updatedConsent.customerEmail || 'Unknown'
-                    },
-                    source: updatedConsent.source === 'csr-dashboard' ? 'csr' : 'system',
-                    updatedBy: updatedConsent.updatedBy || 'System'
-                });
-                console.log(` Real-time update sent to CSR dashboard - consent ${eventType} via system`);
-            }
-            
-            // Also update in-memory array for compatibility
-            const consentIndex = csrConsents.findIndex(c => c.id === consentId);
-            if (consentIndex >= 0) {
-                csrConsents[consentIndex] = {
-                    ...csrConsents[consentIndex],
-                    ...req.body,
-                    updatedAt: new Date().toISOString(),
-                    grantedAt: req.body.status === 'granted' ? new Date().toISOString() : csrConsents[consentIndex].grantedAt,
-                    revokedAt: req.body.status === 'revoked' ? new Date().toISOString() : csrConsents[consentIndex].revokedAt
-                };
-            }
-            
-            res.json(updatedConsent);
-        } else {
-            // Fallback to in-memory update
-            const consentIndex = csrConsents.findIndex(c => c.id === consentId);
-            
-            if (consentIndex >= 0) {
-                const updatedConsentMem = {
-                    ...csrConsents[consentIndex],
-                    ...req.body,
-                    updatedAt: new Date().toISOString()
-                };
-                
-                if (req.body.status === 'granted') {
-                    updatedConsentMem.grantedAt = new Date().toISOString();
-                } else if (req.body.status === 'revoked') {
-                    updatedConsentMem.revokedAt = new Date().toISOString();
-                }
-                
-                csrConsents[consentIndex] = updatedConsentMem;
-                res.json(updatedConsentMem);
-            } else {
-                res.status(404).json({ error: 'Consent record not found' });
-            }
-        }
-        
-    } catch (error) {
-        console.error(' Error updating consent:', error);
-        res.status(500).json({ 
-            error: true, 
-            message: 'Failed to update consent',
-            details: error.message 
+        const consent = await consentStore.update(req.params.id, {
+            ...req.body,
+            source: req.body.source || req.body.recordSource || staffSource(req),
+            capturedBy: req.user.email || String(req.user.id)
         });
+        if (!consent) {
+            return res.status(404).json({ error: 'Consent record not found' });
+        }
+
+        // Real-time update for the CSR dashboard
+        if (global.io && (req.body.status || req.body.consentStatus)) {
+            const customer = await User.findById(consent.customerId).select('email').lean().catch(() => null);
+            global.io.to('csr-dashboard').emit('consent-updated', {
+                type: consent.status === 'granted' ? 'granted' : 'revoked',
+                consent,
+                timestamp: new Date(),
+                user: { id: consent.customerId, email: customer?.email || 'Unknown' },
+                source: req.user.role === 'csr' ? 'csr' : 'system',
+                updatedBy: req.user.email || 'System'
+            });
+        }
+        res.json(consent);
+    } catch (error) {
+        sendConsentError(res, error, 'update');
     }
 });
 
@@ -5166,7 +4874,7 @@ app.get("/api/v1/admin/dashboard/overview", verifyToken, requireRole(['admin']),
         
         // Fetch data from MongoDB using available Mongoose models
         const [consentsFromDB, dsarFromDB, preferencesFromDB, usersFromDB] = await Promise.all([
-            Consent.find({}).sort({ createdAt: -1 }).lean(),
+            consentStore.find({}),
             DSARRequest.find({}).sort({ createdAt: -1 }).lean(),
             UserPreference.find({}).sort({ createdAt: -1 }).lean(),
             User.find({}).sort({ createdAt: -1 }).lean()
@@ -7426,12 +7134,7 @@ app.get("/api/v1/customer/dashboard/overview", verifyToken, async (req, res) => 
         }
 
         // 1. REAL CONSENTS DATA from MongoDB
-        const consents = await Consent.find({ 
-            $or: [
-                { userId: req.user.id },
-                { partyId: req.user.id }
-            ]
-        }).sort({ createdAt: -1 }).lean();
+        const consents = await consentStore.findForCustomer(req.user.id);
 
         const activeConsents = consents.filter(c => c.status === 'granted').length;
         const revokedConsents = consents.filter(c => c.status === 'revoked').length;
@@ -7687,13 +7390,12 @@ app.get("/api/v1/customer/consents", verifyToken, async (req, res) => {
         const partyId = req.user.partyId || req.user.id;
         console.log(' Fetching consents for customer:', partyId);
 
-        // An unset clause (e.g. userId on an EasyApply token, which only carries
-        // partyId) must not be sent as { userId: undefined } - Mongo drops undefined
-        // keys, turning that into {} inside $or and matching every customer's records.
-        const orClauses = [{ partyId }];
-        if (req.user.id) orClauses.push({ userId: req.user.id });
+        // No id at all must never fall through to "every customer".
+        if (!partyId) {
+            return res.status(403).json({ error: true, message: 'Access denied' });
+        }
 
-        const consents = await Consent.find({ $or: orClauses }).sort({ createdAt: -1 }).lean();
+        const consents = await consentStore.findForCustomer(partyId);
         
         console.log(`Found ${consents.length} consents for customer`);
         
@@ -7723,30 +7425,10 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
         }
 
         const consentId = req.params.id;
-        const { notes } = req.body;
-        
         console.log(' Granting consent:', consentId, 'for customer:', req.user.id);
 
-        // Find and update the consent in MongoDB
-        const consent = await Consent.findOneAndUpdate(
-            { 
-                id: consentId,
-                $or: [
-                    { userId: req.user.id },
-                    { partyId: req.user.id }
-                ]
-            },
-            {
-                $set: {
-                    status: 'granted',
-                    grantedAt: new Date(),
-                    updatedAt: new Date(),
-                    revokedAt: null,
-                    notes: notes || 'Granted by customer'
-                }
-            },
-            { new: true }
-        );
+        // Record the decision against the customer's own consent only
+        const consent = await consentStore.respond(consentId, req.user.id, 'GRANTED');
 
         if (!consent) {
             return res.status(404).json({
@@ -7812,25 +7494,8 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
         
         console.log(' Revoking consent:', consentId, 'for customer:', req.user.id);
 
-        // Find and update the consent in MongoDB
-        const consent = await Consent.findOneAndUpdate(
-            { 
-                id: consentId,
-                $or: [
-                    { userId: req.user.id },
-                    { partyId: req.user.id }
-                ]
-            },
-            {
-                $set: {
-                    status: 'revoked',
-                    revokedAt: new Date(),
-                    updatedAt: new Date(),
-                    reason: reason || 'Revoked by customer'
-                }
-            },
-            { new: true }
-        );
+        // Record the decision against the customer's own consent only
+        const consent = await consentStore.respond(consentId, req.user.id, 'WITHDRAWN');
 
         if (!consent) {
             return res.status(404).json({
@@ -12041,14 +11706,18 @@ app.get('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr'])
     const { partyId, status, purpose, offset = 0, limit = 20 } = req.query;
     const query = {};
     
-    if (partyId) query.partyId = partyId;
-    if (status) query.status = status;
-    if (purpose) query.purpose = purpose;
+    if (partyId) query.customerId = String(partyId);
+    if (status) {
+      const consentStatus = consentStore.toPdfStatus(status);
+      if (!consentStatus) return res.json([]);
+      query.consentStatus = consentStatus;
+    }
+    if (purpose) {
+      const scopes = (await consentStore.listScopes({ activeOnly: false })).filter(s => s.purpose === purpose);
+      query.consentScopeId = { $in: scopes.map(s => s.consentScopeId) };
+    }
     
-    const consents = await Consent.find(query)
-      .skip(parseInt(offset))
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+    const consents = await consentStore.find(query, { skip: parseInt(offset), limit: parseInt(limit) });
     
     res.json(consents.map(consent => ({
       id: consent.id,
@@ -12081,7 +11750,7 @@ app.get('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr'])
 // TMF632 - Get Privacy Consent by ID
 app.get('/api/tmf632/privacyConsent/:id', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
-    const consent = await Consent.findOne({ id: req.params.id });
+    const consent = await consentStore.findOne(req.params.id);
     
     if (!consent) {
       return res.status(404).json({
@@ -12123,21 +11792,15 @@ app.get('/api/tmf632/privacyConsent/:id', verifyToken, requireRole(['admin', 'cs
 app.post('/api/tmf632/privacyConsent', verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
   try {
     const consentData = req.body;
-    const consent = new Consent({
-      id: consentData.id || crypto.randomUUID(),
-      partyId: consentData.partyId,
+    const consent = await consentStore.create({
+      customerId: consentData.partyId,
+      consentScopeId: consentData.consentScopeId,
       purpose: consentData.purpose,
       status: consentData.status || 'granted',
       channel: consentData.channel || 'web',
-      validFrom: consentData.validFor?.startDateTime || new Date(),
-      validTo: consentData.validFor?.endDateTime,
-      privacyNoticeId: consentData.privacyNoticeId,
-      versionAccepted: consentData.versionAccepted || '1.0',
-      grantedAt: new Date(),
-      source: 'tmf632-api'
+      source: 'TMF632_API',
+      capturedBy: req.user.email || String(req.user.id)
     });
-    
-    await consent.save();
     
     // Emit TMF669 Event
     await publishEvent({

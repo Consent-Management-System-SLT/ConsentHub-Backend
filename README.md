@@ -111,6 +111,40 @@ every recipient is suppressed as `NO_CONSENT_FOUND`. The backend chain is
 complete and covered by tests; the customer-facing consent request is the
 missing piece.
 
+## Consent data model
+
+Customer consents live in the four tables of `SLT_Consent_Management_Data_Model.pdf`, defined in
+[models/ConsentDataModel.js](models/ConsentDataModel.js). Columns are the PDF's, camelCased.
+
+| Collection | PDF table | Key |
+|---|---|---|
+| `consent_categories` | CONSENT_CATEGORY | `categoryCode` |
+| `consent_masters` | CONSENT_MASTER | `consentId` |
+| `consent_scopes` | CONSENT_SCOPE | `consentScopeId` |
+| `customer_consents` | CUSTOMER_CONSENT | `customerConsentId` |
+
+Numeric keys come from `consent_counters`. `customerId` is the customer's MongoDB user id, so it holds
+24 characters rather than the PDF's 20.
+
+Everything that reads or writes a customer consent goes through
+[services/customerConsentStore.js](services/customerConsentStore.js). Responses carry the PDF columns plus the
+older field names (`id`, `partyId`, `purpose`, `status`), so screens written before the PDF still work.
+`consentStatus` is stored as GRANTED / DENIED / WITHDRAWN / NOT_RESPONDED; the older `granted` / `declined` /
+`revoked` / `pending` are still accepted as input. Consent types and versions are served by
+`GET /api/v1/consent-scopes`.
+
+The older `consents` collection is no longer read for customer consents. It still holds partner-campaign
+and guardian consents, which have fields the PDF has no place for.
+
+```bash
+node scripts/backupConsentData.js                     # JSON dump of every consent collection to db-backup/
+node scripts/seedConsentDataModel.js --yes            # drops and rebuilds the four tables with the PDF's sample data
+                                                      # plus generated data for every customer (backs up first)
+node scripts/restoreConsentData.js db-backup/<folder> --yes   # puts a backup back, replacing those collections
+```
+
+`db-backup/` is git-ignored because it holds personal data.
+
 ## Known issues
 
 - Four routes are served by handlers backed by module-level arrays rather than
