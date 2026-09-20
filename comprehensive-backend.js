@@ -4842,15 +4842,40 @@ app.put("/api/v1/dsar/:id", verifyToken, requireRole(['admin', 'csr']), async (r
 });
 
 // POST /api/v1/consent - Create new consent record
+// Shared by create and update: rejects values the Consent model would only fail on at save time.
+function validateConsentInput(body, { requireAll }) {
+    const statuses = Consent.schema.path('status').enumValues;
+    const channels = Consent.schema.path('channel').enumValues;
+    if (requireAll && (!body.partyId || !body.purpose)) return 'partyId and purpose are required';
+    if ((requireAll || body.status !== undefined) && !statuses.includes(body.status)) return `status must be one of: ${statuses.join(', ')}`;
+    if ((requireAll || body.channel !== undefined) && !channels.includes(body.channel)) return `channel must be one of: ${channels.join(', ')}`;
+    if (body.recordSource !== undefined && (typeof body.recordSource !== 'string' || body.recordSource.length > 50)) return 'recordSource must be text of 50 characters or fewer';
+    for (const field of ['consentDateTime', 'withdrawalDateTime']) {
+        if (body[field] && Number.isNaN(new Date(body[field]).getTime())) return `${field} is not a valid date`;
+    }
+    if (body.consentDateTime && body.withdrawalDateTime && new Date(body.withdrawalDateTime) < new Date(body.consentDateTime)) {
+        return 'withdrawalDateTime cannot be before consentDateTime';
+    }
+    return null;
+}
+
 app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
         console.log(' CSR Dashboard: Creating new consent');
         console.log('Request body:', req.body);
         
+        const invalid = validateConsentInput(req.body, { requireAll: true });
+        if (invalid) {
+            return res.status(400).json({ error: true, message: invalid });
+        }
+
         // Generate unique ID
         const consentCount = await Consent.countDocuments();
         const newConsentId = String(consentCount + 1);
-        
+
+        const decidedAt = req.body.consentDateTime ? new Date(req.body.consentDateTime) : new Date();
+        const withdrawnAt = req.body.withdrawalDateTime ? new Date(req.body.withdrawalDateTime) : new Date();
+
         // Create consent data with proper structure
         const consentData = {
             id: newConsentId,
@@ -4862,15 +4887,19 @@ app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (r
             geoLocation: req.body.geoLocation || 'Sri Lanka',
             privacyNoticeId: req.body.privacyNoticeId || 'PN-001',
             versionAccepted: req.body.versionAccepted || '1.0',
-            recordSource: 'admin-dashboard',
+            recordSource: req.body.recordSource || 'admin-dashboard',
+            capturedBy: req.user.email || String(req.user.id),
             type: req.body.purpose, // Use purpose as type for compatibility
             consentType: req.body.purpose, // Use purpose as consentType for compatibility
             validFrom: req.body.validFor?.startDateTime ? new Date(req.body.validFor.startDateTime) : new Date(),
             validTo: req.body.validFor?.endDateTime ? new Date(req.body.validFor.endDateTime) : undefined,
             expiresAt: req.body.validFor?.endDateTime ? new Date(req.body.validFor.endDateTime) : undefined,
-            grantedAt: req.body.status === 'granted' ? new Date() : undefined,
-            timestampGranted: req.body.status === 'granted' ? new Date().toISOString() : undefined,
-            deniedAt: req.body.status === 'revoked' ? new Date() : undefined,
+            // A withdrawn consent was granted first, then withdrawn.
+            grantedAt: ['granted', 'revoked'].includes(req.body.status) ? decidedAt : undefined,
+            timestampGranted: req.body.status === 'granted' ? decidedAt.toISOString() : undefined,
+            revokedAt: req.body.status === 'revoked' ? withdrawnAt : undefined,
+            timestampRevoked: req.body.status === 'revoked' ? withdrawnAt.toISOString() : undefined,
+            deniedAt: req.body.status === 'declined' ? decidedAt : undefined,
             metadata: req.body.metadata || {}
         };
         
@@ -4914,6 +4943,11 @@ app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async
         console.log(' CSR Dashboard: Updating consent:', req.params.id);
         console.log(' Request body:', JSON.stringify(req.body, null, 2));
         const consentId = req.params.id;
+
+        const invalid = validateConsentInput(req.body, { requireAll: false });
+        if (invalid) {
+            return res.status(400).json({ error: true, message: invalid });
+        }
         
         // Update in MongoDB first
         let updatedConsent = await Consent.findOne({ id: consentId });
@@ -4930,12 +4964,18 @@ app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async
                 console.log(' Marking consent update as CSR-initiated');
             }
             
+            // An explicit consent/withdrawal time (admin edit form) wins over "now".
+            const decidedAt = req.body.consentDateTime ? new Date(req.body.consentDateTime) : null;
+            const withdrawnAt = req.body.withdrawalDateTime ? new Date(req.body.withdrawalDateTime) : null;
             if (req.body.status === 'granted') {
-                updatedConsent.grantedAt = new Date();
-                updatedConsent.timestampGranted = new Date().toISOString();
+                updatedConsent.grantedAt = decidedAt || new Date();
+                updatedConsent.timestampGranted = updatedConsent.grantedAt.toISOString();
             } else if (req.body.status === 'revoked') {
-                updatedConsent.revokedAt = new Date();
-                updatedConsent.timestampRevoked = new Date().toISOString();
+                if (decidedAt) updatedConsent.grantedAt = decidedAt;
+                updatedConsent.revokedAt = withdrawnAt || new Date();
+                updatedConsent.timestampRevoked = updatedConsent.revokedAt.toISOString();
+            } else if (req.body.status === 'declined') {
+                updatedConsent.deniedAt = decidedAt || new Date();
             }
             
             await updatedConsent.save();
