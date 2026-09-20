@@ -5,7 +5,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 const ExternalPartyMapping = require('../models/ExternalPartyMapping');
-const Consent = require('../models/Consent');
+const consentStore = require('../services/customerConsentStore');
 
 const router = express.Router();
 
@@ -154,19 +154,19 @@ router.post('/logout', customerAuth, (req, res) => res.json({ success: true, mes
 // never silently break the other.
 router.get('/consents', customerAuth, async (req, res) => {
   try {
-    const consents = await Consent.find({ partyId: req.customer.partyId }).sort({ createdAt: -1 }).lean();
+    const consents = await consentStore.findForCustomer(req.customer.partyId);
     res.json({
       success: true,
       data: consents.map((c) => ({
-        consentId: c.id,
-        purpose: c.purpose,
-        status: c.status,
-        grantedAt: c.grantedAt,
-        revokedAt: c.revokedAt,
-        expiresAt: c.expiresAt,
-        privacyNoticeVersion: c.versionAccepted,
+        customerConsentId: c.customerConsentId,
+        consentName: c.consentName,
+        scopeVersion: c.scopeVersion,
+        consentStatus: c.consentStatus,
         channel: c.channel,
-        createdAt: c.createdAt
+        source: c.source,
+        consentDateTime: c.consentDateTime,
+        withdrawalDateTime: c.withdrawalDateTime,
+        capturedBy: c.capturedBy
       }))
     });
   } catch (error) {
