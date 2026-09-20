@@ -4723,6 +4723,21 @@ app.post("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (r
     }
 });
 
+// POST /api/v1/consent/bulk - record the same decision for every active customer that has none for this version yet
+app.post("/api/v1/consent/bulk", verifyToken, requireRole(['admin']), async (req, res) => {
+    try {
+        const customers = await User.find({ role: 'customer', status: 'active', isActive: true }).select('_id').lean();
+        const result = await consentStore.createForCustomers(customers.map((c) => String(c._id)), {
+            ...req.body,
+            source: req.body.source || staffSource(req),
+            capturedBy: req.user.email || String(req.user.id)
+        });
+        res.json(result);
+    } catch (error) {
+        sendConsentError(res, error, 'create');
+    }
+});
+
 // PUT /api/v1/consent/:id - change a recorded decision
 app.put("/api/v1/consent/:id", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
     try {
@@ -12426,6 +12441,8 @@ app.post('/api/v1/privacy-notices/:id/versions', verifyToken, requireRole(['admi
 // and the routes inside enforce their own customer token.
 app.use('/api/v1/customer-auth', require('./routes/customerAuthRoutes'));
 app.use('/api/v1/customer', require('./routes/customerAuthRoutes'));
+
+app.use('/api/v1/admin/consent-catalog', verifyToken, requireRole(['admin']), require('./routes/consentCatalogRoutes'));
 
 app.use('/api/v2/enterprise', require('./routes/enterpriseRoutes'));
 app.use('/api/v2/admin/enterprise', verifyToken, requireRole(['admin']), require('./routes/adminEnterpriseRoutes'));

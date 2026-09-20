@@ -126,6 +126,11 @@ Customer consents live in the four tables of `SLT_Consent_Management_Data_Model.
 Numeric keys come from `consent_counters`. `customerId` is the customer's MongoDB user id, so it holds
 24 characters rather than the PDF's 20.
 
+Admin endpoints: `GET /api/v1/admin/consent-catalog` and `POST`/`PUT` on `/categories`, `/masters`, `/scopes`
+([routes/consentCatalogRoutes.js](routes/consentCatalogRoutes.js)) manage the first three tables; nothing is
+deleted, rows are switched off with `isActive` or retired by status. `POST /api/v1/consent/bulk` records one
+decision for every active customer that has none for that version yet.
+
 Everything that reads or writes a customer consent goes through
 [services/customerConsentStore.js](services/customerConsentStore.js). Responses carry the PDF columns plus the
 older field names (`id`, `partyId`, `purpose`, `status`), so screens written before the PDF still work.

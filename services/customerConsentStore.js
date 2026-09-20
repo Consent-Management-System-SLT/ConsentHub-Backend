@@ -214,6 +214,21 @@ async function create(input) {
   return findOne(cc.customerConsentId);
 }
 
+/**
+ * The same decision for many customers. A customer who already has a record for the version is left
+ * alone (their own decision is never overwritten), and is counted in `skipped`.
+ */
+async function createForCustomers(customerIds, input) {
+  if (!toPdfStatus(input.consentStatus ?? input.status)) throw new ConsentInputError('status must be one of: GRANTED, DENIED, WITHDRAWN, NOT_RESPONDED');
+  toPdfChannel(input.channel);
+  const scope = await resolveScope(input);
+  const have = new Set((await CustomerConsent.find({ consentScopeId: scope.consentScopeId, customerId: { $in: customerIds } }).select('customerId').lean()).map((c) => c.customerId));
+  const todo = customerIds.filter((id) => !have.has(id));
+  // ponytail: one at a time so each row gets its own id; batch the inserts if this ever runs over tens of thousands of customers
+  for (const customerId of todo) await create({ ...input, customerId, consentScopeId: scope.consentScopeId });
+  return { created: todo.length, skipped: customerIds.length - todo.length, total: customerIds.length };
+}
+
 /** patch: any of consentScopeId/purpose, consentStatus/status, channel, source, capturedBy, consentDateTime, withdrawalDateTime. */
 async function update(customerConsentId, patch, { customerId } = {}) {
   const filter = { customerConsentId: Number(customerConsentId) };
@@ -265,6 +280,6 @@ async function createDefaultsForCustomer(customerId, { source = 'REGISTRATION', 
 
 module.exports = {
   ConsentInputError, purposeKey, toPdfStatus, toPdfChannel, settleDates,
-  listScopes, find, findForCustomer, findOne, count, create, update, respond, createDefaultsForCustomer, resolveScope,
+  listScopes, find, findForCustomer, findOne, count, create, createForCustomers, update, respond, createDefaultsForCustomer, resolveScope,
   STATUS_TO_LEGACY, STATUS_FROM_LEGACY,
 };
