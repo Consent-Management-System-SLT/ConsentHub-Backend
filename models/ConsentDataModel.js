@@ -55,6 +55,7 @@ const ConsentScope = mongoose.models.ConsentScope || mongoose.model('ConsentScop
     scopeType: { type: String, required: true, maxlength: 50 },
     scopeCode: { type: String, required: true, maxlength: 50 },
     scopeName: { type: String, required: true, maxlength: 200 },
+    description: { type: String, maxlength: 1000 },
     scopeVersion: { type: String, required: true, maxlength: 20 },
     status: { type: String, enum: SCOPE_STATUSES, required: true },
     effectiveFrom: { type: Date, required: true },

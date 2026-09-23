@@ -23,7 +23,7 @@ const send = (res, error, action) => {
 
 const CATEGORY_FIELDS = ['categoryName', 'description', 'isActive'];
 const MASTER_FIELDS = ['consentName', 'description', 'consentCategory', 'purpose', 'isMandatory', 'applicability', 'isActive'];
-const SCOPE_FIELDS = ['scopeType', 'scopeCode', 'scopeName', 'scopeVersion', 'status', 'effectiveFrom', 'effectiveTo'];
+const SCOPE_FIELDS = ['scopeCode', 'scopeName', 'description', 'scopeVersion', 'status', 'effectiveFrom', 'effectiveTo'];
 
 router.get('/', async (req, res) => {
   try {
@@ -34,7 +34,11 @@ router.get('/', async (req, res) => {
       CustomerConsent.aggregate([{ $group: { _id: '$consentScopeId', customers: { $sum: 1 } } }]),
     ]);
     const used = new Map(inUse.map((u) => [u._id, u.customers]));
-    res.json({ categories, masters, scopes: scopes.map((s) => ({ ...s, customerConsents: used.get(s.consentScopeId) || 0 })) });
+    res.json({ categories, masters, scopes: scopes.map((s) => ({
+      ...s,
+      description: s.description || `Consent wording and terms for ${s.scopeName}.`,
+      customerConsents: used.get(s.consentScopeId) || 0,
+    })) });
   } catch (error) {
     send(res, error, 'load the consent catalog');
   }
@@ -124,7 +128,7 @@ async function checkScope(scope) {
 router.post('/scopes', async (req, res) => {
   try {
     const scope = new ConsentScope({
-      status: 'DRAFT', ...scopeValues(req.body),
+      status: 'DRAFT', scopeType: 'DOCUMENT', ...scopeValues(req.body),
       consentId: Number(req.body.consentId), consentScopeId: await nextId('consentScopeId'),
     });
     await checkScope(scope);

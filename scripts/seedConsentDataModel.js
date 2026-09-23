@@ -58,7 +58,8 @@ const SCOPES = [
   [601, 6, 'PARTNER_001', 'Partner Offers', '1.1', 'APPROVED', '2026-11-01', null, '2026-08-25 16:00'],
   [701, 7, 'FEEDBACK_001', 'Customer Feedback', '1.0', 'ACTIVE', '2025-01-01', null, '2024-12-15 10:00'],
 ].map(([consentScopeId, consentId, scopeCode, scopeName, scopeVersion, status, from, to, created]) => ({
-  consentScopeId, consentId, scopeType: 'DOCUMENT', scopeCode, scopeName, scopeVersion, status,
+  consentScopeId, consentId, scopeType: 'DOCUMENT', scopeCode, scopeName,
+  description: `Consent wording and terms for ${scopeName}.`, scopeVersion, status,
   effectiveFrom: at(from), effectiveTo: to ? at(to) : null, isActive: status === 'ACTIVE' ? 'Y' : 'N', createdDate: at(created),
 }));
 

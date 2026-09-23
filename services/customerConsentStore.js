@@ -61,6 +61,7 @@ const describeScope = (scope, catalog) => {
     scopeType: scope.scopeType,
     scopeCode: scope.scopeCode,
     scopeName: scope.scopeName,
+    scopeDescription: scope.description || `Consent wording and terms for ${scope.scopeName}.`,
     scopeVersion: scope.scopeVersion,
     status: scope.status,
     effectiveFrom: scope.effectiveFrom,
