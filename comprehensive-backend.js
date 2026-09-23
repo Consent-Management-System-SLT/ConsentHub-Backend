@@ -2613,17 +2613,50 @@ app.get("/api/v1/csr/consent", verifyToken, requireRole(['admin', 'csr']), async
 });
 
 // GET /api/v1/consent (Non-auth version for CSR dashboard)
-app.get("/api/v1/consent", verifyToken, requireRole(['admin', 'csr']), async (req, res) => {
+app.get("/api/v1/consent", verifyToken, async (req, res) => {
     try {
-        console.log(' CSR Dashboard: Fetching all consents (non-auth)');
-        
-        const consents = await consentStore.find({});
-        console.log(`Returning ${consents.length} consents`);
+        const role = String(req.user.role).toLowerCase();
+        if (!['admin', 'csr', 'customer'].includes(role)) return res.status(403).json({ error: true, message: 'Access denied' });
+        const { partyId, customerId, status, purpose, channel, offset = '0', limit = '0' } = req.query;
+        const query = {};
+        const customer = customerId || partyId;
+        if (role === 'customer') {
+            const ownCustomerId = req.user.partyId || req.user.id;
+            if (!ownCustomerId) return res.status(403).json({ error: true, message: 'Access denied' });
+            query.customerId = String(ownCustomerId);
+        } else if (customer) query.customerId = String(customer);
+        if (status) {
+            const pdfStatus = consentStore.toPdfStatus(status);
+            if (!pdfStatus) return res.json([]);
+            query.consentStatus = pdfStatus;
+        }
+        if (channel) query.channel = String(channel).toUpperCase();
+        if (purpose) {
+            const scopes = (await consentStore.listScopes({ activeOnly: false })).filter((scope) => scope.purpose === purpose);
+            query.consentScopeId = { $in: scopes.map((scope) => scope.consentScopeId) };
+        }
+        const skip = Math.max(0, Number.parseInt(offset, 10) || 0);
+        const pageSize = Math.max(0, Math.min(500, Number.parseInt(limit, 10) || 0));
+        const consents = await consentStore.find(query, { skip, limit: pageSize });
+        console.log(`Returning ${consents.length} consent records`);
         res.json(consents);
         
     } catch (error) {
         console.error(' Error fetching consents:', error);
         res.status(500).json({ error: true, message: 'Failed to fetch consents' });
+    }
+});
+
+app.get("/api/v1/consent/:id", verifyToken, async (req, res) => {
+    try {
+        const role = String(req.user.role).toLowerCase();
+        if (!['admin', 'csr', 'customer'].includes(role)) return res.status(403).json({ error: true, message: 'Access denied' });
+        const customerId = role === 'customer' ? (req.user.partyId || req.user.id) : undefined;
+        const consent = await consentStore.findOne(req.params.id, customerId);
+        if (!consent) return res.status(404).json({ error: true, message: 'Consent record not found' });
+        res.json(consent);
+    } catch (error) {
+        sendConsentError(res, error, 'load');
     }
 });
 
@@ -7432,7 +7465,7 @@ app.get("/api/v1/customer/consents", verifyToken, async (req, res) => {
 // Grant consent endpoint
 app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'customer') {
+        if (String(req.user.role).toLowerCase() !== 'customer') {
             return res.status(403).json({
                 error: true,
                 message: 'Access denied'
@@ -7440,10 +7473,12 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
         }
 
         const consentId = req.params.id;
-        console.log(' Granting consent:', consentId, 'for customer:', req.user.id);
+        const customerId = req.user.partyId || req.user.id;
+        if (!customerId) return res.status(403).json({ error: true, message: 'Access denied' });
+        console.log(' Granting consent:', consentId, 'for customer:', customerId);
 
         // Record the decision against the customer's own consent only
-        const consent = await consentStore.respond(consentId, req.user.id, 'GRANTED');
+        const consent = await consentStore.respond(consentId, customerId, 'GRANTED');
 
         if (!consent) {
             return res.status(404).json({
@@ -7497,7 +7532,7 @@ app.post("/api/v1/customer/consents/:id/grant", verifyToken, async (req, res) =>
 // Revoke consent endpoint
 app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'customer') {
+        if (String(req.user.role).toLowerCase() !== 'customer') {
             return res.status(403).json({
                 error: true,
                 message: 'Access denied'
@@ -7506,11 +7541,13 @@ app.post("/api/v1/customer/consents/:id/revoke", verifyToken, async (req, res) =
 
         const consentId = req.params.id;
         const { reason } = req.body;
+        const customerId = req.user.partyId || req.user.id;
+        if (!customerId) return res.status(403).json({ error: true, message: 'Access denied' });
         
-        console.log(' Revoking consent:', consentId, 'for customer:', req.user.id);
+        console.log(' Revoking consent:', consentId, 'for customer:', customerId);
 
         // Record the decision against the customer's own consent only
-        const consent = await consentStore.respond(consentId, req.user.id, 'WITHDRAWN');
+        const consent = await consentStore.respond(consentId, customerId, 'WITHDRAWN');
 
         if (!consent) {
             return res.status(404).json({
@@ -8044,8 +8081,12 @@ app.get("/api/v1/customer/dsar", verifyToken, async (req, res) => {
 
 app.get("/api/v1/consents", verifyToken, async (req, res) => {
     try {
-        const { getCustomerIsolatedData } = require('./customer-data-provisioning');
-        const userConsents = await getCustomerIsolatedData(req.user.id, 'consents');
+        if (String(req.user.role).toLowerCase() !== 'customer') {
+            return res.status(403).json({ error: true, message: 'Access denied' });
+        }
+        const customerId = req.user.partyId || req.user.id;
+        if (!customerId) return res.status(403).json({ error: true, message: 'Access denied' });
+        const userConsents = await consentStore.findForCustomer(customerId);
         
         res.json({
             success: true,
@@ -8057,6 +8098,48 @@ app.get("/api/v1/consents", verifyToken, async (req, res) => {
             error: true,
             message: 'Internal server error'
         });
+    }
+});
+
+// Compatibility endpoint for the older customer dashboard. Decisions still use
+// CUSTOMER_CONSENT and require an exact consent scope/version.
+app.post("/api/v1/consents", verifyToken, async (req, res) => {
+    try {
+        if (String(req.user.role).toLowerCase() !== 'customer') {
+            return res.status(403).json({ error: true, message: 'Access denied' });
+        }
+        const consent = await consentStore.create({
+            customerId: req.user.partyId || req.user.id,
+            consentScopeId: req.body.consentScopeId,
+            purpose: req.body.purpose,
+            consentStatus: req.body.consentStatus || req.body.status || 'GRANTED',
+            channel: req.body.channel || 'WEB',
+            source: req.body.source || 'CUSTOMER_PORTAL',
+            capturedBy: req.user.email || String(req.user.id),
+            consentDateTime: req.body.consentDateTime || req.body.grantedAt,
+        });
+        res.status(201).json({ success: true, data: consent });
+    } catch (error) {
+        sendConsentError(res, error, 'create');
+    }
+});
+
+app.put("/api/v1/consents/:id", verifyToken, async (req, res) => {
+    try {
+        if (String(req.user.role).toLowerCase() !== 'customer') {
+            return res.status(403).json({ error: true, message: 'Access denied' });
+        }
+        const status = consentStore.toPdfStatus(req.body.consentStatus || req.body.status);
+        if (!status) return res.status(400).json({ error: true, message: 'A valid consent status is required' });
+        const consent = await consentStore.respond(req.params.id, req.user.partyId || req.user.id, status, {
+            source: 'CUSTOMER_PORTAL',
+            channel: req.body.channel || 'WEB',
+            capturedBy: req.user.email || String(req.user.id),
+        });
+        if (!consent) return res.status(404).json({ error: true, message: 'Consent record not found' });
+        res.json({ success: true, data: consent });
+    } catch (error) {
+        sendConsentError(res, error, 'update');
     }
 });
 
@@ -12465,4 +12548,3 @@ app.use('/api/v2/customer/partner-consents', verifyToken, require('./routes/cust
   console.log('');
   console.log(' Implementation Gap Analysis - All High Priority Items Addressed!');
 // Deployment trigger - 09/08/2025 19:30:15
-

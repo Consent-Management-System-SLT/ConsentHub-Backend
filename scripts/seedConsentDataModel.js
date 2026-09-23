@@ -131,12 +131,16 @@ const pick = (weighted) => { let r = rng() * weighted.reduce((t, [, w]) => t + w
     if (crmToUser[crm]) add(crmToUser[crm], scopeId, status, channel, source, consentAt, withdrawnAt, by);
   }
 
-  const activeScopeFor = (consentId) => SCOPES.filter((s) => s.consentId === consentId).sort((a, b) => (b.status === 'ACTIVE') - (a.status === 'ACTIVE') || b.effectiveFrom - a.effectiveFrom)[0];
+  const now = new Date();
+  const activeScopeFor = (consentId) => SCOPES
+    .filter((s) => s.consentId === consentId && s.status === 'ACTIVE' && s.isActive === 'Y' && s.effectiveFrom <= now && (!s.effectiveTo || s.effectiveTo >= now))
+    .sort((a, b) => b.effectiveFrom - a.effectiveFrom)[0];
   for (const user of ordered) {
     const customerId = String(user._id);
     for (const master of MASTERS) {
       if (have.has(`${customerId}|${master.consentId}`)) continue;
       const scope = activeScopeFor(master.consentId);
+      if (!scope) continue;
       const channel = pick(CHANNEL_WEIGHTS);
       const status = master.isMandatory === 'Y' ? 'GRANTED' : pick([['GRANTED', 45], ['DENIED', 15], ['WITHDRAWN', 15], ['NOT_RESPONDED', 25]]);
       const by = channel === 'CALL_CENTER' || channel === 'BRANCH' ? AGENTS[Math.floor(rng() * AGENTS.length)] : 'SYSTEM';

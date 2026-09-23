@@ -157,17 +157,7 @@ router.get('/consents', customerAuth, async (req, res) => {
     const consents = await consentStore.findForCustomer(req.customer.partyId);
     res.json({
       success: true,
-      data: consents.map((c) => ({
-        customerConsentId: c.customerConsentId,
-        consentName: c.consentName,
-        scopeVersion: c.scopeVersion,
-        consentStatus: c.consentStatus,
-        channel: c.channel,
-        source: c.source,
-        consentDateTime: c.consentDateTime,
-        withdrawalDateTime: c.withdrawalDateTime,
-        capturedBy: c.capturedBy
-      }))
+      data: consents
     });
   } catch (error) {
     console.error('[CustomerAuth] consents fetch failed:', error.message);

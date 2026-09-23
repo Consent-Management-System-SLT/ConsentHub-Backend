@@ -22,6 +22,10 @@ const PURPOSE_ALIASES = { dataProcessing: 'PRIVACY_POLICY', personalization: 'PE
 const purposeKey = (consentCode) =>
   consentCode.toLowerCase().replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 
+const canCollectConsent = (scope, now = new Date()) =>
+  scope?.status === 'ACTIVE' && scope.isActive === 'Y' && scope.effectiveFrom <= now &&
+  (!scope.effectiveTo || scope.effectiveTo >= now);
+
 const toPdfStatus = (value) => {
   const v = String(value ?? '');
   return STATUS_FROM_LEGACY[v.toLowerCase()] || (STATUS_TO_LEGACY[v.toUpperCase()] ? v.toUpperCase() : undefined);
@@ -68,7 +72,7 @@ const describeScope = (scope, catalog) => {
 async function listScopes({ activeOnly = true } = {}) {
   const catalog = await loadCatalog();
   return [...catalog.scopes.values()]
-    .filter((s) => !activeOnly || (s.status === 'ACTIVE' && s.isActive === 'Y' && catalog.masters.get(s.consentId)?.isActive === 'Y'))
+    .filter((s) => !activeOnly || (canCollectConsent(s) && catalog.masters.get(s.consentId)?.isActive === 'Y'))
     .map((s) => describeScope(s, catalog))
     .sort((a, b) => a.consentId - b.consentId || a.scopeVersion.localeCompare(b.scopeVersion));
 }
@@ -113,6 +117,8 @@ function toApi(cc, catalog) {
     grantedAt: granted ? cc.consentDateTime : null,
     revokedAt: cc.consentStatus === 'WITHDRAWN' ? cc.withdrawalDateTime : null,
     deniedAt: cc.consentStatus === 'DENIED' ? cc.consentDateTime : null,
+    timestampGranted: granted ? cc.consentDateTime : null,
+    timestampRevoked: cc.consentStatus === 'WITHDRAWN' ? cc.withdrawalDateTime : null,
     validFrom: cc.consentDateTime || cc.createdDate,
     validTo: detail.effectiveTo || null,
     expiresAt: detail.effectiveTo || null,
@@ -145,15 +151,18 @@ async function resolveScope({ consentScopeId, purpose }) {
   if (consentScopeId !== undefined && consentScopeId !== null && consentScopeId !== '') {
     const scope = catalog.scopes.get(Number(consentScopeId));
     if (!scope) throw new ConsentInputError(`Unknown consent scope ${consentScopeId}`);
+    if (!canCollectConsent(scope)) throw new ConsentInputError(`Consent scope ${consentScopeId} is not currently active`);
+    if (catalog.masters.get(scope.consentId)?.isActive !== 'Y') throw new ConsentInputError(`Consent type for scope ${consentScopeId} is not active`);
     return scope;
   }
   if (!purpose) throw new ConsentInputError('consentScopeId is required');
   const wanted = PURPOSE_ALIASES[purpose] || null;
   const master = [...catalog.masters.values()].find((m) => (wanted ? m.consentCode === wanted : purposeKey(m.consentCode) === purpose));
   if (!master) throw new ConsentInputError(`"${purpose}" is not one of the consent types: ${[...catalog.masters.values()].map((m) => purposeKey(m.consentCode)).join(', ')}`);
+  if (master.isActive !== 'Y') throw new ConsentInputError(`Consent type ${master.consentCode} is not active`);
   const now = new Date();
   const scope = [...catalog.scopes.values()]
-    .filter((s) => s.consentId === master.consentId && s.status === 'ACTIVE' && s.effectiveFrom <= now)
+    .filter((s) => s.consentId === master.consentId && canCollectConsent(s, now))
     .sort((a, b) => b.effectiveFrom - a.effectiveFrom)[0];
   if (!scope) throw new ConsentInputError(`No active version of ${master.consentName}`);
   return scope;
