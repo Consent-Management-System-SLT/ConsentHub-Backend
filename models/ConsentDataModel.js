@@ -62,9 +62,14 @@ const ConsentScope = mongoose.models.ConsentScope || mongoose.model('ConsentScop
     effectiveTo: { type: Date, default: null },
     isActive: YN,
   }, opts('consent_scopes', 'createdDate', false));
-  s.index({ consentId: 1, scopeVersion: 1 }, { unique: true });
+  // A consent type can hold several scopes (scopeCode), and different scopes may share a version number.
+  // A version number is unique only within one scope.
+  s.index({ consentId: 1, scopeCode: 1, scopeVersion: 1 }, { unique: true });
   return s;
 })());
+
+// Drops the old (consentId, scopeVersion) unique index and builds the one above on existing databases.
+ConsentScope.syncIndexes().catch((e) => console.error('ConsentScope index sync failed:', e.message));
 
 const customerConsentSchema = new mongoose.Schema({
   customerConsentId: { type: Number, required: true, unique: true },

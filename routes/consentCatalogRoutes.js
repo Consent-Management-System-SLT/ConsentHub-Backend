@@ -16,6 +16,7 @@ const who = (req) => String(req.user.email || req.user.id).slice(0, 50);
 
 const send = (res, error, action) => {
   if (error.status === 400 || error.name === 'ValidationError') return res.status(400).json({ error: true, message: error.message });
+  if (error.code === 11000 && error.keyPattern?.scopeVersion) return res.status(400).json({ error: true, message: 'This scope already has that version number. Use a new version number, or a different Scope Code for a different scope.' });
   if (error.code === 11000) return res.status(400).json({ error: true, message: `That ${Object.keys(error.keyPattern || {}).join(' + ') || 'value'} already exists` });
   console.error(`Consent catalog: could not ${action}:`, error);
   return res.status(500).json({ error: true, message: `Could not ${action}` });
@@ -112,15 +113,16 @@ const scopeValues = (body) => {
   return values;
 };
 
-// Customers are recorded against the ACTIVE version, so a consent type can only have one.
+// Customers are recorded against the ACTIVE version, so a scope (scopeCode) can only have one.
+// A consent type may hold several scopes, and different scopes may use the same version number.
 async function checkScope(scope) {
   if (!SCOPE_STATUSES.includes(scope.status)) throw bad(`status must be one of: ${SCOPE_STATUSES.join(', ')}`);
   if (!scope.effectiveFrom) throw bad('effectiveFrom is required');
   if (scope.effectiveTo && scope.effectiveTo < scope.effectiveFrom) throw bad('effectiveTo cannot be before effectiveFrom');
   if (!Number.isInteger(scope.consentId) || !(await ConsentMaster.exists({ consentId: scope.consentId }))) throw bad('Unknown consent type');
   if (scope.status === 'ACTIVE') {
-    const other = await ConsentScope.findOne({ consentId: scope.consentId, status: 'ACTIVE', consentScopeId: { $ne: scope.consentScopeId } }).lean();
-    if (other) throw bad(`Version ${other.scopeVersion} is already active for this consent type; retire it first`);
+    const other = await ConsentScope.findOne({ consentId: scope.consentId, scopeCode: scope.scopeCode, status: 'ACTIVE', consentScopeId: { $ne: scope.consentScopeId } }).lean();
+    if (other) throw bad(`Version ${other.scopeVersion} of scope ${scope.scopeCode} is already active; retire it first`);
   }
   scope.isActive = scope.status === 'ACTIVE' ? 'Y' : 'N';
 }
