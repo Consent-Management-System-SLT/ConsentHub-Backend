@@ -118,6 +118,12 @@ app.use('/api/csr', (req, res, next) => {
 
 app.use(express.json());
 
+// Rate limiting. Set TRUST_PROXY=1 when the API runs behind a reverse proxy so limits count real client IPs.
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+const { apiLimiter, authLimiter } = require('./middleware/rateLimiters');
+app.use('/api', apiLimiter);
+app.use(['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/forgot-password'], authLimiter);
+
 // In-memory database for demo (in production, use MongoDB)
 let users = [
     { 
